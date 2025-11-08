@@ -14,7 +14,111 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      achievements: {
+        Row: {
+          achieved_at: string
+          achievement_data: Json | null
+          achievement_name: string
+          achievement_type: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          achieved_at?: string
+          achievement_data?: Json | null
+          achievement_name: string
+          achievement_type: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          achieved_at?: string
+          achievement_data?: Json | null
+          achievement_name?: string
+          achievement_type?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      death_logs: {
+        Row: {
+          character_name: string
+          death_timestamp: string
+          generation: number
+          id: string
+          log_data: Json
+          user_id: string
+        }
+        Insert: {
+          character_name: string
+          death_timestamp?: string
+          generation?: number
+          id?: string
+          log_data: Json
+          user_id: string
+        }
+        Update: {
+          character_name?: string
+          death_timestamp?: string
+          generation?: number
+          id?: string
+          log_data?: Json
+          user_id?: string
+        }
+        Relationships: []
+      }
+      leaderboards: {
+        Row: {
+          category: string
+          id: string
+          metadata: Json | null
+          updated_at: string
+          user_id: string
+          username: string
+          value: number
+        }
+        Insert: {
+          category: string
+          id?: string
+          metadata?: Json | null
+          updated_at?: string
+          user_id: string
+          username: string
+          value: number
+        }
+        Update: {
+          category?: string
+          id?: string
+          metadata?: Json | null
+          updated_at?: string
+          user_id?: string
+          username?: string
+          value?: number
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          id: string
+          updated_at: string
+          username: string | null
+        }
+        Insert: {
+          created_at?: string
+          id: string
+          updated_at?: string
+          username?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          updated_at?: string
+          username?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

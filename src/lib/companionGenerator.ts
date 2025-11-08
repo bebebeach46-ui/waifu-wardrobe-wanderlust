@@ -1,3 +1,6 @@
+import { Alignment } from "./deityGenerator";
+import { SkillRank } from "./skillRankGenerator";
+
 const companionNames = [
   "Sakura", "Asuna", "Rem", "Zero Two", "Mikasa", "Hinata", "Nami", "Ryuko",
   "Kirito", "Naruto", "Goku", "Saitama", "Luffy", "Ichigo", "Edward", "Spike",
@@ -17,7 +20,8 @@ const companionClasses = [
 
 const preferences = [
   "Flowers", "Sweets", "Books", "Weapons", "Jewelry", "Rare Items", "Food",
-  "Music", "Art", "Combat", "Magic Scrolls", "Potions", "Artifacts", "Pets"
+  "Music", "Art", "Combat", "Magic Scrolls", "Potions", "Artifacts", "Pets",
+  "Master Fishermen", "Expert Smiths", "Legendary Alchemists", "Fashion Icons"
 ];
 
 const animeReferences = [
@@ -42,6 +46,17 @@ export const generateCompanion = (worldData: any) => {
     }
   }
   
+  // Random alignment for companion
+  const alignmentValues: Alignment[] = [
+    "Utter Consumed Evil", "Very Evil", "Evil", "Slightly Evil",
+    "Absolute Neutral", "Slightly Good", "Good", "Very Good", "Paragon of Shining Virtue"
+  ];
+  const alignment = alignmentValues[Math.floor(Math.random() * alignmentValues.length)];
+  
+  // Skill preference (30% chance they prefer a master-level skill)
+  const skillPreference: SkillRank | null = Math.random() < 0.3 ? 
+    (["Master", "Grandmaster"] as SkillRank[])[Math.floor(Math.random() * 2)] : null;
+  
   return {
     name,
     race,
@@ -52,7 +67,9 @@ export const generateCompanion = (worldData: any) => {
     relationship: 1,
     relationshipName: "Stranger",
     progressionRate: 0.5 + Math.random() * 1.5, // 0.5-2.0 points per quest
-    gifts: []
+    gifts: [],
+    alignment,
+    skillPreference
   };
 };
 

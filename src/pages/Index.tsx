@@ -46,6 +46,12 @@ const Index = () => {
               <Button variant="secondary" className="w-full" size="lg">
                 Continue
               </Button>
+              <Button variant="outline" className="w-full" size="lg" onClick={() => window.location.href = "/leaderboard"}>
+                Leaderboards
+              </Button>
+              <Button variant="outline" className="w-full" size="lg" onClick={() => window.location.href = "/auth"}>
+                Sign In / Sign Up
+              </Button>
               <Button variant="outline" className="w-full" size="lg">
                 Settings
               </Button>
