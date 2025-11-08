@@ -2,15 +2,22 @@ import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { ChevronLeft, Save, Heart, Skull, Sparkles, Shield } from "lucide-react";
+import { ChevronLeft, Save, Heart, Skull, Sparkles, Shield, Cloud, Hammer, TrendingUp, Crown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { generateCharacter } from "@/lib/characterGenerator";
 import { generateQuest } from "@/lib/questGenerator";
 import { generateCompanion, getRelationshipName } from "@/lib/companionGenerator";
 import { generateShopName } from "@/lib/skillGenerator";
 import { generateSummon } from "@/lib/summonGenerator";
-import { getRandomStatusEffect, removeRandomStatusEffect, StatusEffect } from "@/lib/statusEffectGenerator";
+import { getRandomStatusEffect, StatusEffect } from "@/lib/statusEffectGenerator";
 import { generateEventLog } from "@/lib/eventLogGenerator";
+import { generateDeity, getRandomAlignment, shiftAlignment, getAlignmentCompatibility, Alignment } from "@/lib/deityGenerator";
+import { getRandomWeather, weatherRequiresRest, Weather } from "@/lib/weatherGenerator";
+import { getRandomGatheringActivity, getRandomCraftingActivity, shouldGatherMaterials, shouldCraft, Material } from "@/lib/materialsGenerator";
+import { generateRankedSkills, gainSkillExperience, RankedSkill } from "@/lib/skillRankGenerator";
+import { checkEarlyDeath, checkRichRetirement, checkLegendaryFate, getNormalDeath } from "@/lib/fateGenerator";
+import { trackActivity, trackMonsterKill, generateActivitySummary, generateMonstersKilledLog, ActivityLog, MonsterKill } from "@/lib/activityTracker";
+import { supabase } from "@/integrations/supabase/client";
 
 interface GameScreenProps {
   worldData: any;
@@ -34,6 +41,14 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
   const [statusEffects, setStatusEffects] = useState<StatusEffect[]>([]);
   const [summons, setSummons] = useState<any[]>([]);
   const [eventLog, setEventLog] = useState<string[]>([]);
+  const [deity, setDeity] = useState(() => generateDeity());
+  const [alignment, setAlignment] = useState<Alignment>(() => getRandomAlignment());
+  const [weather, setWeather] = useState<Weather>(() => getRandomWeather());
+  const [materials, setMaterials] = useState<Material[]>([]);
+  const [lifeSkills, setLifeSkills] = useState<RankedSkill[]>(() => generateRankedSkills(3));
+  const [activities, setActivities] = useState<ActivityLog[]>([]);
+  const [monstersKilled, setMonstersKilled] = useState<MonsterKill[]>([]);
+  const [fateOutcome, setFateOutcome] = useState<any>(null);
   const [stats, setStats] = useState({
     level: 1,
     exp: 0,
@@ -43,7 +58,8 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
     enemiesDefeated: 0,
     treasureFound: 0,
     shards: 0,
-    generation: 1
+    generation: 1,
+    totalDeaths: 0
   });
 
   // Event log generator (every 2-3 minutes)
@@ -64,10 +80,69 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
     const interval = setInterval(() => {
       setQuestProgress((prev) => {
         if (prev >= 100) {
-          // Random death chance (1% per quest)
-          if (Math.random() < 0.01) {
+          // Check for special fates
+          const earlyDeath = checkEarlyDeath(stats.questsCompleted);
+          const richRetirement = checkRichRetirement(stats.gold, stats.questsCompleted);
+          const legendaryFate = checkLegendaryFate(stats.level, stats.questsCompleted);
+          
+          if (earlyDeath || richRetirement || legendaryFate) {
+            const fate = earlyDeath || richRetirement || legendaryFate;
+            setFateOutcome(fate);
             handleDeath();
             return prev;
+          }
+          
+          // Random normal death chance (1% per quest)
+          if (Math.random() < 0.01) {
+            const normalDeath = getNormalDeath();
+            handleDeath();
+            return prev;
+          }
+          
+          // Track combat and quest in activities
+          const monsterName = currentQuest.name.split(" ").pop() || "Monster";
+          setMonstersKilled(prev => trackMonsterKill(prev, monsterName));
+          setActivities(prev => trackActivity(prev, "combat", `Defeated ${monsterName} in ${currentQuest.name}`));
+          
+          // Weather changes
+          if (Math.random() < 0.2) {
+            const newWeather = getRandomWeather();
+            setWeather(newWeather);
+            setActivities(prev => trackActivity(prev, "event", `Weather changed to ${newWeather.name}`));
+          }
+          
+          // Materials gathering
+          if (shouldGatherMaterials()) {
+            const gathering = getRandomGatheringActivity();
+            setMaterials(prev => {
+              const existing = prev.find(m => m.name === gathering.material);
+              if (existing) {
+                return prev.map(m => m.name === gathering.material ? {...m, amount: m.amount + gathering.amount} : m);
+              }
+              return [...prev, {name: gathering.material, amount: gathering.amount}];
+            });
+            setActivities(prev => trackActivity(prev, "gather", gathering.description));
+            
+            // Gain skill experience
+            const skillName = gathering.action.includes("Fish") ? "Fishing" : 
+                            gathering.action.includes("Mine") ? "Mining" :
+                            gathering.action.includes("Chop") ? "Carpentry" : "Herbalism";
+            setLifeSkills(prev => prev.map(s => s.name === skillName ? gainSkillExperience(s, 10) : s));
+          }
+          
+          // Alignment shifts
+          if (Math.random() < 0.15) {
+            const newAlignment = shiftAlignment(alignment);
+            if (newAlignment !== alignment) {
+              setAlignment(newAlignment);
+              setActivities(prev => trackActivity(prev, "event", `Alignment shifted to ${newAlignment}`));
+            }
+          }
+          
+          // Deity favor changes
+          if (Math.random() < 0.2) {
+            const favorChange = Math.random() < 0.5 ? 5 : -5;
+            setDeity(prev => ({...prev, favor: Math.max(0, Math.min(100, prev.favor + favorChange))}));
           }
           
           const treasureFound = Math.floor(Math.random() * 50) + 10;
@@ -209,7 +284,8 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
                 enemiesDefeated: s.enemiesDefeated + enemiesKilled,
                 treasureFound: s.treasureFound + treasureFound,
                 shards: newShards - 100,
-                generation: s.generation
+                generation: s.generation,
+                totalDeaths: s.totalDeaths
               };
             }
             
@@ -222,7 +298,8 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
               enemiesDefeated: s.enemiesDefeated + enemiesKilled,
               treasureFound: s.treasureFound + treasureFound,
               shards: newShards,
-              generation: s.generation
+              generation: s.generation,
+              totalDeaths: s.totalDeaths
             };
           });
           setCurrentQuest(generateQuest(worldData, stats.level));
@@ -258,7 +335,7 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
   
   const generateDeathLog = () => {
     const companionList = companions.length > 0 
-      ? companions.map(c => `  - ${c.name} (${c.relationshipName}, ${c.race} ${c.class})`).join('\n')
+      ? companions.map(c => `  - ${c.name} (${c.relationshipName}, ${c.race} ${c.class}, Alignment: ${c.alignment})`).join('\n')
       : '  None';
     
     const summonList = summons.length > 0
@@ -269,7 +346,15 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
       ? statusEffects.map(e => `  - ${e.icon} ${e.name}: ${e.description}`).join('\n')
       : '  None';
     
-    const marriageInfo = married ? `\nMarriage:\n  Spouse: ${married.name}\n  Offspring: ${hasOffspring ? offspringData.name : 'None'}` : '';
+    const skillsList = lifeSkills.map(s => `  - ${s.name} (${s.rank}, ${s.experience} exp)`).join('\n');
+    
+    const materialsList = materials.length > 0
+      ? materials.map(m => `  - ${m.name}: ${m.amount}`).join('\n')
+      : '  None';
+    
+    const marriageInfo = married ? `\nMarriage:\n  Spouse: ${married.name} (Alignment: ${married.alignment})\n  Offspring: ${hasOffspring ? offspringData.name : 'None'}` : '';
+    
+    const fateDesc = fateOutcome ? `\n\nFate: ${fateOutcome.description}` : '';
     
     return `═══════════════════════════════════════════════════════════
 QUEST IDLE - DEATH LOG
@@ -279,7 +364,15 @@ Character: ${character.name}
 Gender: ${character.gender}
 Race: ${character.race}
 Class: ${character.class}
+Alignment: ${alignment}
 Generation: ${stats.generation}${marriageInfo}
+
+Deity Worshipped:
+  Name: ${deity.name}
+  Domain: ${deity.domain}
+  Personality: ${deity.personality}
+  Alignment: ${deity.alignment}
+  Favor: ${deity.favor}/100
 
 Final Level: ${stats.level}
 Final Stats:
@@ -292,6 +385,7 @@ Achievements:
   Gold Earned: ${stats.gold}
   Treasure Found: ${stats.treasureFound}
   Shards Collected: ${stats.shards}
+  Total Deaths This Lineage: ${stats.totalDeaths + 1}
 
 Equipment:
   Weapon: ${character.equipment.weapon}
@@ -304,6 +398,12 @@ ${character.skills.map((s: string) => `  - ${s}`).join('\n')}
 Magic Spells:
 ${character.spells.map((s: string) => `  - ${s}`).join('\n')}
 
+Life Skills:
+${skillsList}
+
+Materials Collected:
+${materialsList}
+
 Active Status Effects:
 ${statusList}
 
@@ -313,13 +413,21 @@ ${companionList}
 Summons:
 ${summonList}
 
+Monsters Slain:
+${generateMonstersKilledLog(monstersKilled)}
+
+Activity Summary:
+${generateActivitySummary(activities)}
+
+Last Weather: ${weather.name} - ${weather.description}
+
 World Information:
   Name: ${worldData.name}
   Timeline: ${worldData.timeline}
   Terrain: ${worldData.terrain}
   Main Faction: ${worldData.mainFaction}
 
-Last Quest: ${currentQuest.name}
+Last Quest: ${currentQuest.name}${fateDesc}
 
 Death occurred at: ${new Date().toLocaleString()}
 
@@ -340,6 +448,13 @@ Death occurred at: ${new Date().toLocaleString()}
       statusEffects,
       summons,
       eventLog,
+      deity,
+      alignment,
+      weather,
+      materials,
+      lifeSkills,
+      activities,
+      monstersKilled,
       characterName: character.name,
       level: stats.level,
       timestamp: Date.now()
@@ -367,7 +482,8 @@ Death occurred at: ${new Date().toLocaleString()}
       enemiesDefeated: 0,
       treasureFound: 0,
       shards: 0,
-      generation: stats.generation + 1
+      generation: stats.generation + 1,
+      totalDeaths: stats.totalDeaths
     });
     setCompanions([]);
     setTreasure(0);
@@ -377,6 +493,14 @@ Death occurred at: ${new Date().toLocaleString()}
     setStatusEffects([]);
     setSummons([]);
     setEventLog([]);
+    setDeity(generateDeity());
+    setAlignment(getRandomAlignment());
+    setWeather(getRandomWeather());
+    setMaterials([]);
+    setLifeSkills(generateRankedSkills(3));
+    setActivities([]);
+    setMonstersKilled([]);
+    setFateOutcome(null);
     setCurrentQuest(generateQuest(worldData, 1));
     setQuestProgress(0);
     setIsDead(false);
@@ -604,6 +728,85 @@ Death occurred at: ${new Date().toLocaleString()}
                 • {event}
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      <div className="space-y-2">
+        <div className="text-sm font-semibold flex items-center gap-1">
+          <Crown className="w-4 h-4" /> Deity & Alignment
+        </div>
+        <div className="bg-muted p-2 rounded space-y-1">
+          <div className="text-xs">
+            <span className="text-muted-foreground">Worshipping:</span> {deity.name}
+          </div>
+          <div className="text-xs text-muted-foreground">
+            {deity.domain} • {deity.personality}
+          </div>
+          <div className="text-xs">
+            <span className="text-muted-foreground">Deity Alignment:</span> {deity.alignment}
+          </div>
+          <div className="text-xs">
+            <span className="text-muted-foreground">Favor:</span> {deity.favor}/100
+          </div>
+          <Progress value={deity.favor} className="h-1" />
+          <div className="text-xs mt-1">
+            <span className="text-muted-foreground">Your Alignment:</span> {alignment}
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <div className="text-sm font-semibold flex items-center gap-1">
+          <Cloud className="w-4 h-4" /> Weather
+        </div>
+        <div className="bg-muted p-2 rounded">
+          <div className="font-medium text-sm">{weather.icon} {weather.name}</div>
+          <div className="text-xs text-muted-foreground">{weather.description}</div>
+          <div className="text-xs text-primary mt-1">{weather.effect}</div>
+        </div>
+      </div>
+
+      {lifeSkills.length > 0 && (
+        <div className="space-y-2">
+          <div className="text-sm font-semibold flex items-center gap-1">
+            <TrendingUp className="w-4 h-4" /> Life Skills
+          </div>
+          <div className="space-y-1">
+            {lifeSkills.map((skill, i) => (
+              <div key={i} className="bg-muted p-2 rounded">
+                <div className="flex justify-between text-xs">
+                  <span>{skill.name}</span>
+                  <span className="text-primary">{skill.rank}</span>
+                </div>
+                <Progress value={(skill.experience % 100)} className="h-1 mt-1" />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {materials.length > 0 && (
+        <div className="space-y-2">
+          <div className="text-sm font-semibold flex items-center gap-1">
+            <Hammer className="w-4 h-4" /> Materials
+          </div>
+          <div className="flex flex-wrap gap-1">
+            {materials.map((mat, i) => (
+              <span key={i} className="bg-accent/20 text-accent px-2 py-1 rounded text-xs">
+                {mat.name}: {mat.amount}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {monstersKilled.length > 0 && (
+        <div className="bg-muted p-2 rounded">
+          <div className="text-xs text-muted-foreground">Monster Kills</div>
+          <div className="font-medium text-sm">{monstersKilled.reduce((sum, m) => sum + m.count, 0)} Total</div>
+          <div className="text-xs text-muted-foreground mt-1">
+            Top: {monstersKilled.sort((a, b) => b.count - a.count)[0]?.name} ({monstersKilled.sort((a, b) => b.count - a.count)[0]?.count})
           </div>
         </div>
       )}
