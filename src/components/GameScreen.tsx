@@ -376,8 +376,9 @@ Deity Worshipped:
 
 Final Level: ${stats.level}
 Final Stats:
-  STR: ${character.stats.str}  CON: ${character.stats.con}  DEX: ${character.stats.dex}
-  AGI: ${character.stats.agi}  WIS: ${character.stats.wis}  CHA: ${character.stats.cha}
+  STR: ${character.stats.strength}  DEX: ${character.stats.dexterity}  CON: ${character.stats.constitution}
+  INT: ${character.stats.intelligence}  WIS: ${character.stats.wisdom}  CHA: ${character.stats.charisma}
+  LUCK: ${character.stats.luck}
 
 Achievements:
   Quests Completed: ${stats.questsCompleted}
@@ -389,8 +390,16 @@ Achievements:
 
 Equipment:
   Weapon: ${character.equipment.weapon}
+  Shield: ${character.equipment.shield}
   Armor: ${character.equipment.armor}
-  Accessory: ${character.equipment.accessory}
+  Head: ${character.equipment.head}
+  Cloak: ${character.equipment.cloak}
+  Boots: ${character.equipment.boots}
+  Gauntlets: ${character.equipment.gauntlets}
+  Ring 1: ${character.equipment.ring1}
+  Ring 2: ${character.equipment.ring2}
+  Amulet: ${character.equipment.amulet}
+  Ammo: ${character.equipment.ammo}
 
 Physical Skills:
 ${character.skills.map((s: string) => `  - ${s}`).join('\n')}
@@ -553,7 +562,7 @@ Death occurred at: ${new Date().toLocaleString()}
           <span className="text-muted-foreground">Lv.{stats.level}</span>
         </div>
         <div className="text-xs text-muted-foreground">
-          {character.race} {character.class}
+          {character.race} {character.class}{character.secondClass ? ` / ${character.secondClass}` : ''}
         </div>
         <Progress value={(stats.exp / stats.expToNext) * 100} className="h-2" />
       </div>
@@ -605,14 +614,32 @@ Death occurred at: ${new Date().toLocaleString()}
       </div>
 
       <div className="space-y-2">
-        <div className="text-sm font-semibold">Stats (Flavor)</div>
-        <div className="grid grid-cols-3 gap-1 text-xs">
-          <div className="bg-muted p-1 rounded">STR: {character.stats.str}</div>
-          <div className="bg-muted p-1 rounded">CON: {character.stats.con}</div>
-          <div className="bg-muted p-1 rounded">DEX: {character.stats.dex}</div>
-          <div className="bg-muted p-1 rounded">AGI: {character.stats.agi}</div>
-          <div className="bg-muted p-1 rounded">WIS: {character.stats.wis}</div>
-          <div className="bg-muted p-1 rounded">CHA: {character.stats.cha}</div>
+        <div className="text-sm font-semibold">Stats</div>
+        <div className="grid grid-cols-4 gap-1 text-xs">
+          <div className="bg-muted p-1 rounded">STR: {character.stats.strength}</div>
+          <div className="bg-muted p-1 rounded">DEX: {character.stats.dexterity}</div>
+          <div className="bg-muted p-1 rounded">CON: {character.stats.constitution}</div>
+          <div className="bg-muted p-1 rounded">INT: {character.stats.intelligence}</div>
+          <div className="bg-muted p-1 rounded">WIS: {character.stats.wisdom}</div>
+          <div className="bg-muted p-1 rounded">CHA: {character.stats.charisma}</div>
+          <div className="bg-muted p-1 rounded">LUK: {character.stats.luck}</div>
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <div className="text-sm font-semibold">Equipment</div>
+        <div className="grid grid-cols-2 gap-1 text-xs">
+          <div className="bg-muted p-1 rounded truncate" title={character.equipment.weapon}>⚔️ {character.equipment.weapon}</div>
+          <div className="bg-muted p-1 rounded truncate" title={character.equipment.shield}>🛡️ {character.equipment.shield}</div>
+          <div className="bg-muted p-1 rounded truncate" title={character.equipment.armor}>🦺 {character.equipment.armor}</div>
+          <div className="bg-muted p-1 rounded truncate" title={character.equipment.head}>👑 {character.equipment.head}</div>
+          <div className="bg-muted p-1 rounded truncate" title={character.equipment.cloak}>🧥 {character.equipment.cloak}</div>
+          <div className="bg-muted p-1 rounded truncate" title={character.equipment.boots}>👢 {character.equipment.boots}</div>
+          <div className="bg-muted p-1 rounded truncate" title={character.equipment.gauntlets}>🥊 {character.equipment.gauntlets}</div>
+          <div className="bg-muted p-1 rounded truncate" title={character.equipment.ring1}>💍 {character.equipment.ring1}</div>
+          <div className="bg-muted p-1 rounded truncate" title={character.equipment.ring2}>💍 {character.equipment.ring2}</div>
+          <div className="bg-muted p-1 rounded truncate" title={character.equipment.amulet}>📿 {character.equipment.amulet}</div>
+          <div className="bg-muted p-1 rounded truncate" title={character.equipment.ammo}>🎯 {character.equipment.ammo}</div>
         </div>
       </div>
 
@@ -630,9 +657,13 @@ Death occurred at: ${new Date().toLocaleString()}
       <div className="space-y-2">
         <div className="text-sm font-semibold">Magic Spells</div>
         <div className="flex flex-wrap gap-1">
-          {character.spells.map((spell: string) => (
-            <span key={spell} className="bg-accent/20 text-accent px-2 py-1 rounded text-xs">
-              {spell}
+          {character.spells.map((spell: any, i: number) => (
+            <span 
+              key={i} 
+              className="bg-accent/20 text-accent px-2 py-1 rounded text-xs"
+              title={`Save: ${spell.save} | Fail: ${(spell.failChance * 100).toFixed(0)}%`}
+            >
+              {spell.name}
             </span>
           ))}
         </div>
