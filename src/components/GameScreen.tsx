@@ -62,14 +62,14 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
     totalDeaths: 0
   });
 
-  // Event log generator (every 2-3 minutes)
+  // Event log generator (every 2 minutes for deep immersion)
   useEffect(() => {
     if (isDead) return;
     
     const eventInterval = setInterval(() => {
       const newEvent = generateEventLog();
       setEventLog(prev => [newEvent, ...prev].slice(0, 10)); // Keep last 10 events
-    }, Math.random() * 60000 + 120000); // 2-3 minutes
+    }, 120000); // 2 minutes
     
     return () => clearInterval(eventInterval);
   }, [isDead]);
