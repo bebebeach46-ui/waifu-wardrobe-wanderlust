@@ -10,6 +10,7 @@ export type MonsterKill = {
   count: number;
   firstKill: number;
   lastKill: number;
+  rank?: number;
 };
 
 export const trackActivity = (
@@ -30,7 +31,8 @@ export const trackActivity = (
 
 export const trackMonsterKill = (
   monsters: MonsterKill[],
-  monsterName: string
+  monsterName: string,
+  rank?: number
 ): MonsterKill[] => {
   const existing = monsters.find(m => m.name === monsterName);
   const now = Date.now();
@@ -38,12 +40,12 @@ export const trackMonsterKill = (
   if (existing) {
     return monsters.map(m =>
       m.name === monsterName
-        ? { ...m, count: m.count + 1, lastKill: now }
+        ? { ...m, count: m.count + 1, lastKill: now, rank: rank || m.rank }
         : m
     );
   }
   
-  return [...monsters, { name: monsterName, count: 1, firstKill: now, lastKill: now }];
+  return [...monsters, { name: monsterName, count: 1, firstKill: now, lastKill: now, rank }];
 };
 
 export const generateActivitySummary = (activities: ActivityLog[]): string => {
@@ -61,6 +63,6 @@ export const generateMonstersKilledLog = (monsters: MonsterKill[]): string => {
   
   return monsters
     .sort((a, b) => b.count - a.count)
-    .map(m => `  - ${m.name}: ${m.count} kill${m.count > 1 ? 's' : ''}`)
+    .map(m => `  - ${m.name}: ${m.count} kill${m.count > 1 ? 's' : ''}${m.rank ? ` (Rank ${m.rank})` : ''}`)
     .join('\n');
 };

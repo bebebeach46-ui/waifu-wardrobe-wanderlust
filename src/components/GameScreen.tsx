@@ -17,7 +17,7 @@ import { getRandomGatheringActivity, getRandomCraftingActivity, shouldGatherMate
 import { generateRankedSkills, gainSkillExperience, RankedSkill } from "@/lib/skillRankGenerator";
 import { checkEarlyDeath, checkRichRetirement, checkLegendaryFate, getNormalDeath } from "@/lib/fateGenerator";
 import { trackActivity, trackMonsterKill, generateActivitySummary, generateMonstersKilledLog, ActivityLog, MonsterKill } from "@/lib/activityTracker";
-import { supabase } from "@/integrations/supabase/client";
+import { getMonsterByRank, rollForShard, getShardsNeededForSummon, canSummon } from "@/lib/monsterRankSystem";
 
 interface GameScreenProps {
   worldData: any;
@@ -99,10 +99,27 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
             return prev;
           }
           
+          // Generate monster with rank system
+          const monster = getMonsterByRank(stats.level);
+          const monsterName = monster.name;
+          
           // Track combat and quest in activities
-          const monsterName = currentQuest.name.split(" ").pop() || "Monster";
-          setMonstersKilled(prev => trackMonsterKill(prev, monsterName));
-          setActivities(prev => trackActivity(prev, "combat", `Defeated ${monsterName} in ${currentQuest.name}`));
+          setMonstersKilled(prev => trackMonsterKill(prev, monsterName, monster.rank.rank));
+          setActivities(prev => trackActivity(prev, "combat", `Defeated Rank ${monster.rank.rank} ${monsterName} in ${currentQuest.name}`));
+          
+          // Roll for shard drop (only rank 5+)
+          const shardDropped = rollForShard(monster.rank) ? 1 : 0;
+          if (shardDropped > 0) {
+            toast({
+              title: "✨ RARE SHARD DROPPED!",
+              description: `A shard dropped from the Rank ${monster.rank.rank} ${monster.rank.name}!`,
+              duration: 5000
+            });
+          }
+          
+          // Calculate rewards with rank multipliers
+          const treasureFound = Math.floor((Math.random() * 50 + 10) * monster.rank.goldMultiplier);
+          const enemiesKilled = Math.floor(Math.random() * 5) + 1;
           
           // Weather changes
           if (Math.random() < 0.2) {
@@ -145,9 +162,6 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
             setDeity(prev => ({...prev, favor: Math.max(0, Math.min(100, prev.favor + favorChange))}));
           }
           
-          const treasureFound = Math.floor(Math.random() * 50) + 10;
-          const enemiesKilled = Math.floor(Math.random() * 5) + 1;
-          const shardsFound = Math.random() < 0.3 ? Math.floor(Math.random() * 5) + 1 : 0;
           
           setTreasure(t => t + treasureFound);
           
@@ -253,27 +267,19 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
             });
           }
           
-          // Shard collection and summon
-          if (shardsFound > 0) {
-            toast({
-              title: "✨ Shards Found!",
-              description: `Collected ${shardsFound} shard${shardsFound > 1 ? 's' : ''}!`
-            });
-          }
-          
           setStats((s) => {
-            const newExp = s.exp + currentQuest.expReward;
+            const newExp = s.exp + Math.floor(currentQuest.expReward * monster.rank.expMultiplier);
             const levelUp = newExp >= s.expToNext;
-            const newShards = s.shards + shardsFound;
+            const newShards = s.shards + shardDropped;
             
-            // Check for summon (every 100 shards)
-            if (newShards >= 100) {
+            // Check for summon (every 10000 shards - extremely rare!)
+            if (canSummon(newShards)) {
               const newSummon = generateSummon();
               setSummons(prev => [...prev, newSummon]);
               toast({
-                title: "🌟 SUMMON ACQUIRED!",
-                description: newSummon.name,
-                duration: 5000
+                title: "🌟 LEGENDARY SUMMON ACQUIRED!",
+                description: `${newSummon.name} - You collected 10,000 shards!`,
+                duration: 10000
               });
               return {
                 level: levelUp ? s.level + 1 : s.level,
@@ -283,7 +289,7 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
                 questsCompleted: s.questsCompleted + 1,
                 enemiesDefeated: s.enemiesDefeated + enemiesKilled,
                 treasureFound: s.treasureFound + treasureFound,
-                shards: newShards - 100,
+                shards: newShards - getShardsNeededForSummon(),
                 generation: s.generation,
                 totalDeaths: s.totalDeaths
               };
@@ -577,8 +583,9 @@ Death occurred at: ${new Date().toLocaleString()}
           <div className="font-bold text-primary">{stats.questsCompleted}</div>
         </div>
         <div className="bg-muted p-2 rounded">
-          <div className="text-muted-foreground">Shards</div>
-          <div className="font-bold text-primary">{stats.shards}/100</div>
+          <div className="text-muted-foreground text-xs">Shards (Rare!)</div>
+          <div className="font-bold text-primary text-xs">{stats.shards}/{getShardsNeededForSummon()}</div>
+          <Progress value={(stats.shards / getShardsNeededForSummon()) * 100} className="h-1 mt-1" />
         </div>
       </div>
       
@@ -597,6 +604,11 @@ Death occurred at: ${new Date().toLocaleString()}
           <div className="flex justify-between text-xs">
             <span className="text-accent">+{currentQuest.goldReward} gold</span>
             <span className="text-primary">+{currentQuest.expReward} exp</span>
+          </div>
+          <div className="text-xs text-muted-foreground border-t border-border pt-2 mt-2">
+            💀 Fighting monsters Rank 1-{Math.min(10, Math.max(1, Math.floor(stats.level / 8) + 1))}
+            <br />
+            ✨ Shards drop from Rank 5+ (Powerful or higher)
           </div>
         </div>
       </div>
@@ -833,11 +845,22 @@ Death occurred at: ${new Date().toLocaleString()}
       )}
 
       {monstersKilled.length > 0 && (
-        <div className="bg-muted p-2 rounded">
-          <div className="text-xs text-muted-foreground">Monster Kills</div>
-          <div className="font-medium text-sm">{monstersKilled.reduce((sum, m) => sum + m.count, 0)} Total</div>
-          <div className="text-xs text-muted-foreground mt-1">
-            Top: {monstersKilled.sort((a, b) => b.count - a.count)[0]?.name} ({monstersKilled.sort((a, b) => b.count - a.count)[0]?.count})
+        <div className="space-y-2">
+          <div className="text-sm font-semibold flex items-center gap-1">
+            <Skull className="w-4 h-4" /> Monster Kills ({monstersKilled.reduce((sum, m) => sum + m.count, 0)} Total)
+          </div>
+          <div className="space-y-1 max-h-32 overflow-y-auto">
+            {monstersKilled
+              .sort((a, b) => b.count - a.count)
+              .slice(0, 10)
+              .map((monster, i) => (
+                <div key={i} className="bg-muted p-1 rounded text-xs flex justify-between">
+                  <span>{monster.name}</span>
+                  <span className="text-primary">
+                    x{monster.count} {monster.rank && `(R${monster.rank})`}
+                  </span>
+                </div>
+              ))}
           </div>
         </div>
       )}
