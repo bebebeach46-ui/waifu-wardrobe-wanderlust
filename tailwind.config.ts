@@ -59,6 +59,10 @@ export default {
         },
         "stat-gain": "hsl(var(--stat-gain))",
         "stat-loss": "hsl(var(--stat-loss))",
+        "stat-increase": "hsl(var(--stat-increase))",
+        "event-negative": "hsl(var(--event-negative))",
+        "event-neutral": "hsl(var(--event-neutral))",
+        "event-positive": "hsl(var(--event-positive))",
       },
       borderRadius: {
         lg: "var(--radius)",

@@ -40,6 +40,10 @@ All colors MUST be HSL.
 
     --stat-gain: 142 76% 45%;
     --stat-loss: 0 84% 60%;
+    --stat-increase: 217 91% 60%;
+    --event-negative: 0 84% 60%;
+    --event-neutral: 142 76% 45%;
+    --event-positive: 217 91% 60%;
 
     --sidebar-background: 0 0% 98%;
 
@@ -89,6 +93,10 @@ All colors MUST be HSL.
     
     --stat-gain: 142 76% 45%;
     --stat-loss: 0 84% 60%;
+    --stat-increase: 217 91% 60%;
+    --event-negative: 0 84% 60%;
+    --event-neutral: 142 76% 45%;
+    --event-positive: 217 91% 60%;
     
     --sidebar-background: 240 5.9% 10%;
     --sidebar-foreground: 240 4.8% 95.9%;

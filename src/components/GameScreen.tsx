@@ -10,7 +10,7 @@ import { generateCompanion, getRelationshipName } from "@/lib/companionGenerator
 import { generateShopName } from "@/lib/skillGenerator";
 import { generateSummon } from "@/lib/summonGenerator";
 import { getRandomStatusEffect, StatusEffect } from "@/lib/statusEffectGenerator";
-import { generateEventLog } from "@/lib/eventLogGenerator";
+import { generateEventLog, Event } from "@/lib/eventLogGenerator";
 import { generateDeity, getRandomAlignment, shiftAlignment, getAlignmentCompatibility, Alignment } from "@/lib/deityGenerator";
 import { getRandomWeather, weatherRequiresRest, Weather } from "@/lib/weatherGenerator";
 import { getRandomGatheringActivity, getRandomCraftingActivity, shouldGatherMaterials, shouldCraft, Material } from "@/lib/materialsGenerator";
@@ -57,7 +57,7 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
   const [married, setMarried] = useState<any>(savedData?.married || null);
   const [statusEffects, setStatusEffects] = useState<StatusEffect[]>(() => savedData?.statusEffects || []);
   const [summons, setSummons] = useState<any[]>(() => savedData?.summons || []);
-  const [eventLog, setEventLog] = useState<string[]>(() => savedData?.eventLog || []);
+  const [eventLog, setEventLog] = useState<Event[]>(() => savedData?.eventLog || []);
   const [deity, setDeity] = useState(() => savedData?.deity || generateDeity());
   const [alignment, setAlignment] = useState<Alignment>(() => savedData?.alignment || getRandomAlignment());
   const [weather, setWeather] = useState<Weather>(() => savedData?.weather || getRandomWeather());
@@ -218,7 +218,7 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
             setCompanions(c => [...c, newCompanion]);
               toast({
                 title: "New Companion!",
-                description: <span className="text-stat-gain">{newCompanion.name} joined your party!</span>
+                description: <span className="text-stat-increase">{newCompanion.name} joined your party!</span>
               });
           }
           
@@ -231,7 +231,7 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
             if (oldName !== newName) {
               toast({
                 title: `${comp.name} relationship increased!`,
-                description: <span className="text-stat-gain">Now {newName}</span>
+                description: <span className="text-stat-increase">Now {newName}</span>
               });
             }
             
@@ -292,7 +292,7 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
             if (levelUp) {
               toast({
                 title: "Level Up!",
-                description: <span className="text-stat-gain">Now Level {s.level + 1}</span>
+                description: <span className="text-stat-increase">Now Level {s.level + 1}</span>
               });
             }
             
@@ -628,8 +628,8 @@ Death occurred at: ${new Date().toLocaleString()}
           <div className="text-xs text-muted-foreground">{currentQuest.description}</div>
           <Progress value={questProgress} />
           <div className="flex justify-between text-xs">
-            <span className="text-stat-gain">+{currentQuest.goldReward} gold</span>
-            <span className="text-stat-gain">+{currentQuest.expReward} exp</span>
+            <span className="text-stat-increase">+{currentQuest.goldReward} gold</span>
+            <span className="text-stat-increase">+{currentQuest.expReward} exp</span>
           </div>
           <div className="text-xs text-muted-foreground border-t border-border pt-2 mt-2">
             💀 Fighting monsters Rank 1-{Math.min(10, Math.max(1, Math.floor(stats.level / 8) + 1))}
@@ -793,8 +793,15 @@ Death occurred at: ${new Date().toLocaleString()}
           <div className="text-sm font-semibold">Recent Events</div>
           <div className="bg-muted p-2 rounded space-y-1 max-h-32 overflow-y-auto">
             {eventLog.map((event, i) => (
-              <div key={i} className="text-xs text-muted-foreground">
-                • {event}
+              <div 
+                key={i} 
+                className={`text-xs ${
+                  event.sentiment === 'negative' ? 'text-event-negative' :
+                  event.sentiment === 'neutral' ? 'text-event-neutral' :
+                  'text-event-positive'
+                }`}
+              >
+                • {event.text}
               </div>
             ))}
           </div>
