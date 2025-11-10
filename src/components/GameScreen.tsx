@@ -2,7 +2,9 @@ import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { ChevronLeft, Save, Heart, Skull, Sparkles, Shield, Cloud, Hammer, TrendingUp, Crown } from "lucide-react";
+import { ChevronLeft, Save, Heart, Skull, Sparkles, Shield, Cloud, Hammer, TrendingUp, Crown, ShoppingCart } from "lucide-react";
+import { Shop } from "@/components/Shop";
+import { ShopItem } from "@/lib/shopGenerator";
 import { useToast } from "@/hooks/use-toast";
 import { generateCharacter } from "@/lib/characterGenerator";
 import { generateQuest } from "@/lib/questGenerator";
@@ -66,6 +68,8 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
   const [activities, setActivities] = useState<ActivityLog[]>(() => savedData?.activities || []);
   const [monstersKilled, setMonstersKilled] = useState<MonsterKill[]>(() => savedData?.monstersKilled || []);
   const [fateOutcome, setFateOutcome] = useState<any>(null);
+  const [isShopOpen, setIsShopOpen] = useState(false);
+  const [activeEffects, setActiveEffects] = useState<any[]>(() => savedData?.activeEffects || []);
   const [stats, setStats] = useState(savedData?.stats || {
     level: 1,
     exp: 0,
@@ -90,6 +94,27 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
     
     return () => clearInterval(eventInterval);
   }, [isDead]);
+
+  // Clean up expired consumable effects
+  useEffect(() => {
+    if (isDead) return;
+    
+    const effectCleanup = setInterval(() => {
+      const now = Date.now();
+      setActiveEffects(prev => {
+        const remaining = prev.filter(effect => !effect.endTime || effect.endTime > now);
+        if (remaining.length < prev.length) {
+          toast({
+            title: "Buff Expired",
+            description: "Some effects have worn off"
+          });
+        }
+        return remaining;
+      });
+    }, 1000);
+    
+    return () => clearInterval(effectCleanup);
+  }, [isDead, toast]);
 
   useEffect(() => {
     if (isDead) return;
@@ -285,9 +310,16 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
           }
           
           setStats((s) => {
-            const newExp = s.exp + Math.floor(currentQuest.expReward * monster.rank.expMultiplier);
+            // Apply active effect multipliers
+            const expMultiplier = activeEffects.some(e => e.type === 'exp_boost' && e.endTime > Date.now()) ? 2 : 1;
+            const goldMultiplier = activeEffects.some(e => e.type === 'gold_boost' && e.endTime > Date.now()) ? 1.5 : 1;
+            const shardMultiplier = activeEffects.some(e => e.type === 'shard_boost' && e.endTime > Date.now()) ? 2 : 1;
+            
+            const newExp = s.exp + Math.floor(currentQuest.expReward * monster.rank.expMultiplier * expMultiplier);
             const levelUp = newExp >= s.expToNext;
-            const newShards = s.shards + shardDropped;
+            const adjustedShardDrop = Math.floor(shardDropped * shardMultiplier);
+            const newShards = s.shards + adjustedShardDrop;
+            const adjustedGold = Math.floor(goldGained * goldMultiplier);
             
             if (levelUp) {
               toast({
@@ -309,7 +341,7 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
                 level: levelUp ? s.level + 1 : s.level,
                 exp: levelUp ? newExp - s.expToNext : newExp,
                 expToNext: levelUp ? s.expToNext + 50 : s.expToNext,
-                gold: s.gold + goldGained,
+                gold: s.gold + adjustedGold,
                 questsCompleted: s.questsCompleted + 1,
                 enemiesDefeated: s.enemiesDefeated + enemiesKilled,
                 treasureFound: s.treasureFound + treasureFound,
@@ -323,7 +355,7 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
               level: levelUp ? s.level + 1 : s.level,
               exp: levelUp ? newExp - s.expToNext : newExp,
               expToNext: levelUp ? s.expToNext + 50 : s.expToNext,
-              gold: s.gold + goldGained,
+              gold: s.gold + adjustedGold,
               questsCompleted: s.questsCompleted + 1,
               enemiesDefeated: s.enemiesDefeated + enemiesKilled,
               treasureFound: s.treasureFound + treasureFound,
@@ -340,9 +372,21 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
     }, 100);
 
     return () => clearInterval(interval);
-  }, [currentQuest, worldData, stats.level, treasure, companions, isDead, shopName, character.equipment, toast, married, statusEffects]);
+  }, [currentQuest, worldData, stats.level, treasure, companions, isDead, shopName, character.equipment, toast, married, statusEffects, activeEffects]);
 
   const handleDeath = () => {
+    // Check for death save (plot armor)
+    const hasDeathSave = activeEffects.some(e => e.type === 'death_save');
+    if (hasDeathSave) {
+      setActiveEffects(prev => prev.filter(e => e.type !== 'death_save'));
+      toast({
+        title: "💫 Plot Armor Activated!",
+        description: <span className="text-event-positive">You survived! The plot armor has been consumed.</span>,
+        duration: 5000
+      });
+      return;
+    }
+    
     setIsDead(true);
     const log = generateDeathLog();
     setDeathLog(log);
@@ -496,6 +540,7 @@ Death occurred at: ${new Date().toLocaleString()}
       monstersKilled,
       currentQuest,
       shopName,
+      activeEffects,
       characterName: character.name,
       level: stats.level,
       timestamp: Date.now()
@@ -553,6 +598,250 @@ Death occurred at: ${new Date().toLocaleString()}
     });
   };
   
+  const handleShopPurchase = (item: ShopItem) => {
+    if (stats.gold < item.price) return;
+
+    // Deduct gold
+    setStats(s => ({ ...s, gold: s.gold - item.price }));
+
+    // Apply item effect based on type
+    switch (item.type) {
+      case 'stat_boost':
+        setCharacter(c => {
+          const newStats = { ...c.stats };
+          if (item.effect.stat === 'all') {
+            Object.keys(newStats).forEach(stat => {
+              newStats[stat as keyof typeof newStats] += item.effect.value;
+            });
+          } else {
+            newStats[item.effect.stat as keyof typeof newStats] += item.effect.value;
+          }
+          return { ...c, stats: newStats };
+        });
+        toast({
+          title: "Stat Increased!",
+          description: <span className="text-stat-increase">{item.name} applied</span>
+        });
+        break;
+
+      case 'equipment':
+        setCharacter(c => {
+          const slot = item.effect.slot === 'ring' 
+            ? (Math.random() < 0.5 ? 'ring1' : 'ring2') 
+            : item.effect.slot;
+          return {
+            ...c,
+            equipment: {
+              ...c.equipment,
+              [slot]: `Enhanced ${c.equipment[slot]}`
+            }
+          };
+        });
+        toast({
+          title: "Equipment Upgraded!",
+          description: item.name
+        });
+        break;
+
+      case 'consumable':
+        switch (item.effect.type) {
+          case 'exp_boost':
+          case 'gold_boost':
+          case 'shard_boost':
+            setActiveEffects(prev => [...prev, {
+              type: item.effect.type,
+              endTime: Date.now() + item.effect.duration
+            }]);
+            toast({
+              title: "Buff Active!",
+              description: <span className="text-event-positive">{item.description}</span>,
+              duration: 5000
+            });
+            break;
+
+          case 'instant_quest':
+            setQuestProgress(100);
+            toast({
+              title: "Quest Completed!",
+              description: "Instant completion"
+            });
+            break;
+
+          case 'reroll_quest':
+            setCurrentQuest(generateQuest(worldData, stats.level));
+            setQuestProgress(0);
+            toast({
+              title: "Quest Re-rolled!",
+              description: "New quest generated"
+            });
+            break;
+
+          case 'death_save':
+            setActiveEffects(prev => [...prev, { type: 'death_save' }]);
+            toast({
+              title: "Plot Armor Activated!",
+              description: <span className="text-event-positive">You will survive the next death</span>,
+              duration: 5000
+            });
+            break;
+
+          case 'summon_companion':
+            if (companions.length < 5) {
+              const newCompanion = generateCompanion(worldData);
+              setCompanions(c => [...c, newCompanion]);
+              toast({
+                title: "New Companion!",
+                description: <span className="text-stat-increase">{newCompanion.name} joined!</span>
+              });
+            } else {
+              toast({
+                title: "Party Full!",
+                description: "Max 5 companions reached",
+                variant: "destructive"
+              });
+            }
+            break;
+
+          case 'cleanse_debuffs':
+            setStatusEffects(prev => prev.filter(e => e.type === 'good'));
+            toast({
+              title: "Debuffs Cleansed!",
+              description: "All negative effects removed"
+            });
+            break;
+        }
+        break;
+
+      case 'companion_gift':
+        if (companions.length > 0) {
+          const randomIndex = Math.floor(Math.random() * companions.length);
+          setCompanions(comps => comps.map((comp, i) => {
+            if (i === randomIndex) {
+              const newRel = Math.min(10, comp.relationship + item.effect.relationship);
+              return {
+                ...comp,
+                relationship: newRel,
+                relationshipName: getRelationshipName(newRel)
+              };
+            }
+            return comp;
+          }));
+          toast({
+            title: "Gift Given!",
+            description: <span className="text-stat-increase">{companions[randomIndex].name} relationship increased</span>
+          });
+        } else {
+          toast({
+            title: "No Companions!",
+            description: "You need companions to give gifts to",
+            variant: "destructive"
+          });
+        }
+        break;
+
+      case 'special':
+        switch (item.effect.type) {
+          case 'random_status':
+            const newEffect = getRandomStatusEffect();
+            setStatusEffects(prev => [...prev, newEffect]);
+            toast({
+              title: `${newEffect.icon} ${newEffect.name}!`,
+              description: newEffect.description
+            });
+            break;
+
+          case 'good_status':
+            const goodEffect = getRandomStatusEffect('good');
+            setStatusEffects(prev => [...prev, goodEffect]);
+            toast({
+              title: `${goodEffect.icon} ${goodEffect.name}!`,
+              description: goodEffect.description
+            });
+            break;
+
+          case 'refresh_shop':
+            toast({
+              title: "Shop Refreshed!",
+              description: "New items available"
+            });
+            break;
+
+          case 'level_up':
+            setStats(s => ({
+              ...s,
+              level: s.level + 1,
+              exp: 0,
+              expToNext: s.expToNext + 50
+            }));
+            toast({
+              title: "Level Up!",
+              description: <span className="text-stat-increase">Gained a level instantly!</span>
+            });
+            break;
+
+          case 'mystery':
+            const mysteryEffects = [
+              () => {
+                setStats(s => ({ ...s, gold: s.gold + 2000 }));
+                toast({ title: "💰 Jackpot!", description: "+2000 gold!" });
+              },
+              () => {
+                setStats(s => ({ ...s, gold: Math.max(0, s.gold - 500) }));
+                toast({ title: "💸 Cursed!", description: <span className="text-stat-loss">-500 gold</span> });
+              },
+              () => {
+                const allStats = ['strength', 'dexterity', 'constitution', 'intelligence', 'wisdom', 'charisma', 'luck'];
+                const randomStat = allStats[Math.floor(Math.random() * allStats.length)];
+                setCharacter(c => ({
+                  ...c,
+                  stats: { ...c.stats, [randomStat]: c.stats[randomStat as keyof typeof c.stats] + 5 }
+                }));
+                toast({ title: "✨ Blessed!", description: <span className="text-stat-increase">+5 {randomStat}</span> });
+              },
+              () => {
+                setStats(s => ({ ...s, level: s.level + 2, exp: 0 }));
+                toast({ title: "🎆 Power Surge!", description: <span className="text-stat-increase">+2 levels!</span> });
+              },
+              () => {
+                const badEffect = getRandomStatusEffect('bad');
+                setStatusEffects(prev => [...prev, badEffect]);
+                toast({ title: "💀 Cursed!", description: <span className="text-event-negative">{badEffect.name}</span> });
+              }
+            ];
+            mysteryEffects[Math.floor(Math.random() * mysteryEffects.length)]();
+            break;
+
+          case 'deity_favor':
+            setDeity(d => ({ ...d, favor: Math.min(100, d.favor + item.effect.value) }));
+            toast({
+              title: "Deity Favor Increased!",
+              description: <span className="text-stat-increase">+{item.effect.value} favor</span>
+            });
+            break;
+
+          case 'shift_alignment':
+            const newAlignment = shiftAlignment(alignment);
+            setAlignment(newAlignment);
+            toast({
+              title: "Alignment Shifted!",
+              description: `Now ${newAlignment}`
+            });
+            break;
+        }
+        break;
+    }
+  };
+
+  const handleShopRefresh = () => {
+    if (stats.gold >= 100) {
+      setStats(s => ({ ...s, gold: s.gold - 100 }));
+      toast({
+        title: "Shop Refreshed",
+        description: "New inventory available"
+      });
+    }
+  };
+  
   if (isDead) {
     return (
       <Card className="p-8 space-y-4 text-center">
@@ -583,9 +872,14 @@ Death occurred at: ${new Date().toLocaleString()}
           <ChevronLeft className="h-5 w-5" />
         </Button>
         <h2 className="text-xl font-bold">{worldData.name}</h2>
-        <Button variant="ghost" size="icon" onClick={handleSave}>
-          <Save className="h-5 w-5" />
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="ghost" size="icon" onClick={() => setIsShopOpen(true)}>
+            <ShoppingCart className="h-5 w-5" />
+          </Button>
+          <Button variant="ghost" size="icon" onClick={handleSave}>
+            <Save className="h-5 w-5" />
+          </Button>
+        </div>
       </div>
 
       <div className="space-y-2">
@@ -903,6 +1197,35 @@ Death occurred at: ${new Date().toLocaleString()}
         <div className="font-medium text-sm">{shopName}</div>
         <div className="text-xs text-accent mt-1">Treasure: {treasure} gold worth</div>
       </div>
+
+      {activeEffects.length > 0 && (
+        <div className="space-y-2">
+          <div className="text-sm font-semibold flex items-center gap-1">
+            <Sparkles className="w-4 h-4" /> Active Buffs
+          </div>
+          <div className="flex flex-wrap gap-1">
+            {activeEffects.map((effect, i) => (
+              <span 
+                key={i} 
+                className="bg-accent/20 text-accent px-2 py-1 rounded text-xs"
+              >
+                {effect.type.replace('_', ' ').toUpperCase()}
+                {effect.endTime && ` (${Math.ceil((effect.endTime - Date.now()) / 1000 / 60)}m)`}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <Shop
+        isOpen={isShopOpen}
+        onClose={() => setIsShopOpen(false)}
+        shopName={shopName}
+        playerGold={stats.gold}
+        playerLevel={stats.level}
+        onPurchase={handleShopPurchase}
+        onRefresh={handleShopRefresh}
+      />
     </Card>
   );
 };

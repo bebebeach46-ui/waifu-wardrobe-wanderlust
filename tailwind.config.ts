@@ -63,6 +63,12 @@ export default {
         "event-negative": "hsl(var(--event-negative))",
         "event-neutral": "hsl(var(--event-neutral))",
         "event-positive": "hsl(var(--event-positive))",
+        "purple": {
+          400: "hsl(270 70% 65%)"
+        },
+        "orange": {
+          400: "hsl(25 95% 53%)"
+        }
       },
       borderRadius: {
         lg: "var(--radius)",
