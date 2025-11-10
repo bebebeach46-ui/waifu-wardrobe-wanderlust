@@ -27,29 +27,46 @@ interface GameScreenProps {
 
 const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
   const { toast } = useToast();
-  const [character, setCharacter] = useState(() => generateCharacter(worldData));
-  const [currentQuest, setCurrentQuest] = useState(() => generateQuest(worldData, 1));
+  
+  // Load save data if it exists
+  const loadSaveData = () => {
+    const saveData = localStorage.getItem(`quest-idle-slot-${saveSlot}`);
+    if (saveData) {
+      try {
+        return JSON.parse(saveData);
+      } catch (e) {
+        console.error("Failed to load save data:", e);
+        return null;
+      }
+    }
+    return null;
+  };
+  
+  const savedData = loadSaveData();
+  
+  const [character, setCharacter] = useState(() => savedData?.character || generateCharacter(worldData));
+  const [currentQuest, setCurrentQuest] = useState(() => savedData?.currentQuest || generateQuest(worldData, 1));
   const [questProgress, setQuestProgress] = useState(0);
-  const [companions, setCompanions] = useState<any[]>([]);
-  const [treasure, setTreasure] = useState(0);
-  const [shopName] = useState(generateShopName());
+  const [companions, setCompanions] = useState<any[]>(() => savedData?.companions || []);
+  const [treasure, setTreasure] = useState(savedData?.treasure || 0);
+  const [shopName] = useState(savedData?.shopName || generateShopName());
   const [isDead, setIsDead] = useState(false);
   const [deathLog, setDeathLog] = useState("");
-  const [hasOffspring, setHasOffspring] = useState(false);
-  const [offspringData, setOffspringData] = useState<any>(null);
-  const [married, setMarried] = useState<any>(null);
-  const [statusEffects, setStatusEffects] = useState<StatusEffect[]>([]);
-  const [summons, setSummons] = useState<any[]>([]);
-  const [eventLog, setEventLog] = useState<string[]>([]);
-  const [deity, setDeity] = useState(() => generateDeity());
-  const [alignment, setAlignment] = useState<Alignment>(() => getRandomAlignment());
-  const [weather, setWeather] = useState<Weather>(() => getRandomWeather());
-  const [materials, setMaterials] = useState<Material[]>([]);
-  const [lifeSkills, setLifeSkills] = useState<RankedSkill[]>(() => generateRankedSkills(3));
-  const [activities, setActivities] = useState<ActivityLog[]>([]);
-  const [monstersKilled, setMonstersKilled] = useState<MonsterKill[]>([]);
+  const [hasOffspring, setHasOffspring] = useState(savedData?.hasOffspring || false);
+  const [offspringData, setOffspringData] = useState<any>(savedData?.offspringData || null);
+  const [married, setMarried] = useState<any>(savedData?.married || null);
+  const [statusEffects, setStatusEffects] = useState<StatusEffect[]>(() => savedData?.statusEffects || []);
+  const [summons, setSummons] = useState<any[]>(() => savedData?.summons || []);
+  const [eventLog, setEventLog] = useState<string[]>(() => savedData?.eventLog || []);
+  const [deity, setDeity] = useState(() => savedData?.deity || generateDeity());
+  const [alignment, setAlignment] = useState<Alignment>(() => savedData?.alignment || getRandomAlignment());
+  const [weather, setWeather] = useState<Weather>(() => savedData?.weather || getRandomWeather());
+  const [materials, setMaterials] = useState<Material[]>(() => savedData?.materials || []);
+  const [lifeSkills, setLifeSkills] = useState<RankedSkill[]>(() => savedData?.lifeSkills || generateRankedSkills(3));
+  const [activities, setActivities] = useState<ActivityLog[]>(() => savedData?.activities || []);
+  const [monstersKilled, setMonstersKilled] = useState<MonsterKill[]>(() => savedData?.monstersKilled || []);
   const [fateOutcome, setFateOutcome] = useState<any>(null);
-  const [stats, setStats] = useState({
+  const [stats, setStats] = useState(savedData?.stats || {
     level: 1,
     exp: 0,
     expToNext: 100,
@@ -199,10 +216,10 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
           if (Math.random() < 0.1 && companions.length < 5) {
             const newCompanion = generateCompanion(worldData);
             setCompanions(c => [...c, newCompanion]);
-            toast({
-              title: "New Companion!",
-              description: `${newCompanion.name} joined your party!`
-            });
+              toast({
+                title: "New Companion!",
+                description: <span className="text-stat-gain">{newCompanion.name} joined your party!</span>
+              });
           }
           
           // Update companion relationships and check for marriage
@@ -214,7 +231,7 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
             if (oldName !== newName) {
               toast({
                 title: `${comp.name} relationship increased!`,
-                description: `Now ${newName}`
+                description: <span className="text-stat-gain">Now {newName}</span>
               });
             }
             
@@ -271,6 +288,13 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
             const newExp = s.exp + Math.floor(currentQuest.expReward * monster.rank.expMultiplier);
             const levelUp = newExp >= s.expToNext;
             const newShards = s.shards + shardDropped;
+            
+            if (levelUp) {
+              toast({
+                title: "Level Up!",
+                description: <span className="text-stat-gain">Now Level {s.level + 1}</span>
+              });
+            }
             
             // Check for summon (every 10000 shards - extremely rare!)
             if (canSummon(newShards)) {
@@ -470,6 +494,8 @@ Death occurred at: ${new Date().toLocaleString()}
       lifeSkills,
       activities,
       monstersKilled,
+      currentQuest,
+      shopName,
       characterName: character.name,
       level: stats.level,
       timestamp: Date.now()
@@ -602,8 +628,8 @@ Death occurred at: ${new Date().toLocaleString()}
           <div className="text-xs text-muted-foreground">{currentQuest.description}</div>
           <Progress value={questProgress} />
           <div className="flex justify-between text-xs">
-            <span className="text-accent">+{currentQuest.goldReward} gold</span>
-            <span className="text-primary">+{currentQuest.expReward} exp</span>
+            <span className="text-stat-gain">+{currentQuest.goldReward} gold</span>
+            <span className="text-stat-gain">+{currentQuest.expReward} exp</span>
           </div>
           <div className="text-xs text-muted-foreground border-t border-border pt-2 mt-2">
             💀 Fighting monsters Rank 1-{Math.min(10, Math.max(1, Math.floor(stats.level / 8) + 1))}

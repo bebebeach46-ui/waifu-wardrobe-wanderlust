@@ -57,6 +57,8 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        "stat-gain": "hsl(var(--stat-gain))",
+        "stat-loss": "hsl(var(--stat-loss))",
       },
       borderRadius: {
         lg: "var(--radius)",

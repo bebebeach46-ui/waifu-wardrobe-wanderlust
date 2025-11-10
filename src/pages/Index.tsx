@@ -9,14 +9,36 @@ const Index = () => {
   const [screen, setScreen] = useState<"menu" | "slots" | "world" | "game">("menu");
   const [selectedSlot, setSelectedSlot] = useState<number | null>(null);
   const [worldData, setWorldData] = useState<any>(null);
+  const [isLoadingExisting, setIsLoadingExisting] = useState(false);
 
   const handleNewGame = () => {
+    setIsLoadingExisting(false);
+    setScreen("slots");
+  };
+
+  const handleContinue = () => {
+    setIsLoadingExisting(true);
     setScreen("slots");
   };
 
   const handleSlotSelect = (slot: number) => {
     setSelectedSlot(slot);
-    setScreen("world");
+    
+    // If loading existing save, skip world generation
+    if (isLoadingExisting) {
+      const saveData = localStorage.getItem(`quest-idle-slot-${slot}`);
+      if (saveData) {
+        const data = JSON.parse(saveData);
+        setWorldData(data.worldData);
+        setScreen("game");
+      } else {
+        // No save in this slot, treat as new game
+        setIsLoadingExisting(false);
+        setScreen("world");
+      }
+    } else {
+      setScreen("world");
+    }
   };
 
   const handleWorldGenerated = (world: any) => {
@@ -43,7 +65,7 @@ const Index = () => {
               <Button onClick={handleNewGame} className="w-full" size="lg">
                 New Adventure
               </Button>
-              <Button variant="secondary" className="w-full" size="lg">
+              <Button variant="secondary" className="w-full" size="lg" onClick={handleContinue}>
                 Continue
               </Button>
               <Button variant="outline" className="w-full" size="lg" onClick={() => window.location.href = "/leaderboard"}>
@@ -60,7 +82,11 @@ const Index = () => {
         )}
 
         {screen === "slots" && (
-          <SaveSlots onSlotSelect={handleSlotSelect} onBack={handleBackToMenu} />
+          <SaveSlots 
+            onSlotSelect={handleSlotSelect} 
+            onBack={handleBackToMenu}
+            isLoadingExisting={isLoadingExisting}
+          />
         )}
 
         {screen === "world" && selectedSlot !== null && (
