@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { ChevronLeft, Save, Heart, Skull, Sparkles, Shield, Cloud, Hammer, TrendingUp, Crown, ShoppingCart, BookOpen } from "lucide-react";
+import { ChevronLeft, Save, Heart, Skull, Sparkles, Shield, Cloud, Hammer, TrendingUp, Crown, ShoppingCart, BookOpen, Star } from "lucide-react";
 import { Shop } from "@/components/Shop";
 import { ShopItem } from "@/lib/shopGenerator";
 import { CodexComponent } from "@/components/Codex";
@@ -181,8 +181,37 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
             return prev;
           }
           
-          // Random normal death chance (1% per quest)
-          if (Math.random() < 0.01) {
+          // Get difficulty for this world
+          const gameDifficulty = worldData.difficulty || 2;
+          
+          // Calculate dynamic death chance based on difficulty and level
+          // This prevents instant deaths at low levels while maintaining challenge
+          // 
+          // Examples:
+          // - Level 1, Difficulty 1 (Basic), 0 quests: ~0.03% per quest
+          // - Level 1, Difficulty 5 (Impossible), 0 quests: ~1.33% per quest
+          // - Level 10, Difficulty 2 (Adventurer), 50 quests: ~0.6% per quest
+          // - Level 20+, Difficulty 3 (Hero), 100 quests: ~1.8% per quest
+          //
+          // Base death chance by difficulty (scaled per 100 quests for balance)
+          const baseDifficultyRates = [0, 0.001, 0.005, 0.01, 0.02, 0.04]; // Index 0 unused, 1-5 for difficulties
+          const baseRate = baseDifficultyRates[gameDifficulty];
+          
+          // Level protection: reduce death chance significantly at low levels
+          // At level 1: 33% of base rate
+          // At level 10: 67% of base rate  
+          // At level 20+: 100% of base rate
+          const levelProtection = Math.min(1, (stats.level + 10) / 30);
+          
+          // Quest scaling: increases risk over time
+          // Every 50 quests adds 20% more risk
+          const questScaling = 1 + (stats.questsCompleted / 50) * 0.2;
+          
+          // Final death chance calculation
+          const deathChance = baseRate * levelProtection * questScaling;
+          
+          // Random normal death check
+          if (Math.random() < deathChance) {
             const normalDeath = getNormalDeath();
             handleDeath();
             return prev;
@@ -212,8 +241,11 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
             });
           }
           
-          // Calculate rewards with rank multipliers
-          const treasureFound = Math.floor((Math.random() * 50 + 10) * monster.rank.goldMultiplier);
+          // Calculate rewards with rank multipliers and difficulty bonus
+          const difficultyMultipliers = [0, 1.0, 1.2, 1.5, 2.0, 3.0]; // Index 0 unused, 1-5 for difficulties
+          const difficultyBonus = difficultyMultipliers[gameDifficulty];
+          
+          const treasureFound = Math.floor((Math.random() * 50 + 10) * monster.rank.goldMultiplier * difficultyBonus);
           const enemiesKilled = Math.floor(Math.random() * 5) + 1;
           
           // Weather changes
@@ -381,16 +413,16 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
           }
           
           setStats((s) => {
-            // Apply active effect multipliers
+            // Apply active effect multipliers and difficulty bonus
             const expMultiplier = activeEffects.some(e => e.type === 'exp_boost' && e.endTime > Date.now()) ? 2 : 1;
             const goldMultiplier = activeEffects.some(e => e.type === 'gold_boost' && e.endTime > Date.now()) ? 1.5 : 1;
             const shardMultiplier = activeEffects.some(e => e.type === 'shard_boost' && e.endTime > Date.now()) ? 2 : 1;
             
-            const newExp = s.exp + Math.floor(currentQuest.expReward * monster.rank.expMultiplier * expMultiplier);
+            const newExp = s.exp + Math.floor(currentQuest.expReward * monster.rank.expMultiplier * expMultiplier * difficultyBonus);
             const levelUp = newExp >= s.expToNext;
             const adjustedShardDrop = Math.floor(shardDropped * shardMultiplier);
             const newShards = s.shards + adjustedShardDrop;
-            const adjustedGold = Math.floor(goldGained * goldMultiplier);
+            const adjustedGold = Math.floor(goldGained * goldMultiplier * difficultyBonus);
             
             if (levelUp) {
               toast({
@@ -981,6 +1013,25 @@ Death occurred at: ${new Date().toLocaleString()}
         </div>
         <div className="text-xs text-muted-foreground">
           {character.race} {character.class}{character.secondClass ? ` / ${character.secondClass}` : ''}
+        </div>
+        <div className="flex items-center gap-2 text-xs">
+          <span className="text-muted-foreground">Difficulty:</span>
+          <div className="flex gap-0.5">
+            {Array.from({ length: 5 }).map((_, i) => {
+              const difficulty = worldData.difficulty || 2;
+              const difficultyColors = ["", "text-green-500", "text-blue-500", "text-yellow-500", "text-orange-500", "text-red-500"];
+              return (
+                <Star
+                  key={i}
+                  className={`w-3 h-3 ${
+                    i < difficulty
+                      ? `${difficultyColors[difficulty]} fill-current`
+                      : "text-muted-foreground"
+                  }`}
+                />
+              );
+            })}
+          </div>
         </div>
         <Progress value={(stats.exp / stats.expToNext) * 100} className="h-2" />
       </div>
