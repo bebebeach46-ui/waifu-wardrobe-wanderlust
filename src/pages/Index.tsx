@@ -4,10 +4,12 @@ import { Card } from "@/components/ui/card";
 import WorldGenerator from "@/components/WorldGenerator";
 import GameScreen from "@/components/GameScreen";
 import SaveSlots from "@/components/SaveSlots";
+import { DifficultySelector } from "@/components/DifficultySelector";
 
 const Index = () => {
-  const [screen, setScreen] = useState<"menu" | "slots" | "world" | "game">("menu");
+  const [screen, setScreen] = useState<"menu" | "slots" | "difficulty" | "world" | "game">("menu");
   const [selectedSlot, setSelectedSlot] = useState<number | null>(null);
+  const [selectedDifficulty, setSelectedDifficulty] = useState<number>(2); // Default to Adventurer
   const [worldData, setWorldData] = useState<any>(null);
   const [isLoadingExisting, setIsLoadingExisting] = useState(false);
 
@@ -24,7 +26,7 @@ const Index = () => {
   const handleSlotSelect = (slot: number) => {
     setSelectedSlot(slot);
     
-    // If loading existing save, skip world generation
+    // If loading existing save, skip world generation and difficulty
     if (isLoadingExisting) {
       const saveData = localStorage.getItem(`quest-idle-slot-${slot}`);
       if (saveData) {
@@ -34,15 +36,20 @@ const Index = () => {
       } else {
         // No save in this slot, treat as new game
         setIsLoadingExisting(false);
-        setScreen("world");
+        setScreen("difficulty");
       }
     } else {
-      setScreen("world");
+      setScreen("difficulty");
     }
   };
 
+  const handleDifficultySelect = (difficulty: number) => {
+    setSelectedDifficulty(difficulty);
+    setScreen("world");
+  };
+
   const handleWorldGenerated = (world: any) => {
-    setWorldData(world);
+    setWorldData({ ...world, difficulty: selectedDifficulty });
     setScreen("game");
   };
 
@@ -86,6 +93,13 @@ const Index = () => {
             onSlotSelect={handleSlotSelect} 
             onBack={handleBackToMenu}
             isLoadingExisting={isLoadingExisting}
+          />
+        )}
+
+        {screen === "difficulty" && (
+          <DifficultySelector
+            onSelect={handleDifficultySelect}
+            onBack={handleBackToMenu}
           />
         )}
 
