@@ -8,8 +8,25 @@ const companionNames = [
 ];
 
 const companionRaces = [
-  "Human", "Elf", "Demon", "Angel", "Catgirl", "Android", "Vampire", "Dragon-kin",
-  "Kitsune", "Oni", "Homunculus", "Cyborg", "Nekomata", "Succubus"
+  "Human", "High Elf", "Dark Elf", "Wood Elf", "Demon", "Angel", "Fallen Angel",
+  "Catgirl (Neko)", "Doggirl (Inu)", "Foxgirl (Kitsune)", "Wolfgirl (Okami)",
+  "Bunnygirl (Usagi)", "Mousegirl", "Raccoongirl (Tanuki)", "Squirrelgirl",
+  "Android", "Cyborg", "Vampire", "Dhampir", "Werewolf", "Werefox",
+  "Dragon-kin (Winged)", "Dragon-kin (Horned)", "Dragon-kin (Scaled)",
+  "Kitsune (Multi-tailed)", "Oni (Horned)", "Oni (Tusked)",
+  "Homunculus", "Nekomata (Twin-tailed)", "Bakeneko",
+  "Succubus (Winged)", "Incubus (Horned)", "Dullahan (Headless)",
+  "Lamia (Snake-tailed)", "Harpy (Winged)", "Arachne (Spider-bodied)",
+  "Centaur", "Holstaur (Cow-eared)", "Minotaur (Horned)",
+  "Slime Girl", "Dryad (Plant-bodied)", "Alraune (Flower-bodied)",
+  "Mermaid (Fish-tailed)", "Siren (Scaled)", "Selkie",
+  "Phoenix-kin (Flaming Wings)", "Tengu (Crow-winged)", "Valkyrie (Armored Wings)",
+  "Zombie Girl", "Jiangshi (Hopping)", "Ghost Girl (Ethereal)",
+  "Manticore (Scorpion-tailed)", "Sphinx (Lion-bodied)", "Chimera",
+  "Goblin Girl", "Orc Girl (Tusked)", "Ogre Girl (Horned)",
+  "Fairy (Butterfly Wings)", "Pixie (Dragonfly Wings)", "Imp (Bat Wings)",
+  "Yuki-onna (Ice Horns)", "Jorogumo (Spider Features)", "Kappa (Turtle Shell)",
+  "Anubis (Jackal-eared)", "Bastet (Cat-eared)", "Apophis (Snake Features)"
 ];
 
 const companionClasses = [

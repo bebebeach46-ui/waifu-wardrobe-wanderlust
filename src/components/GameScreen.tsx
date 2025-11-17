@@ -2,9 +2,11 @@ import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { ChevronLeft, Save, Heart, Skull, Sparkles, Shield, Cloud, Hammer, TrendingUp, Crown, ShoppingCart } from "lucide-react";
+import { ChevronLeft, Save, Heart, Skull, Sparkles, Shield, Cloud, Hammer, TrendingUp, Crown, ShoppingCart, BookOpen } from "lucide-react";
 import { Shop } from "@/components/Shop";
 import { ShopItem } from "@/lib/shopGenerator";
+import { CodexComponent } from "@/components/Codex";
+import { createEmptyCodex, addDiscovery, Codex, generateLoreEntry } from "@/lib/codexSystem";
 import { useToast } from "@/hooks/use-toast";
 import { generateCharacter } from "@/lib/characterGenerator";
 import { generateQuest } from "@/lib/questGenerator";
@@ -69,7 +71,9 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
   const [monstersKilled, setMonstersKilled] = useState<MonsterKill[]>(() => savedData?.monstersKilled || []);
   const [fateOutcome, setFateOutcome] = useState<any>(null);
   const [isShopOpen, setIsShopOpen] = useState(false);
+  const [isCodexOpen, setIsCodexOpen] = useState(false);
   const [activeEffects, setActiveEffects] = useState<any[]>(() => savedData?.activeEffects || []);
+  const [codex, setCodex] = useState<Codex>(() => savedData?.codex || createEmptyCodex());
   const [stats, setStats] = useState(savedData?.stats || {
     level: 1,
     exp: 0,
@@ -83,6 +87,36 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
     totalDeaths: 0
   });
 
+  // Track initial character data in codex
+  useEffect(() => {
+    if (!savedData?.codex) {
+      // Track initial equipment
+      Object.entries(character.equipment).forEach(([slot, item]) => {
+        setCodex(prev => addDiscovery(prev, 'item', `${slot}_${item}`, 
+          item as string, 
+          `${slot} equipment`,
+          { slot, type: 'equipment' }
+        ));
+      });
+
+      // Track initial spells
+      character.spells.forEach((spell: string) => {
+        setCodex(prev => addDiscovery(prev, 'spell', spell, spell, 
+          `Spell learned from starting class`,
+          { source: 'character_creation' }
+        ));
+      });
+
+      // Track initial skills
+      character.skills.forEach((skill: string) => {
+        setCodex(prev => addDiscovery(prev, 'skill', skill, skill, 
+          `Skill learned from starting class`,
+          { source: 'character_creation' }
+        ));
+      });
+    }
+  }, []); // Only run once on mount
+
   // Event log generator (every 2 minutes for deep immersion)
   useEffect(() => {
     if (isDead) return;
@@ -90,10 +124,23 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
     const eventInterval = setInterval(() => {
       const newEvent = generateEventLog();
       setEventLog(prev => [newEvent, ...prev].slice(0, 10)); // Keep last 10 events
+      
+      // Track event in codex
+      setCodex(prev => addDiscovery(prev, 'event', `event_${Date.now()}`, 
+        "World Event", 
+        newEvent.text,
+        { sentiment: newEvent.sentiment }
+      ));
+      
+      // 30% chance to discover lore
+      if (Math.random() < 0.3) {
+        const loreEntry = generateLoreEntry(worldData);
+        setCodex(prev => addDiscovery(prev, 'lore', loreEntry.id, loreEntry.name, loreEntry.description));
+      }
     }, 120000); // 2 minutes
     
     return () => clearInterval(eventInterval);
-  }, [isDead]);
+  }, [isDead, worldData]);
 
   // Clean up expired consumable effects
   useEffect(() => {
@@ -144,6 +191,12 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
           // Generate monster with rank system
           const monster = getMonsterByRank(stats.level);
           const monsterName = monster.name;
+          
+          // Track monster in codex
+          setCodex(prev => addDiscovery(prev, 'monster', monsterName, monsterName, 
+            `Rank ${monster.rank.rank} ${monster.rank.name} - ${monster.rank.description}`,
+            { rank: monster.rank.rank, rankName: monster.rank.name }
+          ));
           
           // Track combat and quest in activities
           setMonstersKilled(prev => trackMonsterKill(prev, monsterName, monster.rank.rank));
@@ -223,13 +276,23 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
             if (Math.random() < 0.5) {
               const slots = Object.keys(character.equipment);
               const slot = slots[Math.floor(Math.random() * slots.length)];
+              const newItem = `Enhanced ${character.equipment[slot]}`;
+              
               setCharacter(c => ({
                 ...c,
                 equipment: {
                   ...c.equipment,
-                  [slot]: `Enhanced ${c.equipment[slot]}`
+                  [slot]: newItem
                 }
               }));
+              
+              // Track upgraded equipment in codex
+              setCodex(prev => addDiscovery(prev, 'item', `${slot}_${newItem}`, 
+                newItem, 
+                `${slot} equipment`,
+                { slot, type: 'equipment', upgraded: true }
+              ));
+              
               toast({
                 title: "Equipment Upgraded!",
                 description: `Upgraded ${slot}!`
@@ -241,10 +304,18 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
           if (Math.random() < 0.1 && companions.length < 5) {
             const newCompanion = generateCompanion(worldData);
             setCompanions(c => [...c, newCompanion]);
-              toast({
-                title: "New Companion!",
-                description: <span className="text-stat-increase">{newCompanion.name} joined your party!</span>
-              });
+            
+            // Track companion in codex
+            setCodex(prev => addDiscovery(prev, 'companion', `${newCompanion.name}_${newCompanion.race}`, 
+              newCompanion.name, 
+              newCompanion.description,
+              { race: newCompanion.race, class: newCompanion.class, gender: newCompanion.gender, alignment: newCompanion.alignment }
+            ));
+            
+            toast({
+              title: "New Companion!",
+              description: <span className="text-stat-increase">{newCompanion.name} joined your party!</span>
+            });
           }
           
           // Update companion relationships and check for marriage
@@ -541,6 +612,7 @@ Death occurred at: ${new Date().toLocaleString()}
       currentQuest,
       shopName,
       activeEffects,
+      codex,
       characterName: character.name,
       level: stats.level,
       timestamp: Date.now()
@@ -629,11 +701,20 @@ Death occurred at: ${new Date().toLocaleString()}
           const slot = item.effect.slot === 'ring' 
             ? (Math.random() < 0.5 ? 'ring1' : 'ring2') 
             : item.effect.slot;
+          const newItem = `Enhanced ${c.equipment[slot]}`;
+          
+          // Track upgraded equipment in codex
+          setCodex(prev => addDiscovery(prev, 'item', `${slot}_${newItem}`, 
+            newItem, 
+            `${slot} equipment - ${item.name}`,
+            { slot, type: 'equipment', upgraded: true, source: 'shop' }
+          ));
+          
           return {
             ...c,
             equipment: {
               ...c.equipment,
-              [slot]: `Enhanced ${c.equipment[slot]}`
+              [slot]: newItem
             }
           };
         });
@@ -689,6 +770,14 @@ Death occurred at: ${new Date().toLocaleString()}
             if (companions.length < 5) {
               const newCompanion = generateCompanion(worldData);
               setCompanions(c => [...c, newCompanion]);
+              
+              // Track companion in codex
+              setCodex(prev => addDiscovery(prev, 'companion', `${newCompanion.name}_${newCompanion.race}`, 
+                newCompanion.name, 
+                newCompanion.description,
+                { race: newCompanion.race, class: newCompanion.class, gender: newCompanion.gender, alignment: newCompanion.alignment }
+              ));
+              
               toast({
                 title: "New Companion!",
                 description: <span className="text-stat-increase">{newCompanion.name} joined!</span>
@@ -873,6 +962,9 @@ Death occurred at: ${new Date().toLocaleString()}
         </Button>
         <h2 className="text-xl font-bold">{worldData.name}</h2>
         <div className="flex gap-2">
+          <Button variant="ghost" size="icon" onClick={() => setIsCodexOpen(true)} title="Discovery Codex">
+            <BookOpen className="h-5 w-5" />
+          </Button>
           <Button variant="ghost" size="icon" onClick={() => setIsShopOpen(true)}>
             <ShoppingCart className="h-5 w-5" />
           </Button>
@@ -1226,6 +1318,13 @@ Death occurred at: ${new Date().toLocaleString()}
         onPurchase={handleShopPurchase}
         onRefresh={handleShopRefresh}
       />
+
+      {isCodexOpen && (
+        <CodexComponent
+          codex={codex}
+          onClose={() => setIsCodexOpen(false)}
+        />
+      )}
     </Card>
   );
 };
