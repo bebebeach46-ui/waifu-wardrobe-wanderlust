@@ -10,7 +10,7 @@ import { createEmptyCodex, addDiscovery, Codex, generateLoreEntry } from "@/lib/
 import { useToast } from "@/hooks/use-toast";
 import { generateCharacter } from "@/lib/characterGenerator";
 import { generateQuest } from "@/lib/questGenerator";
-import { generateCompanion, getRelationshipName } from "@/lib/companionGenerator";
+import { generateCompanion, getRelationshipName, calculateCompatibility, getBondLevelCap } from "@/lib/companionGenerator";
 import { generateShopName } from "@/lib/skillGenerator";
 import { generateSummon } from "@/lib/summonGenerator";
 import { getRandomStatusEffect, StatusEffect } from "@/lib/statusEffectGenerator";
@@ -91,6 +91,28 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
     generation: 1,
     totalDeaths: 0
   });
+  
+  // Migrate old companions to have bondCap and compatibility
+  useEffect(() => {
+    const needsMigration = companions.some(c => c.bondCap === undefined || c.compatibility === undefined);
+    if (needsMigration) {
+      setCompanions(companions.map((comp, index) => {
+        if (comp.bondCap === undefined || comp.compatibility === undefined) {
+          const compatibility = comp.compatibility !== undefined ? comp.compatibility : 
+            calculateCompatibility(comp, character.race, character.class, lifeSkills);
+          const bondCap = comp.bondCap !== undefined ? comp.bondCap : 
+            getBondLevelCap(index, compatibility, companions);
+          
+          return {
+            ...comp,
+            compatibility,
+            bondCap
+          };
+        }
+        return comp;
+      }));
+    }
+  }, []);
 
   // Track initial character data in codex
   useEffect(() => {
@@ -372,27 +394,37 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
             }
           }
           
-          // Random companion encounter (10% chance)
-          if (Math.random() < 0.1 && companions.length < 5) {
-            const newCompanion = generateCompanion(worldData);
+          // Quest completion: 15% chance for companion reward if party not full
+          if (Math.random() < 0.15 && companions.length < 3) {
+            const characterWithSkills = { ...character, skills: lifeSkills };
+            const newCompanion = generateCompanion(worldData, characterWithSkills, companions);
             setCompanions(c => [...c, newCompanion]);
             
             // Track companion in codex
             setCodex(prev => addDiscovery(prev, 'companion', `${newCompanion.name}_${newCompanion.race}`, 
               newCompanion.name, 
               newCompanion.description,
-              { race: newCompanion.race, class: newCompanion.class, gender: newCompanion.gender, alignment: newCompanion.alignment }
+              { race: newCompanion.race, class: newCompanion.class, gender: newCompanion.gender, alignment: newCompanion.alignment, compatibility: newCompanion.compatibility }
             ));
             
+            const compatibilityDesc = newCompanion.compatibility >= 5 ? "highly compatible" :
+                                     newCompanion.compatibility >= 3 ? "somewhat compatible" : "interested";
+            
             toast({
-              title: "New Companion!",
-              description: <span className="text-stat-increase">{newCompanion.name} joined your party!</span>
+              title: "🌟 Companion Earned!",
+              description: <span className="text-stat-increase">{newCompanion.name} ({compatibilityDesc}) joined your party! Bond Cap: {newCompanion.bondCap}</span>,
+              duration: 5000
             });
+            
+            setActivities(prev => trackActivity(prev, "relationship", `${newCompanion.name} joined as a companion (Compatibility: ${newCompanion.compatibility})`));
           }
           
-          // Update companion relationships and check for marriage
+          // Update companion relationships with bond cap enforcement
           setCompanions(comps => comps.map(comp => {
-            const newRel = Math.min(10, comp.relationship + (Math.random() * comp.progressionRate));
+            // Ensure old companions have bondCap
+            const bondCap = comp.bondCap || 10;
+            const cappedRelationship = Math.min(bondCap, comp.relationship + (Math.random() * comp.progressionRate));
+            const newRel = Math.min(bondCap, cappedRelationship);
             const oldName = getRelationshipName(comp.relationship);
             const newName = getRelationshipName(newRel);
             
@@ -403,8 +435,17 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
               });
             }
             
-            // Marriage proposal at max relationship
-            if (newRel >= 10 && !married && comp.relationship < 10) {
+            // Bond cap warning
+            if (newRel >= bondCap - 0.5 && comp.relationship < bondCap - 0.5) {
+              toast({
+                title: `${comp.name} Bond Capped`,
+                description: `Bond level capped at ${bondCap} (Compatibility: ${comp.compatibility || 'N/A'})`,
+                variant: "default"
+              });
+            }
+            
+            // Marriage proposal at max relationship (only if bond cap is 10)
+            if (newRel >= 10 && bondCap === 10 && !married && comp.relationship < 10) {
               setMarried(comp);
               toast({
                 title: "💍 Marriage!",
@@ -571,7 +612,7 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
   
   const generateDeathLog = () => {
     const companionList = companions.length > 0 
-      ? companions.map(c => `  - ${c.name} (${c.relationshipName}, ${c.race} ${c.class}, Alignment: ${c.alignment})`).join('\n')
+      ? companions.map(c => `  - ${c.name} (${c.relationshipName} ${Math.floor(c.relationship)}/${c.bondCap || 10}, ${c.race} ${c.class}, Compatibility: ${c.compatibility || 'N/A'}, Alignment: ${c.alignment})`).join('\n')
       : '  None';
     
     const summonList = summons.length > 0
@@ -859,25 +900,32 @@ Death occurred at: ${new Date().toLocaleString()}
             break;
 
           case 'summon_companion':
-            if (companions.length < 5) {
-              const newCompanion = generateCompanion(worldData);
+            if (companions.length < 3) {
+              const characterWithSkills = { ...character, skills: lifeSkills };
+              const newCompanion = generateCompanion(worldData, characterWithSkills, companions);
               setCompanions(c => [...c, newCompanion]);
               
               // Track companion in codex
               setCodex(prev => addDiscovery(prev, 'companion', `${newCompanion.name}_${newCompanion.race}`, 
                 newCompanion.name, 
                 newCompanion.description,
-                { race: newCompanion.race, class: newCompanion.class, gender: newCompanion.gender, alignment: newCompanion.alignment }
+                { race: newCompanion.race, class: newCompanion.class, gender: newCompanion.gender, alignment: newCompanion.alignment, compatibility: newCompanion.compatibility }
               ));
               
+              const compatibilityDesc = newCompanion.compatibility >= 5 ? "highly compatible" :
+                                       newCompanion.compatibility >= 3 ? "somewhat compatible" : "interested";
+              
               toast({
-                title: "New Companion!",
-                description: <span className="text-stat-increase">{newCompanion.name} joined!</span>
+                title: "🌟 Companion Summoned!",
+                description: <span className="text-stat-increase">{newCompanion.name} ({compatibilityDesc}) joined! Bond Cap: {newCompanion.bondCap}</span>,
+                duration: 5000
               });
+              
+              setActivities(prev => trackActivity(prev, "relationship", `${newCompanion.name} was summoned (Compatibility: ${newCompanion.compatibility})`));
             } else {
               toast({
                 title: "Party Full!",
-                description: "Max 5 companions reached",
+                description: "Max 3 companions reached",
                 variant: "destructive"
               });
             }
@@ -906,7 +954,8 @@ Death occurred at: ${new Date().toLocaleString()}
           const randomIndex = Math.floor(Math.random() * companions.length);
           setCompanions(comps => comps.map((comp, i) => {
             if (i === randomIndex) {
-              const newRel = Math.min(10, comp.relationship + item.effect.relationship);
+              const bondCap = comp.bondCap || 10;
+              const newRel = Math.min(bondCap, comp.relationship + item.effect.relationship);
               return {
                 ...comp,
                 relationship: newRel,
@@ -1215,26 +1264,41 @@ Death occurred at: ${new Date().toLocaleString()}
       {companions.length > 0 && (
         <div className="space-y-2">
           <div className="text-sm font-semibold flex items-center gap-1">
-            <Heart className="w-4 h-4" /> Companions
+            <Heart className="w-4 h-4" /> Companions ({companions.length}/3)
           </div>
           <div className="space-y-2">
-            {companions.map((comp, i) => (
-              <div key={i} className="bg-muted p-2 rounded space-y-1">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <div className="font-medium text-sm">{comp.name}</div>
-                    <div className="text-xs text-muted-foreground">{comp.description}</div>
+            {companions.map((comp, i) => {
+              const bondCap = comp.bondCap || 10;
+              const compatibility = comp.compatibility !== undefined ? comp.compatibility : 'N/A';
+              return (
+                <div key={i} className="bg-muted p-2 rounded space-y-1">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <div className="font-medium text-sm">{comp.name}</div>
+                      <div className="text-xs text-muted-foreground">{comp.description}</div>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-xs bg-primary/20 text-primary px-2 py-1 rounded block mb-1">
+                        {comp.relationshipName} ({Math.floor(comp.relationship)}/{bondCap})
+                      </span>
+                      {compatibility !== 'N/A' && (
+                        <span className={`text-xs px-2 py-0.5 rounded ${
+                          compatibility >= 5 ? 'bg-green-500/20 text-green-500' :
+                          compatibility >= 3 ? 'bg-yellow-500/20 text-yellow-500' :
+                          'bg-orange-500/20 text-orange-500'
+                        }`}>
+                          ⚡{compatibility}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  <span className="text-xs bg-primary/20 text-primary px-2 py-1 rounded">
-                    {comp.relationshipName} ({Math.floor(comp.relationship)}/10)
-                  </span>
+                  <div className="text-xs text-muted-foreground">
+                    Likes: {comp.preferences.join(', ')}
+                  </div>
+                  <Progress value={(comp.relationship / bondCap) * 100} className="h-1" />
                 </div>
-                <div className="text-xs text-muted-foreground">
-                  Likes: {comp.preferences.join(', ')}
-                </div>
-                <Progress value={(comp.relationship / 10) * 100} className="h-1" />
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
