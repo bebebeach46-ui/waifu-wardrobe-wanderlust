@@ -5,6 +5,15 @@ export type ActivityLog = {
   details?: any;
 };
 
+export type CombatLog = {
+  timestamp: number;
+  description: string;
+  playerHp?: number;
+  enemyHp?: number;
+  damage?: number;
+  details?: any;
+};
+
 export type MonsterKill = {
   name: string;
   count: number;
@@ -46,6 +55,26 @@ export const trackMonsterKill = (
   }
   
   return [...monsters, { name: monsterName, count: 1, firstKill: now, lastKill: now, rank }];
+};
+
+export const trackCombatLog = (
+  combatLogs: CombatLog[],
+  description: string,
+  playerHp?: number,
+  enemyHp?: number,
+  damage?: number,
+  details?: any
+): CombatLog[] => {
+  const newLog: CombatLog = {
+    timestamp: Date.now(),
+    description,
+    playerHp,
+    enemyHp,
+    damage,
+    details
+  };
+  
+  return [newLog, ...combatLogs].slice(0, 50); // Keep last 50 combat logs
 };
 
 export const generateActivitySummary = (activities: ActivityLog[]): string => {
