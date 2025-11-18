@@ -20,7 +20,7 @@ import { getRandomWeather, weatherRequiresRest, Weather } from "@/lib/weatherGen
 import { getRandomGatheringActivity, getRandomCraftingActivity, shouldGatherMaterials, shouldCraft, Material } from "@/lib/materialsGenerator";
 import { generateRankedSkills, gainSkillExperience, RankedSkill } from "@/lib/skillRankGenerator";
 import { checkEarlyDeath, checkRichRetirement, checkLegendaryFate, getNormalDeath } from "@/lib/fateGenerator";
-import { trackActivity, trackMonsterKill, generateActivitySummary, generateMonstersKilledLog, ActivityLog, MonsterKill } from "@/lib/activityTracker";
+import { trackActivity, trackMonsterKill, trackCombatLog, generateActivitySummary, generateMonstersKilledLog, ActivityLog, MonsterKill, CombatLog } from "@/lib/activityTracker";
 import { getMonsterByRank, rollForShard, getShardsNeededForSummon, canSummon } from "@/lib/monsterRankSystem";
 
 interface GameScreenProps {
@@ -69,11 +69,16 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
   const [lifeSkills, setLifeSkills] = useState<RankedSkill[]>(() => savedData?.lifeSkills || generateRankedSkills(3));
   const [activities, setActivities] = useState<ActivityLog[]>(() => savedData?.activities || []);
   const [monstersKilled, setMonstersKilled] = useState<MonsterKill[]>(() => savedData?.monstersKilled || []);
+  const [combatLog, setCombatLog] = useState<CombatLog[]>(() => savedData?.combatLog || []);
   const [fateOutcome, setFateOutcome] = useState<any>(null);
   const [isShopOpen, setIsShopOpen] = useState(false);
   const [isCodexOpen, setIsCodexOpen] = useState(false);
   const [activeEffects, setActiveEffects] = useState<any[]>(() => savedData?.activeEffects || []);
   const [codex, setCodex] = useState<Codex>(() => savedData?.codex || createEmptyCodex());
+  const [hasGrandVisionCrystal, setHasGrandVisionCrystal] = useState(() => {
+    const completions = localStorage.getItem('difficulty_completions');
+    return completions ? JSON.parse(completions).length > 0 : false;
+  });
   const [stats, setStats] = useState(savedData?.stats || {
     level: 1,
     exp: 0,
@@ -231,6 +236,31 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
           setMonstersKilled(prev => trackMonsterKill(prev, monsterName, monster.rank.rank));
           setActivities(prev => trackActivity(prev, "combat", `Defeated Rank ${monster.rank.rank} ${monsterName} in ${currentQuest.name}`));
           
+          // Check if vision crystal is active or grand vision crystal unlocked
+          const hasVision = activeEffects.some(e => e.type === 'vision_crystal' && e.endTime > Date.now()) || hasGrandVisionCrystal;
+          const playerMaxHp = 100 + (stats.level * 10);
+          const playerCurrentHp = Math.floor(playerMaxHp * (0.6 + Math.random() * 0.4)); // Simulate HP between 60-100%
+          const enemyMaxHp = 50 + (monster.rank.rank * 20);
+          
+          if (hasVision) {
+            setCombatLog(prev => trackCombatLog(
+              prev,
+              `⚔️ Defeated ${monsterName} (Rank ${monster.rank.rank})`,
+              playerCurrentHp,
+              0,
+              Math.floor(Math.random() * 30 + 10),
+              { playerMaxHp, enemyMaxHp, monsterRank: monster.rank.rank }
+            ));
+          } else {
+            setCombatLog(prev => trackCombatLog(
+              prev,
+              `⚔️ Defeated ${monsterName} (Rank ${monster.rank.rank})`,
+              undefined,
+              undefined,
+              undefined
+            ));
+          }
+          
           // Roll for shard drop (only rank 5+)
           const shardDropped = rollForShard(monster.rank) ? 1 : 0;
           if (shardDropped > 0) {
@@ -239,6 +269,16 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
               description: `A shard dropped from the Rank ${monster.rank.rank} ${monster.rank.name}!`,
               duration: 5000
             });
+          }
+          
+          // Vision crystal drop from rank 2+
+          if (monster.rank.rank >= 2 && Math.random() < 0.15) { // 15% chance
+            toast({
+              title: "💎 Vision Crystal Dropped!",
+              description: "Use it to see detailed combat information",
+              duration: 3000
+            });
+            setStats(s => ({ ...s, gold: s.gold + 50 })); // Add gold equivalent
           }
           
           // Calculate rewards with rank multipliers and difficulty bonus
@@ -489,6 +529,25 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
       });
       return;
     }
+
+    // Track difficulty completion and unlock grand vision crystal
+    const currentDifficulty = worldData.difficulty || 2;
+    const completions = localStorage.getItem('difficulty_completions');
+    const completedDifficulties = completions ? JSON.parse(completions) : [];
+    
+    if (!completedDifficulties.includes(currentDifficulty)) {
+      completedDifficulties.push(currentDifficulty);
+      localStorage.setItem('difficulty_completions', JSON.stringify(completedDifficulties));
+      
+      if (!hasGrandVisionCrystal) {
+        setHasGrandVisionCrystal(true);
+        toast({
+          title: "🏆 GRAND VISION CRYSTAL UNLOCKED!",
+          description: "You can now see detailed combat logs in all future playthroughs!",
+          duration: 8000
+        });
+      }
+    }
     
     setIsDead(true);
     const log = generateDeathLog();
@@ -645,6 +704,7 @@ Death occurred at: ${new Date().toLocaleString()}
       shopName,
       activeEffects,
       codex,
+      combatLog,
       characterName: character.name,
       level: stats.level,
       timestamp: Date.now()
@@ -828,6 +888,14 @@ Death occurred at: ${new Date().toLocaleString()}
             toast({
               title: "Debuffs Cleansed!",
               description: "All negative effects removed"
+            });
+            break;
+            
+          case 'vision_crystal':
+            setActiveEffects(prev => [...prev, { type: 'vision_crystal', endTime: Date.now() + item.effect.duration }]);
+            toast({
+              title: "💎 Vision Crystal Activated!",
+              description: "You can now see detailed combat information for 1 hour"
             });
             break;
         }
@@ -1225,9 +1293,32 @@ Death occurred at: ${new Date().toLocaleString()}
         </div>
       )}
 
+      {combatLog.length > 0 && (
+        <div className="space-y-2">
+          <div className="text-sm font-semibold flex items-center gap-2">
+            Combat Log
+            {(activeEffects.some(e => e.type === 'vision_crystal' && e.endTime > Date.now()) || hasGrandVisionCrystal) && (
+              <span className="text-xs text-primary">💎 {hasGrandVisionCrystal ? 'Grand Vision' : 'Vision Active'}</span>
+            )}
+          </div>
+          <div className="bg-muted p-2 rounded space-y-1 max-h-32 overflow-y-auto">
+            {combatLog.slice(0, 10).map((log, i) => (
+              <div key={i} className="text-xs">
+                <div>{log.description}</div>
+                {log.playerHp !== undefined && (
+                  <div className="text-muted-foreground ml-2">
+                    HP: {log.playerHp}/{log.details?.playerMaxHp} | Enemy: {log.enemyHp}/{log.details?.enemyMaxHp} | DMG: {log.damage}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {eventLog.length > 0 && (
         <div className="space-y-2">
-          <div className="text-sm font-semibold">Recent Events</div>
+          <div className="text-sm font-semibold">Event Log</div>
           <div className="bg-muted p-2 rounded space-y-1 max-h-32 overflow-y-auto">
             {eventLog.map((event, i) => (
               <div 
