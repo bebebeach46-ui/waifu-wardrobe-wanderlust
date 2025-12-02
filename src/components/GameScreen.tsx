@@ -19,8 +19,9 @@ import { generateDeity, getRandomAlignment, shiftAlignment, getAlignmentCompatib
 import { getRandomWeather, weatherRequiresRest, Weather } from "@/lib/weatherGenerator";
 import { getRandomGatheringActivity, getRandomCraftingActivity, shouldGatherMaterials, shouldCraft, Material } from "@/lib/materialsGenerator";
 import { generateRankedSkills, gainSkillExperience, RankedSkill } from "@/lib/skillRankGenerator";
-import { checkEarlyDeath, checkRichRetirement, checkLegendaryFate, getNormalDeath } from "@/lib/fateGenerator";
+import { checkEarlyDeath, checkRichRetirement, checkLegendaryFate, getNormalDeath, FateOutcome } from "@/lib/fateGenerator";
 import { trackActivity, trackMonsterKill, trackCombatLog, generateActivitySummary, generateMonstersKilledLog, ActivityLog, MonsterKill, CombatLog } from "@/lib/activityTracker";
+import { generateRandomDeathCause, generateEpitaph, DeathCause } from "@/lib/deathCauseGenerator";
 import { getMonsterByRank, rollForShard, getShardsNeededForSummon, canSummon } from "@/lib/monsterRankSystem";
 
 interface GameScreenProps {
@@ -70,7 +71,9 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
   const [activities, setActivities] = useState<ActivityLog[]>(() => savedData?.activities || []);
   const [monstersKilled, setMonstersKilled] = useState<MonsterKill[]>(() => savedData?.monstersKilled || []);
   const [combatLog, setCombatLog] = useState<CombatLog[]>(() => savedData?.combatLog || []);
-  const [fateOutcome, setFateOutcome] = useState<any>(null);
+  const [fateOutcome, setFateOutcome] = useState<FateOutcome | null>(null);
+  const [deathCause, setDeathCause] = useState<DeathCause | null>(null);
+  const [lastEncounter, setLastEncounter] = useState<{ monsterName: string; monsterRank: number } | null>(null);
   const [isShopOpen, setIsShopOpen] = useState(false);
   const [isCodexOpen, setIsCodexOpen] = useState(false);
   const [activeEffects, setActiveEffects] = useState<any[]>(() => savedData?.activeEffects || []);
@@ -237,16 +240,29 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
           // Final death chance calculation
           const deathChance = baseRate * levelProtection * questScaling;
           
+          // Generate monster with rank system (needed for death cause even if we die)
+          const monster = getMonsterByRank(stats.level);
+          const monsterName = monster.name;
+          
+          // Track last encounter for death cause
+          setLastEncounter({ monsterName, monsterRank: monster.rank.rank });
+          
           // Random normal death check
           if (Math.random() < deathChance) {
-            const normalDeath = getNormalDeath();
+            // Generate detailed death cause
+            const activeStatus = statusEffects.length > 0 ? statusEffects[0].name : undefined;
+            const cause = generateRandomDeathCause({
+              monsterName,
+              monsterRank: monster.rank.rank,
+              playerLevel: stats.level,
+              location: currentQuest.name,
+              activeStatus,
+              questName: currentQuest.name
+            });
+            setDeathCause(cause);
             handleDeath();
             return prev;
           }
-          
-          // Generate monster with rank system
-          const monster = getMonsterByRank(stats.level);
-          const monsterName = monster.name;
           
           // Track monster in codex
           setCodex(prev => addDiscovery(prev, 'monster', monsterName, monsterName, 
@@ -571,6 +587,29 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
       return;
     }
 
+    // Generate death cause if not already set (for fate deaths)
+    if (!deathCause && fateOutcome) {
+      // Fate outcomes have their own descriptions
+      setDeathCause({
+        cause: fateOutcome.type,
+        shortDesc: fateOutcome.shortDesc || fateOutcome.type,
+        fullDesc: fateOutcome.description,
+        ironic: fateOutcome.type === "death" && stats.questsCompleted < 5
+      });
+    } else if (!deathCause) {
+      // Fallback death cause
+      const activeStatus = statusEffects.length > 0 ? statusEffects[0].name : undefined;
+      const cause = generateRandomDeathCause({
+        monsterName: lastEncounter?.monsterName,
+        monsterRank: lastEncounter?.monsterRank,
+        playerLevel: stats.level,
+        location: currentQuest.name,
+        activeStatus,
+        questName: currentQuest.name
+      });
+      setDeathCause(cause);
+    }
+
     // Track difficulty completion and unlock grand vision crystal
     const currentDifficulty = worldData.difficulty || 2;
     const completions = localStorage.getItem('difficulty_completions');
@@ -603,8 +642,9 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
     a.click();
     URL.revokeObjectURL(url);
     
+    const causeShort = deathCause?.shortDesc || "Unknown causes";
     toast({
-      title: "You Died!",
+      title: `💀 ${causeShort}`,
       description: "Death log downloaded",
       variant: "destructive"
     });
@@ -631,7 +671,27 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
     
     const marriageInfo = married ? `\nMarriage:\n  Spouse: ${married.name} (Alignment: ${married.alignment})\n  Offspring: ${hasOffspring ? offspringData.name : 'None'}` : '';
     
-    const fateDesc = fateOutcome ? `\n\nFate: ${fateOutcome.description}` : '';
+    // Generate epitaph with death cause
+    const epitaph = deathCause 
+      ? generateEpitaph(character.name, deathCause, stats.level, stats.questsCompleted)
+      : `Here lies ${character.name}\nCause of death unknown`;
+    
+    const fateDesc = fateOutcome ? `\nFate: ${fateOutcome.description}` : '';
+    
+    // Detailed death cause section
+    const deathDetails = deathCause ? `
+═══════════════════════════════════════════════════════════
+CAUSE OF DEATH
+═══════════════════════════════════════════════════════════
+
+${epitaph}
+
+Death Type: ${deathCause.cause.toUpperCase()}
+${deathCause.killer ? `Killed By: ${deathCause.killer}` : ''}
+${deathCause.damageType ? `Damage Type: ${deathCause.damageType}` : ''}
+${deathCause.location ? `Location: ${deathCause.location}` : ''}
+${deathCause.ironic ? '\n⚠️ THIS DEATH WAS PARTICULARLY EMBARRASSING ⚠️' : ''}
+${fateDesc}` : '';
     
     return `═══════════════════════════════════════════════════════════
 QUEST IDLE - DEATH LOG
@@ -643,6 +703,11 @@ Race: ${character.race}
 Class: ${character.class}
 Alignment: ${alignment}
 Generation: ${stats.generation}${marriageInfo}
+${deathDetails}
+
+═══════════════════════════════════════════════════════════
+CHARACTER DETAILS
+═══════════════════════════════════════════════════════════
 
 Deity Worshipped:
   Name: ${deity.name}
@@ -699,11 +764,22 @@ ${companionList}
 Summons:
 ${summonList}
 
+═══════════════════════════════════════════════════════════
+COMBAT HISTORY
+═══════════════════════════════════════════════════════════
+
 Monsters Slain:
 ${generateMonstersKilledLog(monstersKilled)}
 
+Recent Combat Log:
+${combatLog.slice(0, 10).map(c => `  ${c.description}${c.damage ? ` (${c.damage} dmg)` : ''}`).join('\n') || '  No combat recorded'}
+
 Activity Summary:
 ${generateActivitySummary(activities)}
+
+═══════════════════════════════════════════════════════════
+WORLD STATE
+═══════════════════════════════════════════════════════════
 
 Last Weather: ${weather.name} - ${weather.description}
 
@@ -712,12 +788,14 @@ World Information:
   Timeline: ${worldData.timeline}
   Terrain: ${worldData.terrain}
   Main Faction: ${worldData.mainFaction}
+  Difficulty: ${['', 'Basic Quest', 'Adventurer', 'Hero\'s Trial', 'Legendary', 'Impossible'][worldData.difficulty || 2]}
 
-Last Quest: ${currentQuest.name}${fateDesc}
+Last Quest: ${currentQuest.name}
 
 Death occurred at: ${new Date().toLocaleString()}
 
-"The adventure ends, but the legend lives on..."
+═══════════════════════════════════════════════════════════
+"${deathCause?.ironic ? 'The bards will remember this... unfortunately.' : 'The adventure ends, but the legend lives on...'}"
 ═══════════════════════════════════════════════════════════`;
   };
 
