@@ -10,7 +10,7 @@ import { createEmptyCodex, addDiscovery, Codex, generateLoreEntry } from "@/lib/
 import { useToast } from "@/hooks/use-toast";
 import { generateCharacter } from "@/lib/characterGenerator";
 import { generateQuest } from "@/lib/questGenerator";
-import { generateCompanion, getRelationshipName, calculateCompatibility, getBondLevelCap } from "@/lib/companionGenerator";
+import { generateCompanion, getRelationshipName, calculateCompatibility, getBondLevelCap, generateMilestone, generateChild, RelationshipMilestone, ChildInfo, generateCompanionAge } from "@/lib/companionGenerator";
 import { generateShopName } from "@/lib/skillGenerator";
 import { generateSummon } from "@/lib/summonGenerator";
 import { getRandomStatusEffect, StatusEffect } from "@/lib/statusEffectGenerator";
@@ -58,7 +58,9 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
   const [isDead, setIsDead] = useState(false);
   const [deathLog, setDeathLog] = useState("");
   const [hasOffspring, setHasOffspring] = useState(savedData?.hasOffspring || false);
-  const [offspringData, setOffspringData] = useState<any>(savedData?.offspringData || null);
+  const [offspringData, setOffspringData] = useState<ChildInfo | null>(savedData?.offspringData || null);
+  const [children, setChildren] = useState<ChildInfo[]>(() => savedData?.children || []);
+  const [romanceDiary, setRomanceDiary] = useState<RelationshipMilestone[]>(() => savedData?.romanceDiary || []);
   const [married, setMarried] = useState<any>(savedData?.married || null);
   const [statusEffects, setStatusEffects] = useState<StatusEffect[]>(() => savedData?.statusEffects || []);
   const [summons, setSummons] = useState<any[]>(() => savedData?.summons || []);
@@ -441,8 +443,24 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
             const bondCap = comp.bondCap || 10;
             const cappedRelationship = Math.min(bondCap, comp.relationship + (Math.random() * comp.progressionRate));
             const newRel = Math.min(bondCap, cappedRelationship);
+            const oldLevel = Math.floor(comp.relationship);
+            const newLevel = Math.floor(newRel);
             const oldName = getRelationshipName(comp.relationship);
             const newName = getRelationshipName(newRel);
+            
+            // Track relationship milestones (like VN scene unlocks)
+            if (newLevel > oldLevel && newLevel >= 2) {
+              const milestone = generateMilestone(newLevel, comp.name, comp.race);
+              if (milestone) {
+                setRomanceDiary(prev => [...prev, milestone]);
+                toast({
+                  title: `💕 ${milestone.name}`,
+                  description: `${comp.name}: ${milestone.description}`,
+                  duration: 5000
+                });
+                setActivities(prev => trackActivity(prev, "relationship", `${milestone.name} with ${comp.name}: ${milestone.description}`));
+              }
+            }
             
             if (oldName !== newName) {
               toast({
@@ -460,25 +478,24 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
               });
             }
             
-            // Marriage proposal at max relationship (only if bond cap is 10)
+            // Marriage and child at max relationship (only if bond cap is 10)
             if (newRel >= 10 && bondCap === 10 && !married && comp.relationship < 10) {
               setMarried(comp);
               toast({
                 title: "💍 Marriage!",
                 description: `${comp.name} and ${character.name} are now married!`
               });
-              // Generate offspring
-              const childGender = Math.random() < 0.5 ? "Male" : "Female";
-              const childName = childGender === "Male" ? 
-                ["Aldrin Jr.", "Rex II", "Storm Jr.", "Ash II"][Math.floor(Math.random() * 4)] :
-                ["Nova Jr.", "Kira II", "Raven Jr.", "Vex II"][Math.floor(Math.random() * 4)];
-              setOffspringData({
-                name: childName,
-                gender: childGender,
-                parent1: character.name,
-                parent2: comp.name
-              });
+              // Generate child using proper function
+              const child = generateChild(character.name, character.race, comp.name, comp.race);
+              setOffspringData(child);
+              setChildren(prev => [...prev, child]);
               setHasOffspring(true);
+              
+              toast({
+                title: `👶 ${child.gender === "Male" ? "Son" : "Daughter"} Born!`,
+                description: `${child.name} has been born! Traits: ${child.traits.join(", ")}`,
+                duration: 8000
+              });
             }
             
             return {
@@ -652,7 +669,7 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
   
   const generateDeathLog = () => {
     const companionList = companions.length > 0 
-      ? companions.map(c => `  - ${c.name} (${c.relationshipName} ${Math.floor(c.relationship)}/${c.bondCap || 10}, ${c.race} ${c.class}, Compatibility: ${c.compatibility || 'N/A'}, Alignment: ${c.alignment})`).join('\n')
+      ? companions.map(c => `  - ${c.name} (Age: ${c.age || '?'}, ${c.relationshipName} ${Math.floor(c.relationship)}/${c.bondCap || 10}, ${c.race} ${c.class}, Compatibility: ${c.compatibility || 'N/A'}, Alignment: ${c.alignment})`).join('\n')
       : '  None';
     
     const summonList = summons.length > 0
@@ -669,7 +686,17 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
       ? materials.map(m => `  - ${m.name}: ${m.amount}`).join('\n')
       : '  None';
     
-    const marriageInfo = married ? `\nMarriage:\n  Spouse: ${married.name} (Alignment: ${married.alignment})\n  Offspring: ${hasOffspring ? offspringData.name : 'None'}` : '';
+    // Romance diary section
+    const romanceDiaryList = romanceDiary.length > 0
+      ? romanceDiary.map(m => `  [Lv${m.level}] ${m.name} with ${m.companionName} (${m.companionRace})\n       "${m.description}"`).join('\n\n')
+      : '  No romantic moments recorded';
+    
+    // Children section
+    const childrenList = children.length > 0
+      ? children.map(c => `  - ${c.name} (${c.gender})\n     Parents: ${c.parentName} (${c.parentRace}) & ${c.otherParentName} (${c.otherParentRace})\n     Traits: ${c.traits.join(', ')}`).join('\n\n')
+      : '  No children';
+    
+    const marriageInfo = married ? `\nMarriage:\n  Spouse: ${married.name} (Age: ${married.age || '?'}, ${married.race}, Alignment: ${married.alignment})` : '';
     
     // Generate epitaph with death cause
     const epitaph = deathCause 
@@ -698,12 +725,32 @@ QUEST IDLE - DEATH LOG
 ═══════════════════════════════════════════════════════════
 
 Character: ${character.name}
+Age: ${character.age || 'Unknown'}
 Gender: ${character.gender}
 Race: ${character.race}
 Class: ${character.class}
 Alignment: ${alignment}
 Generation: ${stats.generation}${marriageInfo}
 ${deathDetails}
+
+═══════════════════════════════════════════════════════════
+💕 ROMANCE DIARY - SCENE UNLOCKS
+═══════════════════════════════════════════════════════════
+
+Companions Encountered: ${companions.length}
+Deepest Relationship: ${companions.length > 0 ? Math.max(...companions.map(c => Math.floor(c.relationship))) : 0}/10
+Total Milestones Unlocked: ${romanceDiary.length}
+
+Romance Milestones:
+${romanceDiaryList}
+
+═══════════════════════════════════════════════════════════
+👶 CHILDREN & LEGACY
+═══════════════════════════════════════════════════════════
+
+${childrenList}
+
+${hasOffspring && offspringData ? `\n🌟 HEIR AVAILABLE: ${offspringData.name} (${offspringData.gender}) can continue the adventure!` : ''}
 
 ═══════════════════════════════════════════════════════════
 CHARACTER DETAILS
@@ -809,6 +856,8 @@ Death occurred at: ${new Date().toLocaleString()}
       married,
       hasOffspring,
       offspringData,
+      children,
+      romanceDiary,
       statusEffects,
       summons,
       eventLog,
@@ -836,9 +885,14 @@ Death occurred at: ${new Date().toLocaleString()}
   };
   
   const handleContinueAsOffspring = () => {
-    const childCharacter = generateCharacter(worldData);
+    if (!offspringData) return;
+    
+    // Generate child character starting at age 18
+    const childCharacter = generateCharacter(worldData, { startingAge: 18 });
     childCharacter.name = offspringData.name;
     childCharacter.gender = offspringData.gender;
+    // Child inherits a mix of parent races (display as primary race from player)
+    childCharacter.race = character.race;
     
     // Start fresh but keep generation count
     setCharacter(childCharacter);
@@ -859,6 +913,8 @@ Death occurred at: ${new Date().toLocaleString()}
     setMarried(null);
     setHasOffspring(false);
     setOffspringData(null);
+    setChildren([]);
+    setRomanceDiary([]);
     setStatusEffects([]);
     setSummons([]);
     setEventLog([]);
@@ -870,6 +926,8 @@ Death occurred at: ${new Date().toLocaleString()}
     setActivities([]);
     setMonstersKilled([]);
     setFateOutcome(null);
+    setDeathCause(null);
+    setCombatLog([]);
     setCurrentQuest(generateQuest(worldData, 1));
     setQuestProgress(0);
     setIsDead(false);
@@ -877,7 +935,7 @@ Death occurred at: ${new Date().toLocaleString()}
     
     toast({
       title: "A New Generation Begins",
-      description: `Playing as ${offspringData.name}, Generation ${stats.generation + 1}`
+      description: `Playing as ${offspringData.name} (Age 18), Generation ${stats.generation + 1}`
     });
   };
   

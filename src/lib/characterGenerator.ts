@@ -103,11 +103,37 @@ const equipmentByTimeline: Record<string, {
   }
 };
 
-export const generateCharacter = (worldData: any) => {
+// Generate age based on race (different races have different lifespans)
+const generateAge = (race: string, startingAge: number | null = null): number => {
+  if (startingAge !== null) return startingAge;
+  
+  // Base adult age ranges by race type
+  const ageRanges: Record<string, [number, number]> = {
+    "Human": [18, 45],
+    "Elf": [100, 500],
+    "Dwarf": [50, 200],
+    "Orc": [16, 40],
+    "Android": [1, 50],
+    "Mutant": [18, 60],
+    "Cyborg": [20, 80],
+    "Demon": [100, 1000],
+    "Angel": [100, 5000],
+    "Catgirl": [16, 35],
+    "Kitsune": [50, 800],
+    "Vampire": [100, 2000],
+    "Dragon-kin": [50, 500]
+  };
+  
+  const [min, max] = ageRanges[race] || [18, 50];
+  return Math.floor(Math.random() * (max - min)) + min;
+};
+
+export const generateCharacter = (worldData: any, options?: { startingAge?: number }) => {
   const race = races[Math.floor(Math.random() * races.length)];
   const characterClass = classes[Math.floor(Math.random() * classes.length)];
   const name = names[Math.floor(Math.random() * names.length)];
   const gender = genders[Math.floor(Math.random() * genders.length)];
+  const age = generateAge(race, options?.startingAge || null);
   
   const equipment = equipmentByTimeline[worldData.timeline] || equipmentByTimeline.Medieval;
   
@@ -121,6 +147,7 @@ export const generateCharacter = (worldData: any) => {
     class: characterClass,
     secondClass,
     gender,
+    age,
     equipment: {
       weapon: equipment.weapons[Math.floor(Math.random() * equipment.weapons.length)],
       shield: equipment.shields[Math.floor(Math.random() * equipment.shields.length)],
