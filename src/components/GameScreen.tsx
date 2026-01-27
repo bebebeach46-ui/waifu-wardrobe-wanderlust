@@ -23,6 +23,8 @@ import { checkEarlyDeath, checkRichRetirement, checkLegendaryFate, getNormalDeat
 import { trackActivity, trackMonsterKill, trackCombatLog, generateActivitySummary, generateMonstersKilledLog, ActivityLog, MonsterKill, CombatLog } from "@/lib/activityTracker";
 import { generateRandomDeathCause, generateEpitaph, DeathCause } from "@/lib/deathCauseGenerator";
 import { getMonsterByRank, rollForShard, getShardsNeededForSummon, canSummon } from "@/lib/monsterRankSystem";
+import { Wound, rollForWound, healWounds, calculatePainPenalty, calculateBleedingDamage, generateWoundSummary, getWoundIcon, getDamageTypeFromMonster, formatWound } from "@/lib/woundSystem";
+import { checkCriticalHit, calculateAttack } from "@/lib/combatSystem";
 
 interface GameScreenProps {
   worldData: any;
@@ -76,6 +78,8 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
   const [fateOutcome, setFateOutcome] = useState<FateOutcome | null>(null);
   const [deathCause, setDeathCause] = useState<DeathCause | null>(null);
   const [lastEncounter, setLastEncounter] = useState<{ monsterName: string; monsterRank: number } | null>(null);
+  const [wounds, setWounds] = useState<Wound[]>(() => savedData?.wounds || []);
+  const [fatalWound, setFatalWound] = useState<Wound | null>(null);
   const [isShopOpen, setIsShopOpen] = useState(false);
   const [isCodexOpen, setIsCodexOpen] = useState(false);
   const [activeEffects, setActiveEffects] = useState<any[]>(() => savedData?.activeEffects || []);
@@ -266,6 +270,72 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
             return prev;
           }
           
+          // === WOUND SYSTEM INTEGRATION ===
+          // Calculate combat result with critical hits
+          const combatResult = calculateAttack({
+            stats: { ...character.stats },
+            class: character.class,
+            level: stats.level
+          }, false);
+          
+          // Monster attacks back - roll for wounds
+          const monsterDamage = Math.floor(Math.random() * (10 + monster.rank.rank * 5)) + monster.rank.rank * 2;
+          const monsterCrit = checkCriticalHit(10 + monster.rank.rank * 2); // Monster dex scales with rank
+          const damageType = getDamageTypeFromMonster(monsterName);
+          
+          // Roll for wound from monster attack
+          const newWound = rollForWound(
+            monsterDamage,
+            monsterCrit,
+            false, // monsters don't backstab (usually)
+            monster.rank.rank,
+            stats.level,
+            character.race,
+            monsterName,
+            damageType
+          );
+          
+          if (newWound) {
+            setWounds(prev => [...prev, newWound]);
+            
+            // Check for fatal wound (severity 10 on vital area)
+            if (newWound.isFatal) {
+              setFatalWound(newWound);
+              const cause = generateRandomDeathCause({
+                monsterName,
+                monsterRank: monster.rank.rank,
+                playerLevel: stats.level,
+                location: currentQuest.name,
+                activeStatus: statusEffects.length > 0 ? statusEffects[0].name : undefined,
+                questName: currentQuest.name
+              });
+              setDeathCause(cause);
+              
+              toast({
+                title: `💀 FATAL WOUND!`,
+                description: `${newWound.description} by ${monsterName}!`,
+                variant: "destructive",
+                duration: 5000
+              });
+              
+              handleDeath();
+              return prev;
+            }
+            
+            // Non-fatal wound notification
+            const icon = getWoundIcon(newWound.severity);
+            toast({
+              title: `${icon} Wounded! (Severity ${newWound.severity})`,
+              description: `${newWound.name}: ${newWound.description}`,
+              duration: 3000
+            });
+            
+            setActivities(prev => trackActivity(prev, "combat", `Received ${newWound.name} from ${monsterName}`));
+          }
+          
+          // Heal wounds slightly after successful combat (natural recovery)
+          setWounds(prev => healWounds(prev, 1));
+          
           // Track monster in codex
           setCodex(prev => addDiscovery(prev, 'monster', monsterName, monsterName, 
             `Rank ${monster.rank.rank} ${monster.rank.name} - ${monster.rank.description}`,
@@ -274,27 +344,33 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
           
           // Track combat and quest in activities
           setMonstersKilled(prev => trackMonsterKill(prev, monsterName, monster.rank.rank));
-          setActivities(prev => trackActivity(prev, "combat", `Defeated Rank ${monster.rank.rank} ${monsterName} in ${currentQuest.name}`));
+          setActivities(prev => trackActivity(prev, "combat", `Defeated Rank ${monster.rank.rank} ${monsterName} in ${currentQuest.name}${combatResult.critical ? ' (CRIT!)' : ''}`));
           
           // Check if vision crystal is active or grand vision crystal unlocked
           const hasVision = activeEffects.some(e => e.type === 'vision_crystal' && e.endTime > Date.now()) || hasGrandVisionCrystal;
           const playerMaxHp = 100 + (stats.level * 10);
-          const playerCurrentHp = Math.floor(playerMaxHp * (0.6 + Math.random() * 0.4)); // Simulate HP between 60-100%
+          const bleedingDamage = calculateBleedingDamage(wounds);
+          const painPenalty = calculatePainPenalty(wounds);
+          const playerCurrentHp = Math.floor(playerMaxHp * (0.6 + Math.random() * 0.4)) - bleedingDamage;
           const enemyMaxHp = 50 + (monster.rank.rank * 20);
+          
+          // Combat log with wound info
+          const woundInfo = newWound ? ` | Received: ${newWound.name} (Sev ${newWound.severity})` : '';
+          const critInfo = combatResult.critical ? ' [CRITICAL HIT!]' : '';
           
           if (hasVision) {
             setCombatLog(prev => trackCombatLog(
               prev,
-              `⚔️ Defeated ${monsterName} (Rank ${monster.rank.rank})`,
+              `⚔️ Defeated ${monsterName} (Rank ${monster.rank.rank})${critInfo}${woundInfo}`,
               playerCurrentHp,
               0,
-              Math.floor(Math.random() * 30 + 10),
+              combatResult.damage,
               { playerMaxHp, enemyMaxHp, monsterRank: monster.rank.rank }
             ));
           } else {
             setCombatLog(prev => trackCombatLog(
               prev,
-              `⚔️ Defeated ${monsterName} (Rank ${monster.rank.rank})`,
+              `⚔️ Defeated ${monsterName} (Rank ${monster.rank.rank})${newWound ? ` | ${getWoundIcon(newWound.severity)} Wounded` : ''}`,
               undefined,
               undefined,
               undefined
@@ -812,6 +888,12 @@ Summons:
 ${summonList}
 
 ═══════════════════════════════════════════════════════════
+WOUND HISTORY
+═══════════════════════════════════════════════════════════
+
+${generateWoundSummary(wounds)}
+
+═══════════════════════════════════════════════════════════
 COMBAT HISTORY
 ═══════════════════════════════════════════════════════════
 
@@ -873,6 +955,7 @@ Death occurred at: ${new Date().toLocaleString()}
       activeEffects,
       codex,
       combatLog,
+      wounds,
       characterName: character.name,
       level: stats.level,
       timestamp: Date.now()
@@ -928,6 +1011,8 @@ Death occurred at: ${new Date().toLocaleString()}
     setFateOutcome(null);
     setDeathCause(null);
     setCombatLog([]);
+    setWounds([]);
+    setFatalWound(null);
     setCurrentQuest(generateQuest(worldData, 1));
     setQuestProgress(0);
     setIsDead(false);
