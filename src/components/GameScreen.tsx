@@ -669,7 +669,7 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
   
   const generateDeathLog = () => {
     const companionList = companions.length > 0 
-      ? companions.map(c => `  - ${c.name} (Age: ${c.age || '?'}, ${c.relationshipName} ${Math.floor(c.relationship)}/${c.bondCap || 10}, ${c.race} ${c.class}, Compatibility: ${c.compatibility || 'N/A'}, Alignment: ${c.alignment})`).join('\n')
+      ? companions.map(c => `  - ${c.name} (Age: ${c.age || '?'}, ${c.relationshipName || 'Unknown'} ${Math.floor(c.relationship || 0)}/${c.bondCap || 10}, ${c.race} ${c.class}, Compatibility: ${c.compatibility ?? 'N/A'}, Alignment: ${c.alignment || 'Unknown'})`).join('\n')
       : '  None';
     
     const summonList = summons.length > 0
@@ -738,7 +738,7 @@ ${deathDetails}
 ═══════════════════════════════════════════════════════════
 
 Companions Encountered: ${companions.length}
-Deepest Relationship: ${companions.length > 0 ? Math.max(...companions.map(c => Math.floor(c.relationship))) : 0}/10
+Deepest Relationship: ${companions.length > 0 ? Math.max(...companions.map(c => Math.floor(c.relationship || 0))) : 0}/10
 Total Milestones Unlocked: ${romanceDiary.length}
 
 Romance Milestones:
