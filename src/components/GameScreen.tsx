@@ -25,6 +25,7 @@ import { generateRandomDeathCause, generateEpitaph, DeathCause } from "@/lib/dea
 import { getMonsterByRank, rollForShard, getShardsNeededForSummon, canSummon } from "@/lib/monsterRankSystem";
 import { Wound, rollForWound, healWounds, calculatePainPenalty, calculateBleedingDamage, generateWoundSummary, getWoundIcon, getDamageTypeFromMonster, formatWound } from "@/lib/woundSystem";
 import { checkCriticalHit, calculateAttack } from "@/lib/combatSystem";
+import { generateDeathNarrative, formatLastBattleActions, generateFinalMomentsSection } from "@/lib/deathNarrativeGenerator";
 
 interface GameScreenProps {
   worldData: any;
@@ -781,6 +782,46 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
     
     const fateDesc = fateOutcome ? `\nFate: ${fateOutcome.description}` : '';
     
+    // ═══════════════════════════════════════════════════════════
+    // GENERATE DETAILED DEATH NARRATIVE (3+ paragraphs)
+    // ═══════════════════════════════════════════════════════════
+    const narrativeContext = {
+      characterName: character.name,
+      characterClass: character.class,
+      characterRace: character.race,
+      characterAge: character.age,
+      level: stats.level,
+      questsCompleted: stats.questsCompleted,
+      questName: currentQuest.name,
+      deathCause,
+      fatalWound,
+      lastEncounter,
+      combatLog,
+      wounds,
+      companions: companions.map(c => ({
+        name: c.name,
+        relationshipName: c.relationshipName,
+        relationship: c.relationship
+      })),
+      alignment,
+      weather,
+      gold: stats.gold
+    };
+    
+    const deathNarrative = generateDeathNarrative(narrativeContext);
+    
+    // Format last 5 battle actions
+    const lastBattleActions = formatLastBattleActions(combatLog, 5);
+    
+    // Generate final moments description
+    const finalMomentsSection = generateFinalMomentsSection(
+      combatLog,
+      wounds,
+      fatalWound,
+      deathCause,
+      character.name
+    );
+    
     // Detailed death cause section
     const deathDetails = deathCause ? `
 ═══════════════════════════════════════════════════════════
@@ -808,6 +849,26 @@ Class: ${character.class}
 Alignment: ${alignment}
 Generation: ${stats.generation}${marriageInfo}
 ${deathDetails}
+
+═══════════════════════════════════════════════════════════
+📜 THE FINAL TALE - A DETAILED ACCOUNT
+═══════════════════════════════════════════════════════════
+
+${deathNarrative}
+
+═══════════════════════════════════════════════════════════
+⚔️ FINAL BATTLE - LAST 5 ACTIONS
+═══════════════════════════════════════════════════════════
+
+The following actions were recorded in the moments before death:
+
+${lastBattleActions}
+
+═══════════════════════════════════════════════════════════
+💀 FINAL MOMENTS
+═══════════════════════════════════════════════════════════
+
+${finalMomentsSection}
 
 ═══════════════════════════════════════════════════════════
 💕 ROMANCE DIARY - SCENE UNLOCKS
