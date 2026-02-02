@@ -661,7 +661,7 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
           setCurrentQuest(generateQuest(worldData, stats.level));
           return 0;
         }
-        return prev + (100 / currentQuest.duration);
+        return prev + (100 / currentQuest.duration) * 0.4; // Slowed down by 60% for easier reading
       });
     }, 100);
 
@@ -989,7 +989,7 @@ Death occurred at: ${new Date().toLocaleString()}
 ═══════════════════════════════════════════════════════════`;
   };
 
-  const handleSave = () => {
+  const performSave = () => {
     const saveData = {
       character,
       stats,
@@ -1022,11 +1022,32 @@ Death occurred at: ${new Date().toLocaleString()}
       timestamp: Date.now()
     };
     localStorage.setItem(`quest-idle-slot-${saveSlot}`, JSON.stringify(saveData));
+    return saveData;
+  };
+
+  const handleSave = () => {
+    performSave();
     toast({
       title: "Game Saved",
       description: `Saved to slot ${saveSlot}`
     });
   };
+  
+  // Auto-save every 60 seconds
+  useEffect(() => {
+    if (isDead) return;
+    
+    const autoSaveInterval = setInterval(() => {
+      performSave();
+      toast({
+        title: "💾 Auto-saved",
+        description: "Progress saved automatically",
+        duration: 2000
+      });
+    }, 60000); // Every 60 seconds
+    
+    return () => clearInterval(autoSaveInterval);
+  }, [isDead, character, stats, companions, treasure, married, hasOffspring, offspringData, children, romanceDiary, statusEffects, summons, eventLog, deity, alignment, weather, materials, lifeSkills, activities, monstersKilled, currentQuest, shopName, activeEffects, codex, combatLog, wounds, saveSlot]);
   
   const handleContinueAsOffspring = () => {
     if (!offspringData) return;
