@@ -2,14 +2,15 @@ import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { ChevronLeft, Save, Heart, Skull, Sparkles, Shield, Cloud, Hammer, TrendingUp, Crown, ShoppingCart, BookOpen, Star } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { ChevronLeft, Save, Heart, Skull, Sparkles, Shield, Cloud, Hammer, TrendingUp, Crown, ShoppingCart, BookOpen, Star, Map, Compass } from "lucide-react";
 import { Shop } from "@/components/Shop";
 import { ShopItem } from "@/lib/shopGenerator";
 import { CodexComponent } from "@/components/Codex";
 import { createEmptyCodex, addDiscovery, Codex, generateLoreEntry } from "@/lib/codexSystem";
 import { useToast } from "@/hooks/use-toast";
 import { generateCharacter } from "@/lib/characterGenerator";
-import { generateQuest } from "@/lib/questGenerator";
+import { generateQuest, Quest, rollForCompanionAttraction } from "@/lib/questGenerator";
 import { generateCompanion, getRelationshipName, calculateCompatibility, getBondLevelCap, generateMilestone, generateChild, RelationshipMilestone, ChildInfo, generateCompanionAge } from "@/lib/companionGenerator";
 import { generateShopName } from "@/lib/skillGenerator";
 import { generateSummon } from "@/lib/summonGenerator";
@@ -26,6 +27,7 @@ import { getMonsterByRank, rollForShard, getShardsNeededForSummon, canSummon } f
 import { Wound, rollForWound, healWounds, calculatePainPenalty, calculateBleedingDamage, generateWoundSummary, getWoundIcon, getDamageTypeFromMonster, formatWound } from "@/lib/woundSystem";
 import { checkCriticalHit, calculateAttack } from "@/lib/combatSystem";
 import { generateDeathNarrative, formatLastBattleActions, generateFinalMomentsSection } from "@/lib/deathNarrativeGenerator";
+import { TravelState, initializeTravelState, shouldChangeArea, travelToNewArea, getDirectionIcon, getRegionDangerColor, generateMapOverlay, getMapTileIcon } from "@/lib/locationSystem";
 
 interface GameScreenProps {
   worldData: any;
@@ -53,8 +55,10 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
   const savedData = loadSaveData();
   
   const [character, setCharacter] = useState(() => savedData?.character || generateCharacter(worldData));
-  const [currentQuest, setCurrentQuest] = useState(() => savedData?.currentQuest || generateQuest(worldData, 1));
+  const [travelState, setTravelState] = useState<TravelState>(() => savedData?.travelState || initializeTravelState(worldData, 1));
+  const [currentQuest, setCurrentQuest] = useState<Quest>(() => savedData?.currentQuest || generateQuest(worldData, 1, savedData?.travelState));
   const [questProgress, setQuestProgress] = useState(0);
+  const [showMap, setShowMap] = useState(false);
   const [companions, setCompanions] = useState<any[]>(() => savedData?.companions || []);
   const [treasure, setTreasure] = useState(savedData?.treasure || 0);
   const [shopName] = useState(savedData?.shopName || generateShopName());
@@ -121,6 +125,13 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
         }
         return comp;
       }));
+    }
+  }, []);
+
+  // Migrate old quests to have rank property
+  useEffect(() => {
+    if (currentQuest && !currentQuest.rank) {
+      setCurrentQuest(generateQuest(worldData, stats.level, travelState));
     }
   }, []);
 
@@ -489,29 +500,37 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
             }
           }
           
-          // Quest completion: 15% chance for companion reward if party not full
-          if (Math.random() < 0.15 && companions.length < 3) {
+          // Quest completion: Use quest rank-based companion attraction
+          const questRank = currentQuest.rank;
+          if (companions.length < 3) {
             const characterWithSkills = { ...character, skills: lifeSkills };
-            const newCompanion = generateCompanion(worldData, characterWithSkills, companions);
-            setCompanions(c => [...c, newCompanion]);
+            // Generate potential companion to check compatibility
+            const potentialCompanion = generateCompanion(worldData, characterWithSkills, companions);
+            const shouldAttract = rollForCompanionAttraction(questRank, potentialCompanion.compatibility, companions.length);
             
-            // Track companion in codex
-            setCodex(prev => addDiscovery(prev, 'companion', `${newCompanion.name}_${newCompanion.race}`, 
-              newCompanion.name, 
-              newCompanion.description,
-              { race: newCompanion.race, class: newCompanion.class, gender: newCompanion.gender, alignment: newCompanion.alignment, compatibility: newCompanion.compatibility }
-            ));
-            
-            const compatibilityDesc = newCompanion.compatibility >= 5 ? "highly compatible" :
-                                     newCompanion.compatibility >= 3 ? "somewhat compatible" : "interested";
-            
-            toast({
-              title: "🌟 Companion Earned!",
-              description: <span className="text-stat-increase">{newCompanion.name} ({compatibilityDesc}) joined your party! Bond Cap: {newCompanion.bondCap}</span>,
-              duration: 5000
-            });
-            
-            setActivities(prev => trackActivity(prev, "relationship", `${newCompanion.name} joined as a companion (Compatibility: ${newCompanion.compatibility})`));
+            if (shouldAttract) {
+              setCompanions(c => [...c, potentialCompanion]);
+              
+              // Track companion in codex
+              setCodex(prev => addDiscovery(prev, 'companion', `${potentialCompanion.name}_${potentialCompanion.race}`, 
+                potentialCompanion.name, 
+                potentialCompanion.description,
+                { race: potentialCompanion.race, class: potentialCompanion.class, gender: potentialCompanion.gender, alignment: potentialCompanion.alignment, compatibility: potentialCompanion.compatibility }
+              ));
+              
+              const compatibilityDesc = potentialCompanion.compatibility >= 5 ? "highly compatible" :
+                                       potentialCompanion.compatibility >= 3 ? "somewhat compatible" : "interested";
+              
+              const questTypeBonus = questRank.rank >= 8 ? " (Drawn by the legendary quest!)" : "";
+              
+              toast({
+                title: `🌟 Companion Earned from ${questRank.name} Quest!`,
+                description: <span className="text-stat-increase">{potentialCompanion.name} ({compatibilityDesc}) joined your party! Bond Cap: {potentialCompanion.bondCap}{questTypeBonus}</span>,
+                duration: 5000
+              });
+              
+              setActivities(prev => trackActivity(prev, "relationship", `${potentialCompanion.name} joined during a ${questRank.name} quest (Compatibility: ${potentialCompanion.compatibility})`));
+            }
           }
           
           // Update companion relationships with bond cap enforcement
@@ -645,8 +664,48 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
               };
             }
             
+            const newLevel = levelUp ? s.level + 1 : s.level;
+            
+            // Update travel state - increment quests in area and potentially travel
+            setTravelState(prevTravel => {
+              const updatedTravel = {
+                ...prevTravel,
+                questsInCurrentArea: prevTravel.questsInCurrentArea + 1
+              };
+              
+              // Check if we should move to a new area
+              if (shouldChangeArea(updatedTravel.questsInCurrentArea)) {
+                const newTravel = travelToNewArea(updatedTravel, worldData, newLevel);
+                
+                // Notify about area/region change
+                if (newTravel.areasExplored === 1) {
+                  // New region!
+                  toast({
+                    title: `🗺️ Entered New Region: ${newTravel.currentRegion.name}`,
+                    description: `${newTravel.currentRegion.description} (Danger: ${newTravel.currentRegion.dangerLevel}/10)`,
+                    duration: 5000
+                  });
+                } else {
+                  toast({
+                    title: `${getDirectionIcon(newTravel.direction)} Traveling ${newTravel.direction}`,
+                    description: `Arrived at ${newTravel.currentArea.name} (${newTravel.currentArea.terrain})`,
+                    duration: 3000
+                  });
+                }
+                
+                // Generate new quest for new area
+                setCurrentQuest(generateQuest(worldData, newLevel, newTravel));
+                
+                return newTravel;
+              }
+              
+              // Generate quest in same area
+              setCurrentQuest(generateQuest(worldData, newLevel, updatedTravel));
+              return updatedTravel;
+            });
+            
             return {
-              level: levelUp ? s.level + 1 : s.level,
+              level: newLevel,
               exp: levelUp ? newExp - s.expToNext : newExp,
               expToNext: levelUp ? s.expToNext + 50 : s.expToNext,
               gold: s.gold + adjustedGold,
@@ -658,7 +717,6 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
               totalDeaths: s.totalDeaths
             };
           });
-          setCurrentQuest(generateQuest(worldData, stats.level));
           return 0;
         }
         return prev + (100 / currentQuest.duration) * 0.4; // Slowed down by 60% for easier reading
@@ -666,7 +724,7 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
     }, 100);
 
     return () => clearInterval(interval);
-  }, [currentQuest, worldData, stats.level, treasure, companions, isDead, shopName, character.equipment, toast, married, statusEffects, activeEffects]);
+  }, [currentQuest, worldData, stats.level, treasure, companions, isDead, shopName, character.equipment, toast, married, statusEffects, activeEffects, travelState]);
 
   const handleDeath = () => {
     // Check for death save (plot armor)
@@ -1017,6 +1075,7 @@ Death occurred at: ${new Date().toLocaleString()}
       codex,
       combatLog,
       wounds,
+      travelState,
       characterName: character.name,
       level: stats.level,
       timestamp: Date.now()
@@ -1095,8 +1154,11 @@ Death occurred at: ${new Date().toLocaleString()}
     setCombatLog([]);
     setWounds([]);
     setFatalWound(null);
-    setCurrentQuest(generateQuest(worldData, 1));
+    const newTravelState = initializeTravelState(worldData, 1);
+    setTravelState(newTravelState);
+    setCurrentQuest(generateQuest(worldData, 1, newTravelState));
     setQuestProgress(0);
+    setShowMap(false);
     setIsDead(false);
     setDeathLog("");
     
@@ -1185,7 +1247,7 @@ Death occurred at: ${new Date().toLocaleString()}
             break;
 
           case 'reroll_quest':
-            setCurrentQuest(generateQuest(worldData, stats.level));
+            setCurrentQuest(generateQuest(worldData, stats.level, travelState));
             setQuestProgress(0);
             toast({
               title: "Quest Re-rolled!",
@@ -1478,10 +1540,101 @@ Death occurred at: ${new Date().toLocaleString()}
         </div>
       )}
 
+      {/* Location & Map Section */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <div className="text-sm font-semibold flex items-center gap-1">
+            <Compass className="w-4 h-4" /> Location
+          </div>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="h-6 px-2"
+            onClick={() => setShowMap(!showMap)}
+          >
+            <Map className="w-3 h-3 mr-1" /> {showMap ? 'Hide' : 'Map'}
+          </Button>
+        </div>
+        
+        <div className="bg-muted p-3 rounded space-y-2">
+          <div className="flex justify-between items-start">
+            <div>
+              <div className={`font-medium ${getRegionDangerColor(travelState.currentRegion.dangerLevel)}`}>
+                {travelState.currentRegion.name}
+              </div>
+              <div className="text-xs text-muted-foreground">{travelState.currentRegion.type}</div>
+            </div>
+            <div className="text-right">
+              <Badge variant="outline" className="text-xs">
+                Danger: {travelState.currentRegion.dangerLevel}/10
+              </Badge>
+            </div>
+          </div>
+          
+          <div className="border-t border-border pt-2">
+            <div className="flex items-center gap-2 text-sm">
+              <span>{getDirectionIcon(travelState.direction)}</span>
+              <span className="font-medium">{travelState.currentArea.name}</span>
+            </div>
+            <div className="text-xs text-muted-foreground mt-1">
+              {travelState.currentArea.terrain}
+            </div>
+            {travelState.currentArea.features.length > 0 && (
+              <div className="flex flex-wrap gap-1 mt-2">
+                {travelState.currentArea.features.map((feature, i) => (
+                  <span key={i} className="text-xs bg-background/50 px-1.5 py-0.5 rounded">
+                    {feature}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+          
+          <div className="text-xs text-muted-foreground flex justify-between border-t border-border pt-2">
+            <span>📍 Areas explored: {travelState.areasExplored}</span>
+            <span>🚶 Distance: {travelState.distanceTraveled}</span>
+          </div>
+        </div>
+        
+        {/* Mini Map Overlay */}
+        {showMap && (
+          <div className="bg-background border border-border rounded p-2">
+            <div className="text-xs font-semibold mb-2 text-center">Region Map</div>
+            <div className="grid grid-cols-5 gap-1">
+              {generateMapOverlay(travelState).flat().map((tile, i) => (
+                <div 
+                  key={i}
+                  className={`w-8 h-8 flex items-center justify-center text-sm rounded ${
+                    tile.current ? 'bg-primary/30 border-2 border-primary' : 
+                    tile.explored ? 'bg-muted' : 'bg-muted/30'
+                  }`}
+                  title={tile.explored ? `${tile.type} (Danger: ${tile.dangerLevel})` : 'Unexplored'}
+                >
+                  {getMapTileIcon(tile)}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Current Quest Section */}
       <div className="space-y-2">
         <div className="text-sm font-semibold">Current Quest</div>
-        <div className="bg-muted p-3 rounded space-y-2">
-          <div className="font-medium">{currentQuest.name}</div>
+        <div className={`p-3 rounded space-y-2 ${currentQuest.rank?.bgColor || 'bg-muted'}`}>
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex-1">
+              <div className={`font-medium ${currentQuest.rank?.color || ''}`}>
+                {currentQuest.name}
+              </div>
+              <Badge 
+                variant="outline" 
+                className={`text-xs mt-1 ${currentQuest.rank?.color || ''}`}
+              >
+                [{currentQuest.rank?.name || 'Unknown'}] Rank {currentQuest.rank?.rank || '?'}
+              </Badge>
+            </div>
+          </div>
           <div className="text-xs text-muted-foreground">{currentQuest.description}</div>
           <Progress value={questProgress} />
           <div className="flex justify-between text-xs">
@@ -1492,6 +1645,8 @@ Death occurred at: ${new Date().toLocaleString()}
             💀 Fighting monsters Rank 1-{Math.min(10, Math.max(1, Math.floor(stats.level / 8) + 1))}
             <br />
             ✨ Shards drop from Rank 5+ (Powerful or higher)
+            <br />
+            💕 Companion chance: {((currentQuest.rank?.companionChance || 0) * 100).toFixed(0)}% base
           </div>
         </div>
       </div>

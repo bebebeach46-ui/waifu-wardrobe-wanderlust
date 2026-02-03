@@ -118,3 +118,20 @@ All colors MUST be HSL.
     @apply bg-background text-foreground;
   }
 }
+
+/* Rainbow text animation for legendary items */
+@keyframes rainbow {
+  0% { color: hsl(0, 100%, 60%); }
+  14% { color: hsl(30, 100%, 60%); }
+  28% { color: hsl(60, 100%, 50%); }
+  42% { color: hsl(120, 100%, 40%); }
+  57% { color: hsl(180, 100%, 45%); }
+  71% { color: hsl(240, 100%, 60%); }
+  85% { color: hsl(300, 100%, 55%); }
+  100% { color: hsl(360, 100%, 60%); }
+}
+
+.text-rainbow {
+  animation: rainbow 3s linear infinite;
+  font-weight: bold;
+}
