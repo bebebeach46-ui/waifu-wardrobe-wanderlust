@@ -10,8 +10,9 @@ import { CodexComponent } from "@/components/Codex";
 import { createEmptyCodex, addDiscovery, Codex, generateLoreEntry } from "@/lib/codexSystem";
 import { useToast } from "@/hooks/use-toast";
 import { generateCharacter } from "@/lib/characterGenerator";
-import { generateQuest, Quest, rollForCompanionAttraction } from "@/lib/questGenerator";
+import { generateQuest, Quest } from "@/lib/questGenerator";
 import { generateCompanion, getRelationshipName, calculateCompatibility, getBondLevelCap, generateMilestone, generateChild, RelationshipMilestone, ChildInfo, generateCompanionAge } from "@/lib/companionGenerator";
+import { CompanionEncounterState, initializeEncounterState, updateEncounterState, completeEncounter, getTopAffinities, EncounterPreference } from "@/lib/companionEncounterSystem";
 import { generateShopName } from "@/lib/skillGenerator";
 import { generateSummon } from "@/lib/summonGenerator";
 import { getRandomStatusEffect, StatusEffect } from "@/lib/statusEffectGenerator";
@@ -89,6 +90,7 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
   const [isCodexOpen, setIsCodexOpen] = useState(false);
   const [activeEffects, setActiveEffects] = useState<any[]>(() => savedData?.activeEffects || []);
   const [codex, setCodex] = useState<Codex>(() => savedData?.codex || createEmptyCodex());
+  const [encounterState, setEncounterState] = useState<CompanionEncounterState>(() => savedData?.encounterState || initializeEncounterState());
   const [hasGrandVisionCrystal, setHasGrandVisionCrystal] = useState(() => {
     const completions = localStorage.getItem('difficulty_completions');
     return completions ? JSON.parse(completions).length > 0 : false;
@@ -130,8 +132,15 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
 
   // Migrate old quests to have rank property
   useEffect(() => {
-    if (currentQuest && !currentQuest.rank) {
+    if (currentQuest && (!currentQuest.rank || !currentQuest.fullTitle)) {
       setCurrentQuest(generateQuest(worldData, stats.level, travelState));
+    }
+  }, []);
+
+  // Migrate old saves to have encounter state
+  useEffect(() => {
+    if (!encounterState || !encounterState.affinity || Object.keys(encounterState.affinity).length === 0) {
+      setEncounterState(initializeEncounterState());
     }
   }, []);
 
@@ -500,38 +509,72 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
             }
           }
           
-          // Quest completion: Use quest rank-based companion attraction
-          const questRank = currentQuest.rank;
-          if (companions.length < 3) {
-            const characterWithSkills = { ...character, skills: lifeSkills };
-            // Generate potential companion to check compatibility
-            const potentialCompanion = generateCompanion(worldData, characterWithSkills, companions);
-            const shouldAttract = rollForCompanionAttraction(questRank, potentialCompanion.compatibility, companions.length);
+          // Update encounter state with quest completion - companions earned through special encounters
+          setEncounterState(prevEncounter => {
+            const updatedEncounter = updateEncounterState(prevEncounter, currentQuest, companions.length);
             
-            if (shouldAttract) {
-              setCompanions(c => [...c, potentialCompanion]);
-              
-              // Track companion in codex
-              setCodex(prev => addDiscovery(prev, 'companion', `${potentialCompanion.name}_${potentialCompanion.race}`, 
-                potentialCompanion.name, 
-                potentialCompanion.description,
-                { race: potentialCompanion.race, class: potentialCompanion.class, gender: potentialCompanion.gender, alignment: potentialCompanion.alignment, compatibility: potentialCompanion.compatibility }
-              ));
-              
-              const compatibilityDesc = potentialCompanion.compatibility >= 5 ? "highly compatible" :
-                                       potentialCompanion.compatibility >= 3 ? "somewhat compatible" : "interested";
-              
-              const questTypeBonus = questRank.rank >= 8 ? " (Drawn by the legendary quest!)" : "";
-              
+            // Check for active encounter progress display
+            if (updatedEncounter.activeEncounter && updatedEncounter.encounterProgress > 0 && 
+                updatedEncounter.encounterProgress < 100 && prevEncounter.encounterProgress !== updatedEncounter.encounterProgress) {
+              const encounter = updatedEncounter.activeEncounter;
               toast({
-                title: `🌟 Companion Earned from ${questRank.name} Quest!`,
-                description: <span className="text-stat-increase">{potentialCompanion.name} ({compatibilityDesc}) joined your party! Bond Cap: {potentialCompanion.bondCap}{questTypeBonus}</span>,
-                duration: 5000
+                title: `✨ ${encounter.name}`,
+                description: `${encounter.description} (${Math.floor(updatedEncounter.encounterProgress)}% progress)`,
+                duration: 4000
               });
-              
-              setActivities(prev => trackActivity(prev, "relationship", `${potentialCompanion.name} joined during a ${questRank.name} quest (Compatibility: ${potentialCompanion.compatibility})`));
+            } else if (updatedEncounter.activeEncounter && !prevEncounter.activeEncounter) {
+              // New encounter triggered!
+              const encounter = updatedEncounter.activeEncounter;
+              toast({
+                title: `🌟 Special Encounter Begins: ${encounter.name}`,
+                description: `${encounter.description}`,
+                duration: 6000
+              });
+              setActivities(prev => trackActivity(prev, "event", `Special encounter began: ${encounter.name}`));
             }
-          }
+            
+            // Check for encounter completion
+            if (updatedEncounter.encounterProgress >= 100 && updatedEncounter.activeEncounter) {
+              const result = completeEncounter(updatedEncounter);
+              
+              if (result.shouldAttractCompanion && result.preference && companions.length < 3) {
+                // Generate companion with preference matching
+                const characterWithSkills = { ...character, skills: lifeSkills };
+                const newCompanion = generateCompanion(worldData, characterWithSkills, companions);
+                
+                // Override preferences to match the encounter preference
+                if (result.preference && !newCompanion.preferences.includes(result.preference)) {
+                  newCompanion.preferences[0] = result.preference;
+                }
+                
+                setCompanions(c => [...c, newCompanion]);
+                
+                // Track companion in codex
+                setCodex(prev => addDiscovery(prev, 'companion', `${newCompanion.name}_${newCompanion.race}`, 
+                  newCompanion.name, 
+                  newCompanion.description,
+                  { race: newCompanion.race, class: newCompanion.class, gender: newCompanion.gender, alignment: newCompanion.alignment, compatibility: newCompanion.compatibility }
+                ));
+                
+                const compatibilityDesc = newCompanion.compatibility >= 5 ? "highly compatible" :
+                                         newCompanion.compatibility >= 3 ? "somewhat compatible" : "interested";
+                
+                const encounterName = updatedEncounter.activeEncounter?.name || "a special encounter";
+                
+                toast({
+                  title: `💖 Companion Earned: ${newCompanion.name}`,
+                  description: <span className="text-stat-increase">Met through "{encounterName}" ({compatibilityDesc})! Bond Cap: {newCompanion.bondCap}</span>,
+                  duration: 8000
+                });
+                
+                setActivities(prev => trackActivity(prev, "relationship", `${newCompanion.name} joined after completing "${encounterName}" (Compatibility: ${newCompanion.compatibility})`));
+              }
+              
+              return result.newState;
+            }
+            
+            return updatedEncounter;
+          });
           
           // Update companion relationships with bond cap enforcement
           setCompanions(comps => comps.map(comp => {
@@ -1076,6 +1119,7 @@ Death occurred at: ${new Date().toLocaleString()}
       combatLog,
       wounds,
       travelState,
+      encounterState,
       characterName: character.name,
       level: stats.level,
       timestamp: Date.now()
@@ -1156,6 +1200,7 @@ Death occurred at: ${new Date().toLocaleString()}
     setFatalWound(null);
     const newTravelState = initializeTravelState(worldData, 1);
     setTravelState(newTravelState);
+    setEncounterState(initializeEncounterState());
     setCurrentQuest(generateQuest(worldData, 1, newTravelState));
     setQuestProgress(0);
     setShowMap(false);
@@ -1625,7 +1670,7 @@ Death occurred at: ${new Date().toLocaleString()}
           <div className="flex items-start justify-between gap-2">
             <div className="flex-1">
               <div className={`font-medium ${currentQuest.rank?.color || ''}`}>
-                {currentQuest.name}
+                {currentQuest.fullTitle || currentQuest.name}
               </div>
               <Badge 
                 variant="outline" 
@@ -1641,15 +1686,64 @@ Death occurred at: ${new Date().toLocaleString()}
             <span className="text-stat-increase">+{currentQuest.goldReward} gold</span>
             <span className="text-stat-increase">+{currentQuest.expReward} exp</span>
           </div>
-          <div className="text-xs text-muted-foreground border-t border-border pt-2 mt-2">
-            💀 Fighting monsters Rank 1-{Math.min(10, Math.max(1, Math.floor(stats.level / 8) + 1))}
-            <br />
-            ✨ Shards drop from Rank 5+ (Powerful or higher)
-            <br />
-            💕 Companion chance: {((currentQuest.rank?.companionChance || 0) * 100).toFixed(0)}% base
-          </div>
         </div>
       </div>
+
+      {/* Companion Encounter System */}
+      {companions.length < 3 && (
+        <div className="space-y-2">
+          <div className="text-sm font-semibold flex items-center gap-1">
+            <Sparkles className="w-4 h-4" /> Companion Encounters
+          </div>
+          <div className="bg-muted p-2 rounded space-y-2">
+            {/* Active Encounter */}
+            {encounterState.activeEncounter ? (
+              <div className="bg-primary/10 p-2 rounded space-y-1">
+                <div className="text-xs font-medium text-primary">
+                  🌟 {encounterState.activeEncounter.name}
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {encounterState.activeEncounter.description}
+                </div>
+                <Progress value={encounterState.encounterProgress} className="h-2" />
+                <div className="text-xs text-muted-foreground">
+                  Progress: {Math.floor(encounterState.encounterProgress)}% | Preference: {encounterState.activeEncounter.requiredPreference}
+                </div>
+              </div>
+            ) : (
+              <div className="text-xs text-muted-foreground">
+                <div>Complete quests to build affinity and trigger special encounters!</div>
+                <div className="mt-1">
+                  Quests until eligible: {Math.max(0, 15 - encounterState.questsSinceLastCompanion)}
+                </div>
+              </div>
+            )}
+            
+            {/* Top Affinities */}
+            <div className="space-y-1">
+              <div className="text-xs font-medium">Building Affinity:</div>
+              <div className="flex flex-wrap gap-1">
+                {getTopAffinities(encounterState.affinity, 5).map(({ preference, value }) => (
+                  <span
+                    key={preference}
+                    className={`text-xs px-2 py-0.5 rounded ${
+                      value >= 25 ? 'bg-green-500/20 text-green-500' :
+                      value >= 15 ? 'bg-yellow-500/20 text-yellow-500' :
+                      'bg-muted-foreground/20 text-muted-foreground'
+                    }`}
+                    title={`${value.toFixed(1)} affinity points`}
+                  >
+                    {preference}: {Math.floor(value)}
+                  </span>
+                ))}
+              </div>
+              <div className="text-xs text-muted-foreground italic">
+                (25+ affinity triggers encounters)
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="space-y-2">
         <div className="text-sm font-semibold">Equipment</div>
