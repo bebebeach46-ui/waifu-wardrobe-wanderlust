@@ -39,13 +39,35 @@ export const addDiscovery = (
   description: string,
   details?: Record<string, any>
 ): Codex => {
-  const category = codex[type + 's' as keyof Codex] as Record<string, CodexEntry>;
+  // Safety check: ensure codex and id are valid
+  if (!codex || !id || !type) {
+    console.warn('addDiscovery called with invalid parameters:', { codex: !!codex, id, type });
+    return codex || createEmptyCodex();
+  }
+
+  const categoryKey = type + 's' as keyof Codex;
+  
+  // Ensure the category exists
+  if (!codex[categoryKey]) {
+    codex = {
+      ...codex,
+      [categoryKey]: {}
+    };
+  }
+  
+  const category = codex[categoryKey] as Record<string, CodexEntry>;
   const now = Date.now();
+  
+  // Safety check for category access
+  if (!category) {
+    console.warn('Category not found in codex:', categoryKey);
+    return codex;
+  }
   
   if (category[id]) {
     category[id] = {
       ...category[id],
-      discoveryCount: category[id].discoveryCount + 1,
+      discoveryCount: (category[id].discoveryCount || 0) + 1,
       lastSeenAt: now
     };
   } else {
