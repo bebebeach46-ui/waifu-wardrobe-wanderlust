@@ -3,7 +3,8 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { ChevronLeft, Save, Heart, Skull, Sparkles, Shield, Cloud, Hammer, TrendingUp, Crown, ShoppingCart, BookOpen, Star, Map, Compass } from "lucide-react";
+import { ChevronLeft, Save, Heart, Skull, Sparkles, Shield, Cloud, Hammer, TrendingUp, Crown, ShoppingCart, BookOpen, Star, Map, Compass, Eye, EyeOff } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { Shop } from "@/components/Shop";
 import { ShopItem } from "@/lib/shopGenerator";
 import { CodexComponent } from "@/components/Codex";
@@ -60,6 +61,7 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
   const [currentQuest, setCurrentQuest] = useState<Quest>(() => savedData?.currentQuest || generateQuest(worldData, 1, savedData?.travelState));
   const [questProgress, setQuestProgress] = useState(0);
   const [showMap, setShowMap] = useState(false);
+  const [simplifiedMode, setSimplifiedMode] = useState(() => savedData?.simplifiedMode || false);
   const [companions, setCompanions] = useState<any[]>(() => savedData?.companions || []);
   const [treasure, setTreasure] = useState(savedData?.treasure || 0);
   const [shopName] = useState(savedData?.shopName || generateShopName());
@@ -1120,6 +1122,7 @@ Death occurred at: ${new Date().toLocaleString()}
       wounds,
       travelState,
       encounterState,
+      simplifiedMode,
       characterName: character.name,
       level: stats.level,
       timestamp: Date.now()
@@ -1520,7 +1523,15 @@ Death occurred at: ${new Date().toLocaleString()}
           <ChevronLeft className="h-5 w-5" />
         </Button>
         <h2 className="text-xl font-bold">{worldData.name}</h2>
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center">
+          <div className="flex items-center gap-1" title={simplifiedMode ? "Switch to detailed view" : "Switch to simplified view"}>
+            {simplifiedMode ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
+            <Switch 
+              checked={simplifiedMode} 
+              onCheckedChange={setSimplifiedMode}
+              className="scale-75"
+            />
+          </div>
           <Button variant="ghost" size="icon" onClick={() => setIsCodexOpen(true)} title="Discovery Codex">
             <BookOpen className="h-5 w-5" />
           </Button>
@@ -1533,6 +1544,7 @@ Death occurred at: ${new Date().toLocaleString()}
         </div>
       </div>
 
+      {/* Character Header - Always visible */}
       <div className="space-y-2">
         <div className="flex justify-between text-sm">
           <span className="font-semibold">{character.name}</span>
@@ -1563,6 +1575,7 @@ Death occurred at: ${new Date().toLocaleString()}
         <Progress value={(stats.exp / stats.expToNext) * 100} className="h-2" />
       </div>
 
+      {/* Stats Summary - Always visible */}
       <div className="grid grid-cols-3 gap-2 text-sm">
         <div className="bg-muted p-2 rounded">
           <div className="text-muted-foreground">Gold</div>
@@ -1585,85 +1598,111 @@ Death occurred at: ${new Date().toLocaleString()}
         </div>
       )}
 
-      {/* Location & Map Section */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <div className="text-sm font-semibold flex items-center gap-1">
-            <Compass className="w-4 h-4" /> Location
+      {/* Simplified Mode: Core Stats */}
+      {simplifiedMode && (
+        <div className="space-y-2">
+          <div className="text-sm font-semibold">Core Stats</div>
+          <div className="grid grid-cols-4 gap-1 text-xs">
+            <div className="bg-muted p-1 rounded">STR: {character.stats.strength}</div>
+            <div className="bg-muted p-1 rounded">DEX: {character.stats.dexterity}</div>
+            <div className="bg-muted p-1 rounded">CON: {character.stats.constitution}</div>
+            <div className="bg-muted p-1 rounded">INT: {character.stats.intelligence}</div>
+            <div className="bg-muted p-1 rounded">WIS: {character.stats.wisdom}</div>
+            <div className="bg-muted p-1 rounded">CHA: {character.stats.charisma}</div>
+            <div className="bg-muted p-1 rounded">LUK: {character.stats.luck}</div>
           </div>
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            className="h-6 px-2"
-            onClick={() => setShowMap(!showMap)}
-          >
-            <Map className="w-3 h-3 mr-1" /> {showMap ? 'Hide' : 'Map'}
-          </Button>
         </div>
-        
-        <div className="bg-muted p-3 rounded space-y-2">
-          <div className="flex justify-between items-start">
-            <div>
-              <div className={`font-medium ${getRegionDangerColor(travelState.currentRegion.dangerLevel)}`}>
-                {travelState.currentRegion.name}
-              </div>
-              <div className="text-xs text-muted-foreground">{travelState.currentRegion.type}</div>
+      )}
+
+      {/* Location - Simplified in simplified mode */}
+      {simplifiedMode ? (
+        <div className="bg-muted p-3 rounded">
+          <div className="flex items-center gap-2 text-sm">
+            <Compass className="w-4 h-4" />
+            <span className={`font-medium ${getRegionDangerColor(travelState.currentRegion.dangerLevel)}`}>
+              {travelState.currentRegion.name}
+            </span>
+            <span className="text-muted-foreground">→</span>
+            <span>{travelState.currentArea.name}</span>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="text-sm font-semibold flex items-center gap-1">
+              <Compass className="w-4 h-4" /> Location
             </div>
-            <div className="text-right">
-              <Badge variant="outline" className="text-xs">
-                Danger: {travelState.currentRegion.dangerLevel}/10
-              </Badge>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="h-6 px-2"
+              onClick={() => setShowMap(!showMap)}
+            >
+              <Map className="w-3 h-3 mr-1" /> {showMap ? 'Hide' : 'Map'}
+            </Button>
+          </div>
+        
+          <div className="bg-muted p-3 rounded space-y-2">
+            <div className="flex justify-between items-start">
+              <div>
+                <div className={`font-medium ${getRegionDangerColor(travelState.currentRegion.dangerLevel)}`}>
+                  {travelState.currentRegion.name}
+                </div>
+                <div className="text-xs text-muted-foreground">{travelState.currentRegion.type}</div>
+              </div>
+              <div className="text-right">
+                <Badge variant="outline" className="text-xs">
+                  Danger: {travelState.currentRegion.dangerLevel}/10
+                </Badge>
+              </div>
+            </div>
+            
+            <div className="border-t border-border pt-2">
+              <div className="flex items-center gap-2 text-sm">
+                <span>{getDirectionIcon(travelState.direction)}</span>
+                <span className="font-medium">{travelState.currentArea.name}</span>
+              </div>
+              <div className="text-xs text-muted-foreground mt-1">
+                {travelState.currentArea.terrain}
+              </div>
+              {travelState.currentArea.features.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {travelState.currentArea.features.map((feature, i) => (
+                    <span key={i} className="text-xs bg-background/50 px-1.5 py-0.5 rounded">
+                      {feature}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+            
+            <div className="text-xs text-muted-foreground flex justify-between border-t border-border pt-2">
+              <span>📍 Areas explored: {travelState.areasExplored}</span>
+              <span>🚶 Distance: {travelState.distanceTraveled}</span>
             </div>
           </div>
           
-          <div className="border-t border-border pt-2">
-            <div className="flex items-center gap-2 text-sm">
-              <span>{getDirectionIcon(travelState.direction)}</span>
-              <span className="font-medium">{travelState.currentArea.name}</span>
-            </div>
-            <div className="text-xs text-muted-foreground mt-1">
-              {travelState.currentArea.terrain}
-            </div>
-            {travelState.currentArea.features.length > 0 && (
-              <div className="flex flex-wrap gap-1 mt-2">
-                {travelState.currentArea.features.map((feature, i) => (
-                  <span key={i} className="text-xs bg-background/50 px-1.5 py-0.5 rounded">
-                    {feature}
-                  </span>
+          {showMap && (
+            <div className="bg-background border border-border rounded p-2">
+              <div className="text-xs font-semibold mb-2 text-center">Region Map</div>
+              <div className="grid grid-cols-5 gap-1">
+                {generateMapOverlay(travelState).flat().map((tile, i) => (
+                  <div 
+                    key={i}
+                    className={`w-8 h-8 flex items-center justify-center text-sm rounded ${
+                      tile.current ? 'bg-primary/30 border-2 border-primary' : 
+                      tile.explored ? 'bg-muted' : 'bg-muted/30'
+                    }`}
+                    title={tile.explored ? `${tile.type} (Danger: ${tile.dangerLevel})` : 'Unexplored'}
+                  >
+                    {getMapTileIcon(tile)}
+                  </div>
                 ))}
               </div>
-            )}
-          </div>
-          
-          <div className="text-xs text-muted-foreground flex justify-between border-t border-border pt-2">
-            <span>📍 Areas explored: {travelState.areasExplored}</span>
-            <span>🚶 Distance: {travelState.distanceTraveled}</span>
-          </div>
-        </div>
-        
-        {/* Mini Map Overlay */}
-        {showMap && (
-          <div className="bg-background border border-border rounded p-2">
-            <div className="text-xs font-semibold mb-2 text-center">Region Map</div>
-            <div className="grid grid-cols-5 gap-1">
-              {generateMapOverlay(travelState).flat().map((tile, i) => (
-                <div 
-                  key={i}
-                  className={`w-8 h-8 flex items-center justify-center text-sm rounded ${
-                    tile.current ? 'bg-primary/30 border-2 border-primary' : 
-                    tile.explored ? 'bg-muted' : 'bg-muted/30'
-                  }`}
-                  title={tile.explored ? `${tile.type} (Danger: ${tile.dangerLevel})` : 'Unexplored'}
-                >
-                  {getMapTileIcon(tile)}
-                </div>
-              ))}
             </div>
-          </div>
-        )}
-      </div>
-
-      {/* Current Quest Section */}
+          )}
+        </div>
+      )}
       <div className="space-y-2">
         <div className="text-sm font-semibold">Current Quest</div>
         <div className={`p-3 rounded space-y-2 ${currentQuest.rank?.bgColor || 'bg-muted'}`}>
@@ -1689,14 +1728,13 @@ Death occurred at: ${new Date().toLocaleString()}
         </div>
       </div>
 
-      {/* Companion Encounter System */}
-      {companions.length < 3 && (
+      {/* Companion Encounter System - Only in detailed mode */}
+      {!simplifiedMode && companions.length < 3 && (
         <div className="space-y-2">
           <div className="text-sm font-semibold flex items-center gap-1">
             <Sparkles className="w-4 h-4" /> Companion Encounters
           </div>
           <div className="bg-muted p-2 rounded space-y-2">
-            {/* Active Encounter */}
             {encounterState.activeEncounter ? (
               <div className="bg-primary/10 p-2 rounded space-y-1">
                 <div className="text-xs font-medium text-primary">
@@ -1719,7 +1757,6 @@ Death occurred at: ${new Date().toLocaleString()}
               </div>
             )}
             
-            {/* Top Affinities */}
             <div className="space-y-1">
               <div className="text-xs font-medium">Building Affinity:</div>
               <div className="flex flex-wrap gap-1">
@@ -1745,75 +1782,117 @@ Death occurred at: ${new Date().toLocaleString()}
         </div>
       )}
 
-      <div className="space-y-2">
-        <div className="text-sm font-semibold">Equipment</div>
-        <div className="space-y-1 text-xs">
-          {Object.entries(character.equipment).map(([slot, item]) => (
-            <div key={slot} className="bg-muted p-2 rounded flex justify-between">
-              <span className="text-muted-foreground capitalize">{slot}</span>
-              <span>{item as string}</span>
+      {/* Detailed-only sections */}
+      {!simplifiedMode && (
+        <>
+          <div className="space-y-2">
+            <div className="text-sm font-semibold">Equipment</div>
+            <div className="space-y-1 text-xs">
+              {Object.entries(character.equipment).map(([slot, item]) => (
+                <div key={slot} className="bg-muted p-2 rounded flex justify-between">
+                  <span className="text-muted-foreground capitalize">{slot}</span>
+                  <span>{item as string}</span>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-      </div>
+          </div>
 
-      <div className="space-y-2">
-        <div className="text-sm font-semibold">Stats</div>
-        <div className="grid grid-cols-4 gap-1 text-xs">
-          <div className="bg-muted p-1 rounded">STR: {character.stats.strength}</div>
-          <div className="bg-muted p-1 rounded">DEX: {character.stats.dexterity}</div>
-          <div className="bg-muted p-1 rounded">CON: {character.stats.constitution}</div>
-          <div className="bg-muted p-1 rounded">INT: {character.stats.intelligence}</div>
-          <div className="bg-muted p-1 rounded">WIS: {character.stats.wisdom}</div>
-          <div className="bg-muted p-1 rounded">CHA: {character.stats.charisma}</div>
-          <div className="bg-muted p-1 rounded">LUK: {character.stats.luck}</div>
-        </div>
-      </div>
+          <div className="space-y-2">
+            <div className="text-sm font-semibold">Stats</div>
+            <div className="grid grid-cols-4 gap-1 text-xs">
+              <div className="bg-muted p-1 rounded">STR: {character.stats.strength}</div>
+              <div className="bg-muted p-1 rounded">DEX: {character.stats.dexterity}</div>
+              <div className="bg-muted p-1 rounded">CON: {character.stats.constitution}</div>
+              <div className="bg-muted p-1 rounded">INT: {character.stats.intelligence}</div>
+              <div className="bg-muted p-1 rounded">WIS: {character.stats.wisdom}</div>
+              <div className="bg-muted p-1 rounded">CHA: {character.stats.charisma}</div>
+              <div className="bg-muted p-1 rounded">LUK: {character.stats.luck}</div>
+            </div>
+          </div>
 
-      <div className="space-y-2">
-        <div className="text-sm font-semibold">Equipment</div>
-        <div className="grid grid-cols-2 gap-1 text-xs">
-          <div className="bg-muted p-1 rounded truncate" title={character.equipment.weapon}>⚔️ {character.equipment.weapon}</div>
-          <div className="bg-muted p-1 rounded truncate" title={character.equipment.shield}>🛡️ {character.equipment.shield}</div>
-          <div className="bg-muted p-1 rounded truncate" title={character.equipment.armor}>🦺 {character.equipment.armor}</div>
-          <div className="bg-muted p-1 rounded truncate" title={character.equipment.head}>👑 {character.equipment.head}</div>
-          <div className="bg-muted p-1 rounded truncate" title={character.equipment.cloak}>🧥 {character.equipment.cloak}</div>
-          <div className="bg-muted p-1 rounded truncate" title={character.equipment.boots}>👢 {character.equipment.boots}</div>
-          <div className="bg-muted p-1 rounded truncate" title={character.equipment.gauntlets}>🥊 {character.equipment.gauntlets}</div>
-          <div className="bg-muted p-1 rounded truncate" title={character.equipment.ring1}>💍 {character.equipment.ring1}</div>
-          <div className="bg-muted p-1 rounded truncate" title={character.equipment.ring2}>💍 {character.equipment.ring2}</div>
-          <div className="bg-muted p-1 rounded truncate" title={character.equipment.amulet}>📿 {character.equipment.amulet}</div>
-          <div className="bg-muted p-1 rounded truncate" title={character.equipment.ammo}>🎯 {character.equipment.ammo}</div>
-        </div>
-      </div>
+          <div className="space-y-2">
+            <div className="text-sm font-semibold">Equipment</div>
+            <div className="grid grid-cols-2 gap-1 text-xs">
+              <div className="bg-muted p-1 rounded truncate" title={character.equipment.weapon}>⚔️ {character.equipment.weapon}</div>
+              <div className="bg-muted p-1 rounded truncate" title={character.equipment.shield}>🛡️ {character.equipment.shield}</div>
+              <div className="bg-muted p-1 rounded truncate" title={character.equipment.armor}>🦺 {character.equipment.armor}</div>
+              <div className="bg-muted p-1 rounded truncate" title={character.equipment.head}>👑 {character.equipment.head}</div>
+              <div className="bg-muted p-1 rounded truncate" title={character.equipment.cloak}>🧥 {character.equipment.cloak}</div>
+              <div className="bg-muted p-1 rounded truncate" title={character.equipment.boots}>👢 {character.equipment.boots}</div>
+              <div className="bg-muted p-1 rounded truncate" title={character.equipment.gauntlets}>🥊 {character.equipment.gauntlets}</div>
+              <div className="bg-muted p-1 rounded truncate" title={character.equipment.ring1}>💍 {character.equipment.ring1}</div>
+              <div className="bg-muted p-1 rounded truncate" title={character.equipment.ring2}>💍 {character.equipment.ring2}</div>
+              <div className="bg-muted p-1 rounded truncate" title={character.equipment.amulet}>📿 {character.equipment.amulet}</div>
+              <div className="bg-muted p-1 rounded truncate" title={character.equipment.ammo}>🎯 {character.equipment.ammo}</div>
+            </div>
+          </div>
 
-      <div className="space-y-2">
-        <div className="text-sm font-semibold">Physical Skills</div>
-        <div className="flex flex-wrap gap-1">
-          {character.skills.map((skill: string) => (
-            <span key={skill} className="bg-primary/20 text-primary px-2 py-1 rounded text-xs">
-              {skill}
-            </span>
-          ))}
-        </div>
-      </div>
+          <div className="space-y-2">
+            <div className="text-sm font-semibold">Physical Skills</div>
+            <div className="flex flex-wrap gap-1">
+              {character.skills.map((skill: string) => (
+                <span key={skill} className="bg-primary/20 text-primary px-2 py-1 rounded text-xs">
+                  {skill}
+                </span>
+              ))}
+            </div>
+          </div>
 
-      <div className="space-y-2">
-        <div className="text-sm font-semibold">Magic Spells</div>
-        <div className="flex flex-wrap gap-1">
-          {character.spells.map((spell: any, i: number) => (
-            <span 
-              key={i} 
-              className="bg-accent/20 text-accent px-2 py-1 rounded text-xs"
-              title={`Save: ${spell.save} | Fail: ${(spell.failChance * 100).toFixed(0)}%`}
-            >
-              {spell.name}
-            </span>
-          ))}
-        </div>
-      </div>
+          <div className="space-y-2">
+            <div className="text-sm font-semibold">Magic Spells</div>
+            <div className="flex flex-wrap gap-1">
+              {character.spells.map((spell: any, i: number) => (
+                <span 
+                  key={i} 
+                  className="bg-accent/20 text-accent px-2 py-1 rounded text-xs"
+                  title={`Save: ${spell.save} | Fail: ${(spell.failChance * 100).toFixed(0)}%`}
+                >
+                  {spell.name}
+                </span>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
 
-      {companions.length > 0 && (
+      {/* Simplified Mode: Highest Bonded Companion Only */}
+      {simplifiedMode && companions.length > 0 && (() => {
+        const highestBonded = [...companions].sort((a, b) => (b.relationship || 0) - (a.relationship || 0))[0];
+        const bondCap = highestBonded.bondCap || 10;
+        return (
+          <div className="bg-muted p-3 rounded">
+            <div className="flex items-center gap-2 text-sm font-semibold mb-2">
+              <Heart className="w-4 h-4" /> Top Companion
+            </div>
+            <div className="flex justify-between items-center">
+              <div>
+                <div className="font-medium">{highestBonded.name}</div>
+                <div className="text-xs text-muted-foreground">{highestBonded.race} {highestBonded.class}</div>
+              </div>
+              <div className="text-right">
+                <span className="text-xs bg-primary/20 text-primary px-2 py-1 rounded">
+                  {highestBonded.relationshipName} ({Math.floor(highestBonded.relationship)}/{bondCap})
+                </span>
+              </div>
+            </div>
+            <Progress value={(highestBonded.relationship / bondCap) * 100} className="h-1 mt-2" />
+          </div>
+        );
+      })()}
+
+      {/* Simplified Mode: Weather (always visible) */}
+      {simplifiedMode && (
+        <div className="bg-muted p-3 rounded">
+          <div className="flex items-center gap-2">
+            <Cloud className="w-4 h-4" />
+            <span className="font-medium">{weather.icon} {weather.name}</span>
+          </div>
+          <div className="text-xs text-muted-foreground mt-1">{weather.effect}</div>
+        </div>
+      )}
+
+      {/* Detailed Mode: Full Companions List */}
+      {!simplifiedMode && companions.length > 0 && (
         <div className="space-y-2">
           <div className="text-sm font-semibold flex items-center gap-1">
             <Heart className="w-4 h-4" /> Companions ({companions.length}/3)
@@ -1855,216 +1934,221 @@ Death occurred at: ${new Date().toLocaleString()}
         </div>
       )}
 
-      {statusEffects.length > 0 && (
-        <div className="space-y-2">
-          <div className="text-sm font-semibold flex items-center gap-1">
-            <Shield className="w-4 h-4" /> Status Effects
-          </div>
-          <div className="flex flex-wrap gap-1">
-            {statusEffects.map((effect, i) => (
-              <span 
-                key={i} 
-                className={`px-2 py-1 rounded text-xs ${
-                  effect.type === 'good' 
-                    ? 'bg-primary/20 text-primary' 
-                    : 'bg-destructive/20 text-destructive'
-                }`}
-                title={effect.description}
-              >
-                {effect.icon} {effect.name}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {summons.length > 0 && (
-        <div className="space-y-2">
-          <div className="text-sm font-semibold flex items-center gap-1">
-            <Sparkles className="w-4 h-4" /> Summons
-          </div>
-          <div className="space-y-2">
-            {summons.map((summon, i) => (
-              <div key={i} className="bg-gradient-to-r from-primary/20 to-accent/20 p-2 rounded">
-                <div className="font-bold text-sm">{summon.name}</div>
-                <div className="text-xs text-muted-foreground">{summon.description}</div>
-                <div className="text-xs text-accent mt-1">
-                  {summon.ability} (Power: {summon.power})
-                </div>
+      {/* Detailed-only sections: Status, Summons, Combat, Events, Deity, Skills, Materials, Monsters */}
+      {!simplifiedMode && (
+        <>
+          {statusEffects.length > 0 && (
+            <div className="space-y-2">
+              <div className="text-sm font-semibold flex items-center gap-1">
+                <Shield className="w-4 h-4" /> Status Effects
               </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {married && (
-        <div className="bg-primary/10 p-2 rounded">
-          <div className="text-xs text-muted-foreground">💍 Married to</div>
-          <div className="font-medium text-sm">{married.name}</div>
-          {hasOffspring && (
-            <div className="text-xs text-primary mt-1">
-              Child: {offspringData.name} ({offspringData.gender})
+              <div className="flex flex-wrap gap-1">
+                {statusEffects.map((effect, i) => (
+                  <span 
+                    key={i} 
+                    className={`px-2 py-1 rounded text-xs ${
+                      effect.type === 'good' 
+                        ? 'bg-primary/20 text-primary' 
+                        : 'bg-destructive/20 text-destructive'
+                    }`}
+                    title={effect.description}
+                  >
+                    {effect.icon} {effect.name}
+                  </span>
+                ))}
+              </div>
             </div>
           )}
-        </div>
-      )}
 
-      {combatLog.length > 0 && (
-        <div className="space-y-2">
-          <div className="text-sm font-semibold flex items-center gap-2">
-            Combat Log
-            {(activeEffects.some(e => e.type === 'vision_crystal' && e.endTime > Date.now()) || hasGrandVisionCrystal) && (
-              <span className="text-xs text-primary">💎 {hasGrandVisionCrystal ? 'Grand Vision' : 'Vision Active'}</span>
-            )}
-          </div>
-          <div className="bg-muted p-2 rounded space-y-1 max-h-32 overflow-y-auto">
-            {combatLog.slice(0, 10).map((log, i) => (
-              <div key={i} className="text-xs">
-                <div>{log.description}</div>
-                {log.playerHp !== undefined && (
-                  <div className="text-muted-foreground ml-2">
-                    HP: {log.playerHp}/{log.details?.playerMaxHp} | Enemy: {log.enemyHp}/{log.details?.enemyMaxHp} | DMG: {log.damage}
+          {summons.length > 0 && (
+            <div className="space-y-2">
+              <div className="text-sm font-semibold flex items-center gap-1">
+                <Sparkles className="w-4 h-4" /> Summons
+              </div>
+              <div className="space-y-2">
+                {summons.map((summon, i) => (
+                  <div key={i} className="bg-gradient-to-r from-primary/20 to-accent/20 p-2 rounded">
+                    <div className="font-bold text-sm">{summon.name}</div>
+                    <div className="text-xs text-muted-foreground">{summon.description}</div>
+                    <div className="text-xs text-accent mt-1">
+                      {summon.ability} (Power: {summon.power})
+                    </div>
                   </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {married && (
+            <div className="bg-primary/10 p-2 rounded">
+              <div className="text-xs text-muted-foreground">💍 Married to</div>
+              <div className="font-medium text-sm">{married.name}</div>
+              {hasOffspring && (
+                <div className="text-xs text-primary mt-1">
+                  Child: {offspringData.name} ({offspringData.gender})
+                </div>
+              )}
+            </div>
+          )}
+
+          {combatLog.length > 0 && (
+            <div className="space-y-2">
+              <div className="text-sm font-semibold flex items-center gap-2">
+                Combat Log
+                {(activeEffects.some(e => e.type === 'vision_crystal' && e.endTime > Date.now()) || hasGrandVisionCrystal) && (
+                  <span className="text-xs text-primary">💎 {hasGrandVisionCrystal ? 'Grand Vision' : 'Vision Active'}</span>
                 )}
               </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {eventLog.length > 0 && (
-        <div className="space-y-2">
-          <div className="text-sm font-semibold">Event Log</div>
-          <div className="bg-muted p-2 rounded space-y-1 max-h-32 overflow-y-auto">
-            {eventLog.map((event, i) => (
-              <div 
-                key={i} 
-                className={`text-xs ${
-                  event.sentiment === 'negative' ? 'text-event-negative' :
-                  event.sentiment === 'neutral' ? 'text-event-neutral' :
-                  'text-event-positive'
-                }`}
-              >
-                • {event.text}
+              <div className="bg-muted p-2 rounded space-y-1 max-h-32 overflow-y-auto">
+                {combatLog.slice(0, 10).map((log, i) => (
+                  <div key={i} className="text-xs">
+                    <div>{log.description}</div>
+                    {log.playerHp !== undefined && (
+                      <div className="text-muted-foreground ml-2">
+                        HP: {log.playerHp}/{log.details?.playerMaxHp} | Enemy: {log.enemyHp}/{log.details?.enemyMaxHp} | DMG: {log.damage}
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        </div>
-      )}
+            </div>
+          )}
 
-      <div className="space-y-2">
-        <div className="text-sm font-semibold flex items-center gap-1">
-          <Crown className="w-4 h-4" /> Deity & Alignment
-        </div>
-        <div className="bg-muted p-2 rounded space-y-1">
-          <div className="text-xs">
-            <span className="text-muted-foreground">Worshipping:</span> {deity.name}
-          </div>
-          <div className="text-xs text-muted-foreground">
-            {deity.domain} • {deity.personality}
-          </div>
-          <div className="text-xs">
-            <span className="text-muted-foreground">Deity Alignment:</span> {deity.alignment}
-          </div>
-          <div className="text-xs">
-            <span className="text-muted-foreground">Favor:</span> {deity.favor}/100
-          </div>
-          <Progress value={deity.favor} className="h-1" />
-          <div className="text-xs mt-1">
-            <span className="text-muted-foreground">Your Alignment:</span> {alignment}
-          </div>
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        <div className="text-sm font-semibold flex items-center gap-1">
-          <Cloud className="w-4 h-4" /> Weather
-        </div>
-        <div className="bg-muted p-2 rounded">
-          <div className="font-medium text-sm">{weather.icon} {weather.name}</div>
-          <div className="text-xs text-muted-foreground">{weather.description}</div>
-          <div className="text-xs text-primary mt-1">{weather.effect}</div>
-        </div>
-      </div>
-
-      {lifeSkills.length > 0 && (
-        <div className="space-y-2">
-          <div className="text-sm font-semibold flex items-center gap-1">
-            <TrendingUp className="w-4 h-4" /> Life Skills
-          </div>
-          <div className="space-y-1">
-            {lifeSkills.map((skill, i) => (
-              <div key={i} className="bg-muted p-2 rounded">
-                <div className="flex justify-between text-xs">
-                  <span>{skill.name}</span>
-                  <span className="text-primary">{skill.rank}</span>
-                </div>
-                <Progress value={(skill.experience % 100)} className="h-1 mt-1" />
+          {eventLog.length > 0 && (
+            <div className="space-y-2">
+              <div className="text-sm font-semibold">Event Log</div>
+              <div className="bg-muted p-2 rounded space-y-1 max-h-32 overflow-y-auto">
+                {eventLog.map((event, i) => (
+                  <div 
+                    key={i} 
+                    className={`text-xs ${
+                      event.sentiment === 'negative' ? 'text-event-negative' :
+                      event.sentiment === 'neutral' ? 'text-event-neutral' :
+                      'text-event-positive'
+                    }`}
+                  >
+                    • {event.text}
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        </div>
-      )}
+            </div>
+          )}
 
-      {materials.length > 0 && (
-        <div className="space-y-2">
-          <div className="text-sm font-semibold flex items-center gap-1">
-            <Hammer className="w-4 h-4" /> Materials
+          <div className="space-y-2">
+            <div className="text-sm font-semibold flex items-center gap-1">
+              <Crown className="w-4 h-4" /> Deity & Alignment
+            </div>
+            <div className="bg-muted p-2 rounded space-y-1">
+              <div className="text-xs">
+                <span className="text-muted-foreground">Worshipping:</span> {deity.name}
+              </div>
+              <div className="text-xs text-muted-foreground">
+                {deity.domain} • {deity.personality}
+              </div>
+              <div className="text-xs">
+                <span className="text-muted-foreground">Deity Alignment:</span> {deity.alignment}
+              </div>
+              <div className="text-xs">
+                <span className="text-muted-foreground">Favor:</span> {deity.favor}/100
+              </div>
+              <Progress value={deity.favor} className="h-1" />
+              <div className="text-xs mt-1">
+                <span className="text-muted-foreground">Your Alignment:</span> {alignment}
+              </div>
+            </div>
           </div>
-          <div className="flex flex-wrap gap-1">
-            {materials.map((mat, i) => (
-              <span key={i} className="bg-accent/20 text-accent px-2 py-1 rounded text-xs">
-                {mat.name}: {mat.amount}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
 
-      {monstersKilled.length > 0 && (
-        <div className="space-y-2">
-          <div className="text-sm font-semibold flex items-center gap-1">
-            <Skull className="w-4 h-4" /> Monster Kills ({monstersKilled.reduce((sum, m) => sum + m.count, 0)} Total)
+          <div className="space-y-2">
+            <div className="text-sm font-semibold flex items-center gap-1">
+              <Cloud className="w-4 h-4" /> Weather
+            </div>
+            <div className="bg-muted p-2 rounded">
+              <div className="font-medium text-sm">{weather.icon} {weather.name}</div>
+              <div className="text-xs text-muted-foreground">{weather.description}</div>
+              <div className="text-xs text-primary mt-1">{weather.effect}</div>
+            </div>
           </div>
-          <div className="space-y-1 max-h-32 overflow-y-auto">
-            {monstersKilled
-              .sort((a, b) => b.count - a.count)
-              .slice(0, 10)
-              .map((monster, i) => (
-                <div key={i} className="bg-muted p-1 rounded text-xs flex justify-between">
-                  <span>{monster.name}</span>
-                  <span className="text-primary">
-                    x{monster.count} {monster.rank && `(R${monster.rank})`}
+
+          {lifeSkills.length > 0 && (
+            <div className="space-y-2">
+              <div className="text-sm font-semibold flex items-center gap-1">
+                <TrendingUp className="w-4 h-4" /> Life Skills
+              </div>
+              <div className="space-y-1">
+                {lifeSkills.map((skill, i) => (
+                  <div key={i} className="bg-muted p-2 rounded">
+                    <div className="flex justify-between text-xs">
+                      <span>{skill.name}</span>
+                      <span className="text-primary">{skill.rank}</span>
+                    </div>
+                    <Progress value={(skill.experience % 100)} className="h-1 mt-1" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {materials.length > 0 && (
+            <div className="space-y-2">
+              <div className="text-sm font-semibold flex items-center gap-1">
+                <Hammer className="w-4 h-4" /> Materials
+              </div>
+              <div className="flex flex-wrap gap-1">
+                {materials.map((mat, i) => (
+                  <span key={i} className="bg-accent/20 text-accent px-2 py-1 rounded text-xs">
+                    {mat.name}: {mat.amount}
                   </span>
-                </div>
-              ))}
-          </div>
-        </div>
-      )}
+                ))}
+              </div>
+            </div>
+          )}
 
-      <div className="bg-muted p-2 rounded">
-        <div className="text-xs text-muted-foreground">Favorite Shop</div>
-        <div className="font-medium text-sm">{shopName}</div>
-        <div className="text-xs text-accent mt-1">Treasure: {treasure} gold worth</div>
-      </div>
+          {monstersKilled.length > 0 && (
+            <div className="space-y-2">
+              <div className="text-sm font-semibold flex items-center gap-1">
+                <Skull className="w-4 h-4" /> Monster Kills ({monstersKilled.reduce((sum, m) => sum + m.count, 0)} Total)
+              </div>
+              <div className="space-y-1 max-h-32 overflow-y-auto">
+                {monstersKilled
+                  .sort((a, b) => b.count - a.count)
+                  .slice(0, 10)
+                  .map((monster, i) => (
+                    <div key={i} className="bg-muted p-1 rounded text-xs flex justify-between">
+                      <span>{monster.name}</span>
+                      <span className="text-primary">
+                        x{monster.count} {monster.rank && `(R${monster.rank})`}
+                      </span>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          )}
 
-      {activeEffects.length > 0 && (
-        <div className="space-y-2">
-          <div className="text-sm font-semibold flex items-center gap-1">
-            <Sparkles className="w-4 h-4" /> Active Buffs
+          <div className="bg-muted p-2 rounded">
+            <div className="text-xs text-muted-foreground">Favorite Shop</div>
+            <div className="font-medium text-sm">{shopName}</div>
+            <div className="text-xs text-accent mt-1">Treasure: {treasure} gold worth</div>
           </div>
-          <div className="flex flex-wrap gap-1">
-            {activeEffects.map((effect, i) => (
-              <span 
-                key={i} 
-                className="bg-accent/20 text-accent px-2 py-1 rounded text-xs"
-              >
-                {effect.type.replace('_', ' ').toUpperCase()}
-                {effect.endTime && ` (${Math.ceil((effect.endTime - Date.now()) / 1000 / 60)}m)`}
-              </span>
-            ))}
-          </div>
-        </div>
+
+          {activeEffects.length > 0 && (
+            <div className="space-y-2">
+              <div className="text-sm font-semibold flex items-center gap-1">
+                <Sparkles className="w-4 h-4" /> Active Buffs
+              </div>
+              <div className="flex flex-wrap gap-1">
+                {activeEffects.map((effect, i) => (
+                  <span 
+                    key={i} 
+                    className="bg-accent/20 text-accent px-2 py-1 rounded text-xs"
+                  >
+                    {effect.type.replace('_', ' ').toUpperCase()}
+                    {effect.endTime && ` (${Math.ceil((effect.endTime - Date.now()) / 1000 / 60)}m)`}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
       )}
 
       <Shop
