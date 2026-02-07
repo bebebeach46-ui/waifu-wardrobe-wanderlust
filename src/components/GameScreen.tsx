@@ -30,6 +30,7 @@ import { Wound, rollForWound, healWounds, calculatePainPenalty, calculateBleedin
 import { checkCriticalHit, calculateAttack } from "@/lib/combatSystem";
 import { generateDeathNarrative, formatLastBattleActions, generateFinalMomentsSection } from "@/lib/deathNarrativeGenerator";
 import { TravelState, initializeTravelState, shouldChangeArea, travelToNewArea, getDirectionIcon, getRegionDangerColor, generateMapOverlay, getMapTileIcon } from "@/lib/locationSystem";
+import { EventTicker, TickerEvent, createLegendaryEvent } from "@/components/EventTicker";
 
 interface GameScreenProps {
   worldData: any;
@@ -93,6 +94,7 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
   const [activeEffects, setActiveEffects] = useState<any[]>(() => savedData?.activeEffects || []);
   const [codex, setCodex] = useState<Codex>(() => savedData?.codex || createEmptyCodex());
   const [encounterState, setEncounterState] = useState<CompanionEncounterState>(() => savedData?.encounterState || initializeEncounterState());
+  const [legendaryEvents, setLegendaryEvents] = useState<TickerEvent[]>([]);
   const [hasGrandVisionCrystal, setHasGrandVisionCrystal] = useState(() => {
     const completions = localStorage.getItem('difficulty_completions');
     return completions ? JSON.parse(completions).length > 0 : false;
@@ -622,6 +624,13 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
             // Marriage and child at max relationship (only if bond cap is 10)
             if (newRel >= 10 && bondCap === 10 && !married && comp.relationship < 10) {
               setMarried(comp);
+              
+              // Add legendary ticker event for max bond
+              setLegendaryEvents(prev => [
+                createLegendaryEvent(`💍 MAX BOND 10: ${comp.name} and ${character.name} are now married! Soul bond complete!`),
+                ...prev
+              ].slice(0, 5));
+              
               toast({
                 title: "💍 Marriage!",
                 description: `${comp.name} and ${character.name} are now married!`
@@ -690,6 +699,13 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
             if (canSummon(newShards)) {
               const newSummon = generateSummon();
               setSummons(prev => [...prev, newSummon]);
+              
+              // Add legendary ticker event for summon
+              setLegendaryEvents(prev => [
+                createLegendaryEvent(`🌟 LEGENDARY SUMMON: ${newSummon.name} acquired after collecting 10,000 shards!`),
+                ...prev
+              ].slice(0, 5));
+              
               toast({
                 title: "🌟 LEGENDARY SUMMON ACQUIRED!",
                 description: `${newSummon.name} - You collected 10,000 shards!`,
@@ -1517,7 +1533,16 @@ Death occurred at: ${new Date().toLocaleString()}
   }
 
   return (
-    <Card className="p-4 space-y-4 max-h-[90vh] overflow-y-auto">
+    <Card className="p-0 space-y-0 max-h-[90vh] overflow-y-auto">
+      {/* Event Ticker - Godville style at top */}
+      <EventTicker 
+        weather={weather}
+        statusEffects={statusEffects}
+        eventLog={eventLog}
+        recentEvents={legendaryEvents}
+      />
+      
+      <div className="p-4 space-y-4">
       <div className="flex items-center justify-between">
         <Button variant="ghost" size="icon" onClick={onBack}>
           <ChevronLeft className="h-5 w-5" />
@@ -2167,6 +2192,7 @@ Death occurred at: ${new Date().toLocaleString()}
           onClose={() => setIsCodexOpen(false)}
         />
       )}
+      </div>
     </Card>
   );
 };
