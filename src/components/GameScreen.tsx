@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -1108,8 +1108,12 @@ Death occurred at: ${new Date().toLocaleString()}
 ═══════════════════════════════════════════════════════════`;
   };
 
-  const performSave = () => {
-    const saveData = {
+  // Use ref to always have access to latest state in save function
+  const saveDataRef = useRef<any>(null);
+  
+  // Keep ref updated with latest state
+  useEffect(() => {
+    saveDataRef.current = {
       character,
       stats,
       worldData,
@@ -1143,9 +1147,14 @@ Death occurred at: ${new Date().toLocaleString()}
       level: stats.level,
       timestamp: Date.now()
     };
+  }, [character, stats, worldData, companions, treasure, married, hasOffspring, offspringData, children, romanceDiary, statusEffects, summons, eventLog, deity, alignment, weather, materials, lifeSkills, activities, monstersKilled, currentQuest, shopName, activeEffects, codex, combatLog, wounds, travelState, encounterState, simplifiedMode]);
+
+  const performSave = useCallback(() => {
+    if (!saveDataRef.current) return null;
+    const saveData = { ...saveDataRef.current, timestamp: Date.now() };
     localStorage.setItem(`quest-idle-slot-${saveSlot}`, JSON.stringify(saveData));
     return saveData;
-  };
+  }, [saveSlot]);
 
   const handleSave = () => {
     performSave();
@@ -1169,8 +1178,23 @@ Death occurred at: ${new Date().toLocaleString()}
     }, 60000); // Every 60 seconds
     
     return () => clearInterval(autoSaveInterval);
-  }, [isDead, character, stats, companions, treasure, married, hasOffspring, offspringData, children, romanceDiary, statusEffects, summons, eventLog, deity, alignment, weather, materials, lifeSkills, activities, monstersKilled, currentQuest, shopName, activeEffects, codex, combatLog, wounds, saveSlot]);
-  
+  }, [isDead, performSave, toast]);
+
+  // Save on unmount (when leaving the game)
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      performSave();
+    };
+    
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      // Also save when component unmounts (navigating away)
+      performSave();
+    };
+  }, [performSave]);
+
   const handleContinueAsOffspring = () => {
     if (!offspringData) return;
     
