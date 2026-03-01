@@ -10,7 +10,7 @@ import { ShopItem } from "@/lib/shopGenerator";
 import { CodexComponent } from "@/components/Codex";
 import { createEmptyCodex, addDiscovery, Codex, generateLoreEntry } from "@/lib/codexSystem";
 import { useToast } from "@/hooks/use-toast";
-import { generateCharacter } from "@/lib/characterGenerator";
+import { generateCharacter, rollForNewSkill, rollForNewSpell, rollForEquipmentUnlock, getClassConfig } from "@/lib/characterGenerator";
 import { generateQuest, Quest } from "@/lib/questGenerator";
 import { generateCompanion, getRelationshipName, calculateCompatibility, getBondLevelCap, generateMilestone, generateChild, RelationshipMilestone, ChildInfo, generateCompanionAge } from "@/lib/companionGenerator";
 import { CompanionEncounterState, initializeEncounterState, updateEncounterState, completeEncounter, getTopAffinities, EncounterPreference } from "@/lib/companionEncounterSystem";
@@ -485,31 +485,32 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
               description: `Sold treasure for ${treasure} gold!`
             });
             
-            // Random equipment upgrade (50% chance when at shop)
+            // Random equipment upgrade (50% chance when at shop) - only upgrade filled slots
             if (Math.random() < 0.5) {
-              const slots = Object.keys(character.equipment);
-              const slot = slots[Math.floor(Math.random() * slots.length)];
-              const newItem = `Enhanced ${character.equipment[slot]}`;
-              
-              setCharacter(c => ({
-                ...c,
-                equipment: {
-                  ...c.equipment,
-                  [slot]: newItem
-                }
-              }));
-              
-              // Track upgraded equipment in codex
-              setCodex(prev => addDiscovery(prev, 'item', `${slot}_${newItem}`, 
-                newItem, 
-                `${slot} equipment`,
-                { slot, type: 'equipment', upgraded: true }
-              ));
-              
-              toast({
-                title: "Equipment Upgraded!",
-                description: `Upgraded ${slot}!`
-              });
+              const filledSlots = Object.keys(character.equipment).filter(s => character.equipment[s] !== null);
+              if (filledSlots.length > 0) {
+                const slot = filledSlots[Math.floor(Math.random() * filledSlots.length)];
+                const newItem = `Enhanced ${character.equipment[slot]}`;
+                
+                setCharacter(c => ({
+                  ...c,
+                  equipment: {
+                    ...c.equipment,
+                    [slot]: newItem
+                  }
+                }));
+                
+                setCodex(prev => addDiscovery(prev, 'item', `${slot}_${newItem}`, 
+                  newItem, 
+                  `${slot} equipment`,
+                  { slot, type: 'equipment', upgraded: true }
+                ));
+                
+                toast({
+                  title: "Equipment Upgraded!",
+                  description: `Upgraded ${slot}!`
+                });
+              }
             }
           }
           
@@ -693,6 +694,28 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
                 title: "Level Up!",
                 description: <span className="text-stat-increase">Now Level {s.level + 1}</span>
               });
+            }
+            
+            // Roll for new skill/spell/equipment unlock on quest complete
+            const newSkill = rollForNewSkill(character.skills, character.class);
+            if (newSkill) {
+              setCharacter(c => ({ ...c, skills: [...c.skills, newSkill] }));
+              setCodex(prev => addDiscovery(prev, 'skill', newSkill, newSkill, `Learned through adventuring`));
+              toast({ title: "⚔️ New Skill Learned!", description: newSkill, duration: 5000 });
+            }
+            
+            const newSpell = rollForNewSpell(character.spells, character.class);
+            if (newSpell) {
+              setCharacter(c => ({ ...c, spells: [...c.spells, newSpell] }));
+              setCodex(prev => addDiscovery(prev, 'spell', newSpell.name, newSpell.name, `Spell mastered through experience`));
+              toast({ title: "✨ New Spell Mastered!", description: newSpell.name, duration: 5000 });
+            }
+            
+            const equipUnlock = rollForEquipmentUnlock(character.equipment, character.class, worldData.timeline);
+            if (equipUnlock) {
+              setCharacter(c => ({ ...c, equipment: { ...c.equipment, [equipUnlock.slot]: equipUnlock.item } }));
+              setCodex(prev => addDiscovery(prev, 'item', `${equipUnlock.slot}_${equipUnlock.item}`, equipUnlock.item, `${equipUnlock.slot} slot unlocked`, { slot: equipUnlock.slot, type: 'equipment' }));
+              toast({ title: "🎒 Equipment Slot Unlocked!", description: `${equipUnlock.slot}: ${equipUnlock.item}`, duration: 5000 });
             }
             
             // Check for summon (every 10000 shards - extremely rare!)
@@ -1838,9 +1861,9 @@ Death occurred at: ${new Date().toLocaleString()}
             <div className="text-sm font-semibold">Equipment</div>
             <div className="space-y-1 text-xs">
               {Object.entries(character.equipment).map(([slot, item]) => (
-                <div key={slot} className="bg-muted p-2 rounded flex justify-between">
+                <div key={slot} className={`p-2 rounded flex justify-between ${item ? 'bg-muted' : 'bg-muted/30 border border-dashed border-muted-foreground/20'}`}>
                   <span className="text-muted-foreground capitalize">{slot}</span>
-                  <span>{item as string}</span>
+                  <span className={item ? '' : 'text-muted-foreground/40 italic'}>{item ? (item as string) : '🔒 Locked'}</span>
                 </div>
               ))}
             </div>
@@ -1861,24 +1884,33 @@ Death occurred at: ${new Date().toLocaleString()}
 
           <div className="space-y-2">
             <div className="text-sm font-semibold">Equipment</div>
-            <div className="grid grid-cols-2 gap-1 text-xs">
-              <div className="bg-muted p-1 rounded truncate" title={character.equipment.weapon}>⚔️ {character.equipment.weapon}</div>
-              <div className="bg-muted p-1 rounded truncate" title={character.equipment.shield}>🛡️ {character.equipment.shield}</div>
-              <div className="bg-muted p-1 rounded truncate" title={character.equipment.armor}>🦺 {character.equipment.armor}</div>
-              <div className="bg-muted p-1 rounded truncate" title={character.equipment.head}>👑 {character.equipment.head}</div>
-              <div className="bg-muted p-1 rounded truncate" title={character.equipment.cloak}>🧥 {character.equipment.cloak}</div>
-              <div className="bg-muted p-1 rounded truncate" title={character.equipment.boots}>👢 {character.equipment.boots}</div>
-              <div className="bg-muted p-1 rounded truncate" title={character.equipment.gauntlets}>🥊 {character.equipment.gauntlets}</div>
-              <div className="bg-muted p-1 rounded truncate" title={character.equipment.ring1}>💍 {character.equipment.ring1}</div>
-              <div className="bg-muted p-1 rounded truncate" title={character.equipment.ring2}>💍 {character.equipment.ring2}</div>
-              <div className="bg-muted p-1 rounded truncate" title={character.equipment.amulet}>📿 {character.equipment.amulet}</div>
-              <div className="bg-muted p-1 rounded truncate" title={character.equipment.ammo}>🎯 {character.equipment.ammo}</div>
-            </div>
+            {(() => {
+              const slotIcons: Record<string, string> = { weapon: '⚔️', shield: '🛡️', armor: '🦺', head: '👑', cloak: '🧥', boots: '👢', gauntlets: '🥊', ring1: '💍', ring2: '💍', amulet: '📿', ammo: '🎯' };
+              return (
+                <div className="grid grid-cols-2 gap-1 text-xs">
+                  {Object.entries(character.equipment).map(([slot, item]) => (
+                    <div 
+                      key={slot}
+                      className={`p-1 rounded truncate ${item ? 'bg-muted' : 'bg-muted/20 border border-dashed border-muted-foreground/20 text-muted-foreground/40 italic'}`}
+                      title={item ? (item as string) : `${slot} - Locked`}
+                    >
+                      {slotIcons[slot] || '📦'} {item ? (item as string) : `🔒 ${slot}`}
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
           </div>
 
           <div className="space-y-2">
-            <div className="text-sm font-semibold">Physical Skills</div>
+            <div className="text-sm font-semibold flex justify-between">
+              <span>Physical Skills</span>
+              <span className="text-xs text-muted-foreground font-normal">{character.skills.length}/{getClassConfig(character.class).maxSkills}</span>
+            </div>
             <div className="flex flex-wrap gap-1">
+              {character.skills.length === 0 && (
+                <span className="text-xs text-muted-foreground/40 italic">None yet — keep adventuring!</span>
+              )}
               {character.skills.map((skill: string) => (
                 <span key={skill} className="bg-primary/20 text-primary px-2 py-1 rounded text-xs">
                   {skill}
@@ -1888,8 +1920,14 @@ Death occurred at: ${new Date().toLocaleString()}
           </div>
 
           <div className="space-y-2">
-            <div className="text-sm font-semibold">Magic Spells</div>
+            <div className="text-sm font-semibold flex justify-between">
+              <span>Magic Spells</span>
+              <span className="text-xs text-muted-foreground font-normal">{character.spells.length}/{getClassConfig(character.class).maxSpells}</span>
+            </div>
             <div className="flex flex-wrap gap-1">
+              {character.spells.length === 0 && (
+                <span className="text-xs text-muted-foreground/40 italic">None yet — keep adventuring!</span>
+              )}
               {character.spells.map((spell: any, i: number) => (
                 <span 
                   key={i} 
