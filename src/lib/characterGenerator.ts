@@ -5,17 +5,49 @@ const classes = ["Warrior", "Mage", "Rogue", "Ranger", "Paladin", "Necromancer",
 const names = ["Aldrin", "Zephyr", "Kira", "Rex", "Nova", "Ash", "Raven", "Cipher", "Storm", "Vex", "Tanjiro", "Mob", "Senku", "Asta"];
 const genders = ["Male", "Female"];
 
+// Class definitions: which slots start filled, how many skills/spells
+export interface ClassConfig {
+  startingSlots: string[];
+  startingSkills: number;
+  startingSpells: number;
+  maxSkills: number;
+  maxSpells: number;
+  skillAffinity: number;
+  spellAffinity: number;
+  equipUnlockRate: number;
+}
+
+export const classConfigs: Record<string, ClassConfig> = {
+  "Warrior":          { startingSlots: ["weapon", "armor", "boots"],                startingSkills: 2, startingSpells: 0, maxSkills: 8, maxSpells: 2, skillAffinity: 1.5, spellAffinity: 0.3, equipUnlockRate: 0.12 },
+  "Mage":             { startingSlots: ["weapon", "cloak", "amulet"],               startingSkills: 0, startingSpells: 3, maxSkills: 3, maxSpells: 10, skillAffinity: 0.3, spellAffinity: 1.5, equipUnlockRate: 0.08 },
+  "Rogue":            { startingSlots: ["weapon", "boots", "cloak"],                startingSkills: 2, startingSpells: 0, maxSkills: 7, maxSpells: 3, skillAffinity: 1.3, spellAffinity: 0.4, equipUnlockRate: 0.10 },
+  "Ranger":           { startingSlots: ["weapon", "boots", "ammo"],                 startingSkills: 2, startingSpells: 1, maxSkills: 6, maxSpells: 4, skillAffinity: 1.2, spellAffinity: 0.6, equipUnlockRate: 0.10 },
+  "Paladin":          { startingSlots: ["weapon", "shield", "armor", "gauntlets"],  startingSkills: 1, startingSpells: 1, maxSkills: 5, maxSpells: 5, skillAffinity: 1.0, spellAffinity: 1.0, equipUnlockRate: 0.15 },
+  "Necromancer":      { startingSlots: ["weapon", "amulet"],                        startingSkills: 0, startingSpells: 3, maxSkills: 2, maxSpells: 9, skillAffinity: 0.2, spellAffinity: 1.4, equipUnlockRate: 0.06 },
+  "Hacker":           { startingSlots: ["weapon", "gauntlets", "ring1"],            startingSkills: 1, startingSpells: 2, maxSkills: 4, maxSpells: 7, skillAffinity: 0.7, spellAffinity: 1.2, equipUnlockRate: 0.08 },
+  "Scavenger":        { startingSlots: ["weapon", "boots", "ring1"],                startingSkills: 1, startingSpells: 0, maxSkills: 5, maxSpells: 3, skillAffinity: 1.0, spellAffinity: 0.5, equipUnlockRate: 0.18 },
+  "Monk":             { startingSlots: ["boots", "gauntlets"],                      startingSkills: 3, startingSpells: 1, maxSkills: 9, maxSpells: 3, skillAffinity: 1.6, spellAffinity: 0.5, equipUnlockRate: 0.05 },
+  "Protagonist":      { startingSlots: ["weapon", "armor", "amulet"],               startingSkills: 1, startingSpells: 1, maxSkills: 7, maxSpells: 7, skillAffinity: 1.0, spellAffinity: 1.0, equipUnlockRate: 0.12 },
+  "Isekai Hero":      { startingSlots: ["weapon"],                                  startingSkills: 0, startingSpells: 0, maxSkills: 8, maxSpells: 8, skillAffinity: 1.3, spellAffinity: 1.3, equipUnlockRate: 0.15 },
+  "Magical Girl/Boy": { startingSlots: ["weapon", "amulet", "ring1"],               startingSkills: 0, startingSpells: 3, maxSkills: 4, maxSpells: 10, skillAffinity: 0.4, spellAffinity: 1.6, equipUnlockRate: 0.09 }
+};
+
+export const getClassConfig = (className: string): ClassConfig => {
+  return classConfigs[className] || classConfigs["Protagonist"];
+};
+
+const allEquipmentSlots = ["weapon", "shield", "armor", "head", "cloak", "boots", "gauntlets", "ring1", "ring2", "amulet", "ammo"];
+
+const slotToEquipmentKey: Record<string, string> = {
+  weapon: "weapons", shield: "shields", armor: "armors", head: "heads",
+  cloak: "cloaks", boots: "boots", gauntlets: "gauntlets",
+  ring1: "rings", ring2: "rings", amulet: "amulets", ammo: "ammo"
+};
+
 const equipmentByTimeline: Record<string, {
-  weapons: string[];
-  shields: string[];
-  armors: string[];
-  heads: string[];
-  cloaks: string[];
-  boots: string[];
-  gauntlets: string[];
-  rings: string[];
-  amulets: string[];
-  ammo: string[];
+  weapons: string[]; shields: string[]; armors: string[]; heads: string[];
+  cloaks: string[]; boots: string[]; gauntlets: string[]; rings: string[];
+  amulets: string[]; ammo: string[];
 }> = {
   Medieval: {
     weapons: ["Iron Sword of Inadequacy", "War Axe of Mild Discomfort", "Longbow of Questionable Accuracy", "Staff of Tentacle Slapping"],
@@ -103,27 +135,14 @@ const equipmentByTimeline: Record<string, {
   }
 };
 
-// Generate age based on race (different races have different lifespans)
 const generateAge = (race: string, startingAge: number | null = null): number => {
   if (startingAge !== null) return startingAge;
-  
-  // Base adult age ranges by race type
   const ageRanges: Record<string, [number, number]> = {
-    "Human": [18, 45],
-    "Elf": [100, 500],
-    "Dwarf": [50, 200],
-    "Orc": [16, 40],
-    "Android": [1, 50],
-    "Mutant": [18, 60],
-    "Cyborg": [20, 80],
-    "Demon": [100, 1000],
-    "Angel": [100, 5000],
-    "Catgirl": [16, 35],
-    "Kitsune": [50, 800],
-    "Vampire": [100, 2000],
-    "Dragon-kin": [50, 500]
+    "Human": [18, 45], "Elf": [100, 500], "Dwarf": [50, 200], "Orc": [16, 40],
+    "Android": [1, 50], "Mutant": [18, 60], "Cyborg": [20, 80], "Demon": [100, 1000],
+    "Angel": [100, 5000], "Catgirl": [16, 35], "Kitsune": [50, 800],
+    "Vampire": [100, 2000], "Dragon-kin": [50, 500]
   };
-  
   const [min, max] = ageRanges[race] || [18, 50];
   return Math.floor(Math.random() * (max - min)) + min;
 };
@@ -136,10 +155,24 @@ export const generateCharacter = (worldData: any, options?: { startingAge?: numb
   const age = generateAge(race, options?.startingAge || null);
   
   const equipment = equipmentByTimeline[worldData.timeline] || equipmentByTimeline.Medieval;
+  const classConfig = getClassConfig(characterClass);
   
-  // Allow dual/multi-classing (max 2 classes for simplicity)
   const isDualClass = Math.random() > 0.7;
   const secondClass = isDualClass ? classes[Math.floor(Math.random() * classes.length)] : null;
+  
+  // Only fill slots the class starts with; rest are null (locked)
+  const characterEquipment: Record<string, string | null> = {};
+  for (const slot of allEquipmentSlots) {
+    if (classConfig.startingSlots.includes(slot)) {
+      const key = slotToEquipmentKey[slot];
+      const pool = (equipment as any)[key];
+      characterEquipment[slot] = pool[Math.floor(Math.random() * pool.length)];
+    } else {
+      characterEquipment[slot] = null;
+    }
+  }
+  
+  const spellCount = classConfig.startingSpells + (isDualClass ? 1 : 0);
   
   return {
     name,
@@ -148,21 +181,51 @@ export const generateCharacter = (worldData: any, options?: { startingAge?: numb
     secondClass,
     gender,
     age,
-    equipment: {
-      weapon: equipment.weapons[Math.floor(Math.random() * equipment.weapons.length)],
-      shield: equipment.shields[Math.floor(Math.random() * equipment.shields.length)],
-      armor: equipment.armors[Math.floor(Math.random() * equipment.armors.length)],
-      head: equipment.heads[Math.floor(Math.random() * equipment.heads.length)],
-      cloak: equipment.cloaks[Math.floor(Math.random() * equipment.cloaks.length)],
-      boots: equipment.boots[Math.floor(Math.random() * equipment.boots.length)],
-      gauntlets: equipment.gauntlets[Math.floor(Math.random() * equipment.gauntlets.length)],
-      ring1: equipment.rings[Math.floor(Math.random() * equipment.rings.length)],
-      ring2: equipment.rings[Math.floor(Math.random() * equipment.rings.length)],
-      amulet: equipment.amulets[Math.floor(Math.random() * equipment.amulets.length)],
-      ammo: equipment.ammo[Math.floor(Math.random() * equipment.ammo.length)]
-    },
-    skills: generateSkills(3),
-    spells: generateSpells(isDualClass ? 5 : 3),
+    equipment: characterEquipment,
+    skills: generateSkills(classConfig.startingSkills),
+    spells: generateSpells(spellCount),
     stats: generateStats()
   };
+};
+
+// Roll for learning a new skill on quest complete
+export const rollForNewSkill = (currentSkills: string[], characterClass: string): string | null => {
+  const config = getClassConfig(characterClass);
+  if (currentSkills.length >= config.maxSkills) return null;
+  const chance = 0.15 * config.skillAffinity;
+  if (Math.random() > chance) return null;
+  const newSkills = generateSkills(1);
+  const skill = newSkills[0];
+  if (currentSkills.includes(skill)) return null;
+  return skill;
+};
+
+// Roll for learning a new spell on quest complete
+export const rollForNewSpell = (currentSpells: any[], characterClass: string): any | null => {
+  const config = getClassConfig(characterClass);
+  if (currentSpells.length >= config.maxSpells) return null;
+  const chance = 0.15 * config.spellAffinity;
+  if (Math.random() > chance) return null;
+  const newSpells = generateSpells(1);
+  const spell = newSpells[0];
+  if (currentSpells.some((s: any) => s.name === spell.name)) return null;
+  return spell;
+};
+
+// Roll for unlocking a new equipment slot
+export const rollForEquipmentUnlock = (
+  currentEquipment: Record<string, string | null>,
+  characterClass: string,
+  worldTimeline: string
+): { slot: string; item: string } | null => {
+  const config = getClassConfig(characterClass);
+  if (Math.random() > config.equipUnlockRate) return null;
+  const lockedSlots = allEquipmentSlots.filter(s => currentEquipment[s] === null);
+  if (lockedSlots.length === 0) return null;
+  const slot = lockedSlots[Math.floor(Math.random() * lockedSlots.length)];
+  const equipment = equipmentByTimeline[worldTimeline] || equipmentByTimeline.Medieval;
+  const key = slotToEquipmentKey[slot];
+  const pool = (equipment as any)[key];
+  const item = pool[Math.floor(Math.random() * pool.length)];
+  return { slot, item };
 };
