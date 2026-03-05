@@ -1193,11 +1193,6 @@ Death occurred at: ${new Date().toLocaleString()}
     
     const autoSaveInterval = setInterval(() => {
       performSave();
-      toast({
-        title: "💾 Auto-saved",
-        description: "Progress saved automatically",
-        duration: 2000
-      });
     }, 60000); // Every 60 seconds
     
     return () => clearInterval(autoSaveInterval);
