@@ -11,7 +11,7 @@ import { CodexComponent } from "@/components/Codex";
 import { createEmptyCodex, addDiscovery, Codex, generateLoreEntry } from "@/lib/codexSystem";
 import { useToast } from "@/hooks/use-toast";
 import { generateCharacter, rollForNewSkill, rollForNewSpell, rollForEquipmentUnlock, getClassConfig } from "@/lib/characterGenerator";
-import { generateQuest, Quest } from "@/lib/questGenerator";
+import { generateQuest, Quest, rollQuestPerformance, QuestPerformanceGrade, getFameTitle, performanceGrades } from "@/lib/questGenerator";
 import { generateCompanion, getRelationshipName, calculateCompatibility, getBondLevelCap, generateMilestone, generateChild, RelationshipMilestone, ChildInfo, generateCompanionAge } from "@/lib/companionGenerator";
 import { CompanionEncounterState, initializeEncounterState, updateEncounterState, completeEncounter, getTopAffinities, EncounterPreference } from "@/lib/companionEncounterSystem";
 import { generateShopName } from "@/lib/skillGenerator";
@@ -59,7 +59,9 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
   
   const [character, setCharacter] = useState(() => savedData?.character || generateCharacter(worldData));
   const [travelState, setTravelState] = useState<TravelState>(() => savedData?.travelState || initializeTravelState(worldData, 1));
-  const [currentQuest, setCurrentQuest] = useState<Quest>(() => savedData?.currentQuest || generateQuest(worldData, 1, savedData?.travelState));
+  const [currentQuest, setCurrentQuest] = useState<Quest>(() => savedData?.currentQuest || generateQuest(worldData, 1, savedData?.travelState, 0));
+  const [fame, setFame] = useState<number>(() => savedData?.fame || 0);
+  const [lastPerformance, setLastPerformance] = useState<QuestPerformanceGrade | null>(null);
   const [questProgress, setQuestProgress] = useState(0);
   const [showMap, setShowMap] = useState(false);
   const [simplifiedMode, setSimplifiedMode] = useState(() => savedData?.simplifiedMode || false);
@@ -137,7 +139,7 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
   // Migrate old quests to have rank property
   useEffect(() => {
     if (currentQuest && (!currentQuest.rank || !currentQuest.fullTitle)) {
-      setCurrentQuest(generateQuest(worldData, stats.level, travelState));
+      setCurrentQuest(generateQuest(worldData, stats.level, travelState, fame));
     }
   }, []);
 
@@ -422,11 +424,45 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
             setStats(s => ({ ...s, gold: s.gold + 50 })); // Add gold equivalent
           }
           
-          // Calculate rewards with rank multipliers and difficulty bonus
+          // === QUEST PERFORMANCE SYSTEM ===
+          const woundsThisQuest = newWound ? 1 : 0;
+          const totalActiveWounds = wounds.length + woundsThisQuest;
+          const performance = rollQuestPerformance(
+            stats.level,
+            currentQuest.rank?.rank || 1,
+            totalActiveWounds,
+            fame,
+            combatResult.critical
+          );
+          setLastPerformance(performance);
+          
+          // Apply performance to fame
+          setFame(prev => Math.max(-100, prev + performance.fameGain));
+          
+          // Performance toast
+          if (performance.grade === 0) {
+            toast({
+              title: `${performance.icon} Quest Failed!`,
+              description: `${currentQuest.name} — No rewards earned`,
+              variant: "destructive",
+              duration: 4000
+            });
+          } else if (performance.grade >= 8) {
+            toast({
+              title: `${performance.icon} ${performance.name}! (+${performance.fameGain} Fame)`,
+              description: `${currentQuest.name} — ${Math.floor(performance.rewardMultiplier * 100)}% rewards!`,
+              duration: 5000
+            });
+          }
+          
+          setActivities(prev => trackActivity(prev, "quest", `${performance.icon} ${currentQuest.name}: ${performance.name} (Grade ${performance.grade}/10)`));
+          
+          // Calculate rewards with rank multipliers, difficulty bonus, AND performance
           const difficultyMultipliers = [0, 1.0, 1.2, 1.5, 2.0, 3.0]; // Index 0 unused, 1-5 for difficulties
           const difficultyBonus = difficultyMultipliers[gameDifficulty];
+          const performanceMultiplier = performance.rewardMultiplier;
           
-          const treasureFound = Math.floor((Math.random() * 50 + 10) * monster.rank.goldMultiplier * difficultyBonus);
+          const treasureFound = Math.floor((Math.random() * 50 + 10) * monster.rank.goldMultiplier * difficultyBonus * performanceMultiplier);
           const enemiesKilled = Math.floor(Math.random() * 5) + 1;
           
           // Weather changes
@@ -683,11 +719,11 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
             const goldMultiplier = activeEffects.some(e => e.type === 'gold_boost' && e.endTime > Date.now()) ? 1.5 : 1;
             const shardMultiplier = activeEffects.some(e => e.type === 'shard_boost' && e.endTime > Date.now()) ? 2 : 1;
             
-            const newExp = s.exp + Math.floor(currentQuest.expReward * monster.rank.expMultiplier * expMultiplier * difficultyBonus);
+            const newExp = s.exp + Math.floor(currentQuest.expReward * monster.rank.expMultiplier * expMultiplier * difficultyBonus * performanceMultiplier);
             const levelUp = newExp >= s.expToNext;
             const adjustedShardDrop = Math.floor(shardDropped * shardMultiplier);
             const newShards = s.shards + adjustedShardDrop;
-            const adjustedGold = Math.floor(goldGained * goldMultiplier * difficultyBonus);
+            const adjustedGold = Math.floor(goldGained * goldMultiplier * difficultyBonus * performanceMultiplier);
             
             if (levelUp) {
               toast({
@@ -778,13 +814,13 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
                 }
                 
                 // Generate new quest for new area
-                setCurrentQuest(generateQuest(worldData, newLevel, newTravel));
+                setCurrentQuest(generateQuest(worldData, newLevel, newTravel, fame));
                 
                 return newTravel;
               }
               
               // Generate quest in same area
-              setCurrentQuest(generateQuest(worldData, newLevel, updatedTravel));
+              setCurrentQuest(generateQuest(worldData, newLevel, updatedTravel, fame));
               return updatedTravel;
             });
             
@@ -1166,11 +1202,12 @@ Death occurred at: ${new Date().toLocaleString()}
       travelState,
       encounterState,
       simplifiedMode,
+      fame,
       characterName: character.name,
       level: stats.level,
       timestamp: Date.now()
     };
-  }, [character, stats, worldData, companions, treasure, married, hasOffspring, offspringData, children, romanceDiary, statusEffects, summons, eventLog, deity, alignment, weather, materials, lifeSkills, activities, monstersKilled, currentQuest, shopName, activeEffects, codex, combatLog, wounds, travelState, encounterState, simplifiedMode]);
+  }, [character, stats, worldData, companions, treasure, married, hasOffspring, offspringData, children, romanceDiary, statusEffects, summons, eventLog, deity, alignment, weather, materials, lifeSkills, activities, monstersKilled, currentQuest, shopName, activeEffects, codex, combatLog, wounds, travelState, encounterState, simplifiedMode, fame]);
 
   const performSave = useCallback(() => {
     if (!saveDataRef.current) return null;
@@ -1262,7 +1299,7 @@ Death occurred at: ${new Date().toLocaleString()}
     const newTravelState = initializeTravelState(worldData, 1);
     setTravelState(newTravelState);
     setEncounterState(initializeEncounterState());
-    setCurrentQuest(generateQuest(worldData, 1, newTravelState));
+    setCurrentQuest(generateQuest(worldData, 1, newTravelState, 0));
     setQuestProgress(0);
     setShowMap(false);
     setIsDead(false);
@@ -1353,7 +1390,7 @@ Death occurred at: ${new Date().toLocaleString()}
             break;
 
           case 'reroll_quest':
-            setCurrentQuest(generateQuest(worldData, stats.level, travelState));
+            setCurrentQuest(generateQuest(worldData, stats.level, travelState, fame));
             setQuestProgress(0);
             toast({
               title: "Quest Re-rolled!",
@@ -1770,6 +1807,24 @@ Death occurred at: ${new Date().toLocaleString()}
           )}
         </div>
       )}
+      {/* Fame & Performance */}
+      <div className="space-y-2">
+        <div className="text-sm font-semibold flex items-center justify-between">
+          <span>Fame & Reputation</span>
+          <span className={`text-xs ${getFameTitle(fame).color}`}>
+            {getFameTitle(fame).title} ({fame})
+          </span>
+        </div>
+        {lastPerformance && (
+          <div className={`text-xs p-2 rounded bg-muted flex items-center justify-between`}>
+            <span className="text-muted-foreground">Last Quest:</span>
+            <span className={lastPerformance.color}>
+              {lastPerformance.icon} {lastPerformance.name} ({lastPerformance.grade}/10)
+            </span>
+          </div>
+        )}
+      </div>
+
       <div className="space-y-2">
         <div className="text-sm font-semibold">Current Quest</div>
         <div className={`p-3 rounded space-y-2 ${currentQuest.rank?.bgColor || 'bg-muted'}`}>
@@ -1792,6 +1847,11 @@ Death occurred at: ${new Date().toLocaleString()}
             <span className="text-stat-increase">+{currentQuest.goldReward} gold</span>
             <span className="text-stat-increase">+{currentQuest.expReward} exp</span>
           </div>
+          {lastPerformance && (
+            <div className="text-xs text-muted-foreground text-center">
+              Reward modifier: ×{lastPerformance.rewardMultiplier.toFixed(1)}
+            </div>
+          )}
         </div>
       </div>
 

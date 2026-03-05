@@ -153,9 +153,12 @@ const getLevelRankCap = (level: number): number => {
 export const calculateQuestRank = (
   playerLevel: number,
   regionDangerLevel: number,
-  areaDangerMod: number
+  areaDangerMod: number,
+  fame: number = 0
 ): QuestRank => {
-  const cap = getLevelRankCap(playerLevel);
+  const fameBonus = getFameLevelBonus(fame);
+  const effectiveLevel = playerLevel + fameBonus;
+  const cap = getLevelRankCap(effectiveLevel);
   
   // Base rank: weighted toward lower end of what's available
   // Most quests cluster around (cap - 2) to (cap - 1), with cap being rare
@@ -195,7 +198,8 @@ export const calculateQuestRank = (
 export const generateQuest = (
   worldData: any, 
   level: number,
-  travelState?: TravelState
+  travelState?: TravelState,
+  fame: number = 0
 ): Quest => {
   // Get area info from travel state or use defaults
   const areaName = travelState?.currentArea?.name || worldData.terrain;
@@ -203,8 +207,8 @@ export const generateQuest = (
   const regionDanger = travelState?.currentRegion?.dangerLevel || worldData.dangerLevel || 5;
   const areaDangerMod = travelState?.currentArea?.dangerModifier || 0;
   
-  // Calculate quest rank
-  const rank = calculateQuestRank(level, regionDanger, areaDangerMod);
+  // Calculate quest rank (fame eases access to higher ranks)
+  const rank = calculateQuestRank(level, regionDanger, areaDangerMod, fame);
   
   // Select quest type based on area features
   const questTypes = Object.keys(questTemplates) as (keyof typeof questTemplates)[];
@@ -259,14 +263,116 @@ export const getQuestRankDisplay = (rank: QuestRank): string => {
   return `[${rank.name}]`;
 };
 
-// Check if companion should be attracted based on quest rank and compatibility
-// DEPRECATED: Use companionEncounterSystem instead for proper buildup
-export const rollForCompanionAttraction = (
-  questRank: QuestRank,
-  compatibility: number,
-  currentCompanions: number
-): boolean => {
-  // This function is now deprecated - companions should only come from special encounters
-  // Keeping for backwards compatibility but always returns false
-  return false;
+// === QUEST PERFORMANCE SYSTEM ===
+
+export interface QuestPerformanceGrade {
+  grade: number;       // 0-10
+  name: string;
+  icon: string;
+  color: string;
+  rewardMultiplier: number;  // 0 for failed, up to 2.5 for exceptional
+  fameGain: number;          // How much fame this grade awards
+}
+
+export const performanceGrades: QuestPerformanceGrade[] = [
+  { grade: 0, name: "Failed", icon: "💀", color: "text-red-600", rewardMultiplier: 0, fameGain: -2 },
+  { grade: 1, name: "Barely Survived", icon: "😰", color: "text-red-400", rewardMultiplier: 0.2, fameGain: -1 },
+  { grade: 2, name: "Poor", icon: "😓", color: "text-orange-400", rewardMultiplier: 0.4, fameGain: 0 },
+  { grade: 3, name: "Mediocre", icon: "😐", color: "text-yellow-500", rewardMultiplier: 0.6, fameGain: 1 },
+  { grade: 4, name: "Adequate", icon: "🙂", color: "text-yellow-400", rewardMultiplier: 0.8, fameGain: 2 },
+  { grade: 5, name: "Completed", icon: "✅", color: "text-green-400", rewardMultiplier: 1.0, fameGain: 3 },
+  { grade: 6, name: "Good", icon: "👍", color: "text-green-500", rewardMultiplier: 1.15, fameGain: 5 },
+  { grade: 7, name: "Impressive", icon: "⭐", color: "text-blue-400", rewardMultiplier: 1.3, fameGain: 8 },
+  { grade: 8, name: "Outstanding", icon: "🌟", color: "text-blue-300", rewardMultiplier: 1.5, fameGain: 12 },
+  { grade: 9, name: "Masterful", icon: "💫", color: "text-purple-400", rewardMultiplier: 1.8, fameGain: 18 },
+  { grade: 10, name: "Exceptional", icon: "🏆", color: "text-yellow-300 animate-pulse", rewardMultiplier: 2.5, fameGain: 30 },
+];
+
+/**
+ * Roll quest performance based on character stats, quest rank, wounds taken, etc.
+ * Higher level vs quest rank = better odds. Wounds penalize. Fame boosts slightly.
+ */
+export const rollQuestPerformance = (
+  playerLevel: number,
+  questRank: number,
+  woundsTaken: number,
+  fame: number,
+  criticalHit: boolean
+): QuestPerformanceGrade => {
+  // Base score: level advantage over quest rank
+  const levelAdvantage = playerLevel - (questRank * 5);
+  
+  // Base roll: 0-100 weighted by level advantage
+  let roll = Math.random() * 100;
+  
+  // Level advantage shifts the roll: +2 per level above quest "expected level"
+  roll += levelAdvantage * 2;
+  
+  // Fame bonus: every 50 fame adds +1 to the roll (subtle)
+  roll += Math.floor(fame / 50);
+  
+  // Wound penalty: each wound subtracts 8 from the roll
+  roll -= woundsTaken * 8;
+  
+  // Critical hit bonus
+  if (criticalHit) roll += 15;
+  
+  // Quest rank penalty: higher rank quests are harder to ace
+  roll -= questRank * 3;
+  
+  // Failure chance: quests well above your level can fail
+  // If quest rank is 3+ ranks above expected for your level, failure is possible
+  const expectedRank = Math.max(1, Math.ceil(playerLevel / 5));
+  const rankGap = questRank - expectedRank;
+  if (rankGap >= 3 && Math.random() < rankGap * 0.1) {
+    return performanceGrades[0]; // Failed
+  }
+  
+  // Small random failure chance (2%) for any quest
+  if (Math.random() < 0.02) {
+    return performanceGrades[Math.floor(Math.random() * 2)]; // 0 or 1
+  }
+  
+  // Map roll to grade (0-10)
+  let grade: number;
+  if (roll < 10) grade = 1;       // Barely survived
+  else if (roll < 25) grade = 2;  // Poor
+  else if (roll < 35) grade = 3;  // Mediocre
+  else if (roll < 50) grade = 4;  // Adequate
+  else if (roll < 65) grade = 5;  // Completed (most common)
+  else if (roll < 75) grade = 6;  // Good
+  else if (roll < 85) grade = 7;  // Impressive
+  else if (roll < 92) grade = 8;  // Outstanding
+  else if (roll < 97) grade = 9;  // Masterful
+  else grade = 10;                // Exceptional (rare!)
+  
+  return performanceGrades[grade];
+};
+
+/**
+ * Get fame title based on accumulated fame score
+ */
+export const getFameTitle = (fame: number): { title: string; color: string } => {
+  if (fame < 0) return { title: "Infamous", color: "text-red-400" };
+  if (fame < 10) return { title: "Unknown", color: "text-gray-400" };
+  if (fame < 50) return { title: "Noticed", color: "text-gray-300" };
+  if (fame < 150) return { title: "Known", color: "text-green-400" };
+  if (fame < 400) return { title: "Renowned", color: "text-blue-400" };
+  if (fame < 800) return { title: "Famous", color: "text-purple-400" };
+  if (fame < 1500) return { title: "Celebrated", color: "text-yellow-400" };
+  if (fame < 3000) return { title: "Legendary", color: "text-orange-400" };
+  return { title: "Mythical", color: "text-pink-400 animate-pulse" };
+};
+
+/**
+ * Fame eases access to higher rank quests by effectively boosting the level cap
+ * Returns bonus levels to add when calculating quest rank caps
+ */
+export const getFameLevelBonus = (fame: number): number => {
+  if (fame < 50) return 0;
+  if (fame < 150) return 1;
+  if (fame < 400) return 2;
+  if (fame < 800) return 3;
+  if (fame < 1500) return 4;
+  return 5;
 };

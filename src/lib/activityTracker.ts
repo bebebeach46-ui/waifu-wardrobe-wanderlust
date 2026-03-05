@@ -1,6 +1,6 @@
 export type ActivityLog = {
   timestamp: number;
-  type: "combat" | "travel" | "relationship" | "craft" | "gather" | "event" | "deity" | "fate";
+  type: "combat" | "travel" | "relationship" | "craft" | "gather" | "event" | "deity" | "fate" | "quest";
   description: string;
   details?: any;
 };
