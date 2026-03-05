@@ -132,27 +132,61 @@ export interface Quest {
   fullTitle: string; // New: complete quest title with all modifiers
 }
 
+// Hard caps: the maximum quest rank achievable at a given level
+const levelRankCaps: Record<number, number> = {
+  1: 1, 2: 1, 3: 2, 4: 2, 5: 2,
+  6: 3, 7: 3, 8: 3, 9: 3, 10: 3,
+  11: 4, 12: 4, 13: 4, 14: 4, 15: 4,
+  16: 5, 17: 5, 18: 5, 19: 5, 20: 5,
+  21: 6, 22: 6, 23: 6, 24: 6, 25: 6,
+  26: 7, 27: 7, 28: 7, 29: 7, 30: 7,
+  31: 8, 32: 8, 33: 8, 34: 8, 35: 8,
+  36: 9, 37: 9, 38: 9, 39: 9, 40: 9,
+};
+
+const getLevelRankCap = (level: number): number => {
+  if (level >= 50) return 10; // Rank 10 only at level 50+
+  if (level >= 41) return 9;
+  return levelRankCaps[level] ?? Math.min(10, Math.floor(level / 5) + 1);
+};
+
 export const calculateQuestRank = (
   playerLevel: number,
   regionDangerLevel: number,
   areaDangerMod: number
 ): QuestRank => {
-  // Base rank from level and danger
+  const cap = getLevelRankCap(playerLevel);
+  
+  // Base rank: weighted toward lower end of what's available
+  // Most quests cluster around (cap - 2) to (cap - 1), with cap being rare
   const combinedDanger = regionDangerLevel + areaDangerMod;
-  const levelBonus = Math.floor(playerLevel / 10);
-  let baseRank = Math.floor(combinedDanger / 2) + levelBonus;
+  const dangerBonus = Math.floor(combinedDanger / 3); // danger contributes modestly
   
-  // Add randomness (-1 to +2)
-  const variance = Math.floor(Math.random() * 4) - 1;
-  let finalRank = Math.max(1, Math.min(10, baseRank + variance));
+  // Core rank: level-driven floor
+  const levelFloor = Math.max(1, Math.floor(playerLevel / 8));
+  let baseRank = levelFloor + dangerBonus;
   
-  // Very rare chance (2%) for legendary quest regardless of level
-  if (Math.random() < 0.02) {
+  // Gentle variance: -1 to +1 (no wild swings)
+  const variance = Math.floor(Math.random() * 3) - 1;
+  let finalRank = baseRank + variance;
+  
+  // Clamp to [1, cap]
+  finalRank = Math.max(1, Math.min(cap, finalRank));
+  
+  // Rank 10 (Legendary) is a secret: requires cap=10 AND extremely rare roll
+  // Only 1% chance even when eligible, and danger must be high
+  if (cap >= 10 && combinedDanger >= 8 && Math.random() < 0.01) {
     finalRank = 10;
+  } else if (finalRank === 10 && cap >= 10) {
+    // If natural calculation somehow hits 10, downgrade most of the time
+    finalRank = Math.random() < 0.05 ? 10 : 9;
+  } else {
+    finalRank = Math.min(finalRank, cap === 10 ? 9 : cap); // Block rank 10 from normal rolls
   }
-  // Small chance (5%) for one rank higher
-  else if (Math.random() < 0.05) {
-    finalRank = Math.min(10, finalRank + 1);
+  
+  // Small chance to bump up by 1 within cap (progression tease)
+  if (finalRank < cap && finalRank < 9 && Math.random() < 0.08) {
+    finalRank += 1;
   }
   
   return questRanks[finalRank - 1];
