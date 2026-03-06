@@ -70,13 +70,110 @@ const areaNames = [
   "Oasis", "Spring", "Peak", "Depths", "Clearing", "Outpost", "Bastion"
 ];
 
-const terrainFeatures = [
-  "Ancient Statues", "Glowing Crystals", "Mysterious Fog", "Wandering Spirits",
-  "Monster Dens", "Hidden Treasures", "Magical Barriers", "Teleport Circles",
-  "Healing Springs", "Cursed Ground", "Dragon Bones", "Demon Gates",
-  "Fairy Rings", "Warp Zones", "Save Points", "Boss Arenas", "Secret Paths",
-  "Trap Floors", "Moving Platforms", "Puzzle Locks", "NPC Camps", "Rest Areas"
+// Feature effect categories
+export type FeatureEffectType = "danger" | "benefit" | "shortcut" | "neutral";
+
+export interface TerrainFeatureData {
+  name: string;
+  icon: string;
+  effectType: FeatureEffectType;
+  description: string;
+  // Mechanical effects
+  dangerMod?: number;        // additional danger modifier (-3 to +3)
+  expMultiplier?: number;    // 0.5 to 2.0
+  goldMultiplier?: number;   // 0.5 to 2.0
+  healPerTick?: number;      // hp healed per quest tick (negative = damage)
+  questSpeedMod?: number;    // -0.3 to +0.5 (negative = faster quests)
+  encounterRateMod?: number; // -0.5 to +1.0
+}
+
+const terrainFeaturesData: TerrainFeatureData[] = [
+  // === DANGERS ===
+  { name: "Monster Dens", icon: "🐉", effectType: "danger", description: "Swarms of creatures lurk here — encounter rate surges", dangerMod: 2, encounterRateMod: 0.6 },
+  { name: "Cursed Ground", icon: "💀", effectType: "danger", description: "Dark energy saps vitality — periodic health drain", dangerMod: 1, healPerTick: -3 },
+  { name: "Trap Floors", icon: "⚠️", effectType: "danger", description: "Hidden mechanisms deal damage and slow progress", dangerMod: 1, healPerTick: -2, questSpeedMod: 0.3 },
+  { name: "Demon Gates", icon: "👹", effectType: "danger", description: "Portals leak demonic energy — enemies are empowered", dangerMod: 3, expMultiplier: 1.4 },
+  { name: "Wandering Spirits", icon: "👻", effectType: "danger", description: "Restless dead confuse travelers — quests take longer", questSpeedMod: 0.4, dangerMod: 1 },
+  { name: "Mysterious Fog", icon: "🌫️", effectType: "danger", description: "Thick mist hides ambushes — encounters increased", encounterRateMod: 0.8, dangerMod: 1 },
+  { name: "Volcanic Vents", icon: "🌋", effectType: "danger", description: "Scorching geysers erupt — constant burn damage", healPerTick: -4, dangerMod: 2, expMultiplier: 1.3 },
+  { name: "Corrupted Leyline", icon: "🟣", effectType: "danger", description: "Tainted magic warps reality — unpredictable danger", dangerMod: 2, goldMultiplier: 0.7 },
+  
+  // === BENEFITS ===
+  { name: "Healing Springs", icon: "💧", effectType: "benefit", description: "Sacred waters restore the weary — passive healing", healPerTick: 5, dangerMod: -1 },
+  { name: "Ancient Statues", icon: "🗿", effectType: "benefit", description: "Blessed monuments grant wisdom — bonus experience", expMultiplier: 1.5, dangerMod: -1 },
+  { name: "Fairy Rings", icon: "🧚", effectType: "benefit", description: "Enchanted circles boost fortune — more gold drops", goldMultiplier: 1.6 },
+  { name: "NPC Camps", icon: "🏕️", effectType: "benefit", description: "Friendly travelers share supplies — healing & safety", healPerTick: 3, dangerMod: -2 },
+  { name: "Rest Areas", icon: "⛺", effectType: "benefit", description: "Safe havens for recovery — passive healing, reduced danger", healPerTick: 4, dangerMod: -2, encounterRateMod: -0.4 },
+  { name: "Glowing Crystals", icon: "💎", effectType: "benefit", description: "Resonating crystals amplify power — shard & exp boost", expMultiplier: 1.3 },
+  { name: "Sacred Ground", icon: "✝️", effectType: "benefit", description: "Holy terrain repels evil — fewer encounters, more gold", encounterRateMod: -0.3, goldMultiplier: 1.3, dangerMod: -1 },
+  
+  // === SHORTCUTS ===
+  { name: "Teleport Circles", icon: "🌀", effectType: "shortcut", description: "Arcane portals accelerate travel — quests complete faster", questSpeedMod: -0.3 },
+  { name: "Secret Paths", icon: "🗝️", effectType: "shortcut", description: "Hidden routes bypass obstacles — faster quest completion", questSpeedMod: -0.25, encounterRateMod: -0.3 },
+  { name: "Warp Zones", icon: "🚀", effectType: "shortcut", description: "Dimensional shortcuts — drastically faster quests", questSpeedMod: -0.4 },
+  { name: "Hidden Treasures", icon: "💰", effectType: "shortcut", description: "Buried riches lie just below the surface — massive gold bonus", goldMultiplier: 2.0 },
+  { name: "Dragon Bones", icon: "🦴", effectType: "shortcut", description: "Ancient dragon remains radiate power — massive exp boost", expMultiplier: 1.8 },
+  
+  // === NEUTRAL (flavor with minor effects) ===
+  { name: "Magical Barriers", icon: "🛡️", effectType: "neutral", description: "Shimmering walls of force — mildly protective", dangerMod: -1 },
+  { name: "Puzzle Locks", icon: "🧩", effectType: "neutral", description: "Mysterious mechanisms guard this area — slower but rewarding", questSpeedMod: 0.15, expMultiplier: 1.2 },
+  { name: "Boss Arenas", icon: "⚔️", effectType: "neutral", description: "Marked battlegrounds — high risk, high reward", dangerMod: 2, expMultiplier: 1.5, goldMultiplier: 1.5 },
+  { name: "Moving Platforms", icon: "🔄", effectType: "neutral", description: "Unstable terrain shifts underfoot — minor slowdown", questSpeedMod: 0.1 },
 ];
+
+// Keep backward compat: string[] for Area.features but also export lookup
+const terrainFeatures = terrainFeaturesData.map(f => f.name);
+
+export const getFeatureData = (featureName: string): TerrainFeatureData | undefined => {
+  return terrainFeaturesData.find(f => f.name === featureName);
+};
+
+export const getAreaEffects = (features: string[]): {
+  totalDangerMod: number;
+  expMultiplier: number;
+  goldMultiplier: number;
+  healPerTick: number;
+  questSpeedMod: number;
+  encounterRateMod: number;
+} => {
+  let totalDangerMod = 0;
+  let expMult = 1;
+  let goldMult = 1;
+  let heal = 0;
+  let questSpeed = 0;
+  let encounterRate = 0;
+
+  for (const name of features) {
+    const data = getFeatureData(name);
+    if (!data) continue;
+    totalDangerMod += data.dangerMod || 0;
+    if (data.expMultiplier) expMult *= data.expMultiplier;
+    if (data.goldMultiplier) goldMult *= data.goldMultiplier;
+    heal += data.healPerTick || 0;
+    questSpeed += data.questSpeedMod || 0;
+    encounterRate += data.encounterRateMod || 0;
+  }
+
+  return { totalDangerMod, expMultiplier: expMult, goldMultiplier: goldMult, healPerTick: heal, questSpeedMod: questSpeed, encounterRateMod: encounterRate };
+};
+
+export const getFeatureEffectColor = (effectType: FeatureEffectType): string => {
+  switch (effectType) {
+    case "danger": return "text-destructive";
+    case "benefit": return "text-green-400";
+    case "shortcut": return "text-primary";
+    case "neutral": return "text-muted-foreground";
+  }
+};
+
+export const getFeatureEffectBg = (effectType: FeatureEffectType): string => {
+  switch (effectType) {
+    case "danger": return "bg-destructive/15 border-destructive/30";
+    case "benefit": return "bg-green-400/15 border-green-400/30";
+    case "shortcut": return "bg-primary/15 border-primary/30";
+    case "neutral": return "bg-muted/50 border-border";
+  }
+};
 
 export const generateRegion = (worldData: any, playerLevel: number): Region => {
   const prefix = regionPrefixes[Math.floor(Math.random() * regionPrefixes.length)];
