@@ -29,7 +29,7 @@ import { getMonsterByRank, rollForShard, getShardsNeededForSummon, canSummon } f
 import { Wound, rollForWound, healWounds, calculatePainPenalty, calculateBleedingDamage, generateWoundSummary, getWoundIcon, getDamageTypeFromMonster, formatWound } from "@/lib/woundSystem";
 import { checkCriticalHit, calculateAttack } from "@/lib/combatSystem";
 import { generateDeathNarrative, formatLastBattleActions, generateFinalMomentsSection } from "@/lib/deathNarrativeGenerator";
-import { TravelState, initializeTravelState, shouldChangeArea, travelToNewArea, getDirectionIcon, getRegionDangerColor, generateMapOverlay, getMapTileIcon } from "@/lib/locationSystem";
+import { TravelState, initializeTravelState, shouldChangeArea, travelToNewArea, getDirectionIcon, getRegionDangerColor, generateMapOverlay, getMapTileIcon, getAreaEffects, getFeatureData, getFeatureEffectColor, getFeatureEffectBg } from "@/lib/locationSystem";
 import { EventTicker, TickerEvent, createLegendaryEvent } from "@/components/EventTicker";
 
 interface GameScreenProps {
@@ -378,7 +378,10 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
           const playerMaxHp = 100 + (stats.level * 10);
           const bleedingDamage = calculateBleedingDamage(wounds);
           const painPenalty = calculatePainPenalty(wounds);
-          const playerCurrentHp = Math.floor(playerMaxHp * (0.6 + Math.random() * 0.4)) - bleedingDamage;
+          // Terrain healing/damage modifies effective HP
+          const terrainEffects = getAreaEffects(travelState.currentArea.features);
+          const terrainHpMod = terrainEffects.healPerTick * 3; // scaled for per-quest impact
+          const playerCurrentHp = Math.max(1, Math.floor(playerMaxHp * (0.6 + Math.random() * 0.4)) - bleedingDamage + terrainHpMod);
           const enemyMaxHp = 50 + (monster.rank.rank * 20);
           
           // Combat log with wound info
@@ -719,11 +722,14 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
             const goldMultiplier = activeEffects.some(e => e.type === 'gold_boost' && e.endTime > Date.now()) ? 1.5 : 1;
             const shardMultiplier = activeEffects.some(e => e.type === 'shard_boost' && e.endTime > Date.now()) ? 2 : 1;
             
-            const newExp = s.exp + Math.floor(currentQuest.expReward * monster.rank.expMultiplier * expMultiplier * difficultyBonus * performanceMultiplier);
+            // Apply terrain feature effects
+            const areaEffects = getAreaEffects(travelState.currentArea.features);
+            
+            const newExp = s.exp + Math.floor(currentQuest.expReward * monster.rank.expMultiplier * expMultiplier * difficultyBonus * performanceMultiplier * areaEffects.expMultiplier);
             const levelUp = newExp >= s.expToNext;
             const adjustedShardDrop = Math.floor(shardDropped * shardMultiplier);
             const newShards = s.shards + adjustedShardDrop;
-            const adjustedGold = Math.floor(goldGained * goldMultiplier * difficultyBonus * performanceMultiplier);
+            const adjustedGold = Math.floor(goldGained * goldMultiplier * difficultyBonus * performanceMultiplier * areaEffects.goldMultiplier);
             
             if (levelUp) {
               toast({
@@ -839,7 +845,10 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
           });
           return 0;
         }
-        return prev + (100 / currentQuest.duration) * 0.4; // Slowed down by 60% for easier reading
+        // Apply terrain quest speed modifier
+        const areaSpeedEffects = getAreaEffects(travelState.currentArea.features);
+        const speedMod = 1 + areaSpeedEffects.questSpeedMod; // negative questSpeedMod = faster
+        return prev + ((100 / currentQuest.duration) * 0.4) / Math.max(0.3, speedMod);
       });
     }, 100);
 
@@ -1771,13 +1780,40 @@ Death occurred at: ${new Date().toLocaleString()}
               </div>
               {travelState.currentArea.features.length > 0 && (
                 <div className="flex flex-wrap gap-1 mt-2">
-                  {travelState.currentArea.features.map((feature, i) => (
-                    <span key={i} className="text-xs bg-background/50 px-1.5 py-0.5 rounded">
-                      {feature}
-                    </span>
-                  ))}
+                  {travelState.currentArea.features.map((feature, i) => {
+                    const fData = getFeatureData(feature);
+                    const effectColor = fData ? getFeatureEffectColor(fData.effectType) : "text-muted-foreground";
+                    const effectBg = fData ? getFeatureEffectBg(fData.effectType) : "bg-muted/50 border-border";
+                    return (
+                      <span 
+                        key={i} 
+                        className={`text-xs px-1.5 py-0.5 rounded border ${effectBg} ${effectColor}`}
+                        title={fData ? `${fData.description}` : feature}
+                      >
+                        {fData?.icon} {feature}
+                      </span>
+                    );
+                  })}
                 </div>
               )}
+              {/* Show active area effects summary */}
+              {(() => {
+                const fx = getAreaEffects(travelState.currentArea.features);
+                const effects: string[] = [];
+                if (fx.expMultiplier !== 1) effects.push(`EXP ×${fx.expMultiplier.toFixed(1)}`);
+                if (fx.goldMultiplier !== 1) effects.push(`Gold ×${fx.goldMultiplier.toFixed(1)}`);
+                if (fx.healPerTick > 0) effects.push(`+${fx.healPerTick} HP/quest`);
+                if (fx.healPerTick < 0) effects.push(`${fx.healPerTick} HP/quest`);
+                if (fx.questSpeedMod < 0) effects.push(`Quests ${Math.abs(Math.round(fx.questSpeedMod * 100))}% faster`);
+                if (fx.questSpeedMod > 0) effects.push(`Quests ${Math.round(fx.questSpeedMod * 100)}% slower`);
+                if (fx.totalDangerMod !== 0) effects.push(`Danger ${fx.totalDangerMod > 0 ? '+' : ''}${fx.totalDangerMod}`);
+                if (effects.length === 0) return null;
+                return (
+                  <div className="text-xs text-muted-foreground mt-1 italic">
+                    ⚡ {effects.join(' • ')}
+                  </div>
+                );
+              })()}
             </div>
             
             <div className="text-xs text-muted-foreground flex justify-between border-t border-border pt-2">
