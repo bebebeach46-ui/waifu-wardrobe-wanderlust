@@ -181,11 +181,121 @@ export const generateCompanion = (
 };
 
 export const getRelationshipName = (level: number): string => {
-  const names = [
+  if (level <= -9.5) return "Nemesis";
+  if (level <= -8.5) return "Mortal Enemy";
+  if (level <= -7.5) return "Sworn Enemy";
+  if (level <= -6.5) return "Bitter Rival";
+  if (level <= -5.5) return "Driven Enemy";
+  if (level <= -4.5) return "Hostile";
+  if (level <= -3.5) return "Antagonist";
+  if (level <= -2.5) return "Unfriendly";
+  if (level <= -1.5) return "Distrustful";
+  if (level <= -0.5) return "Wary";
+  
+  const positiveNames = [
     "Stranger", "Acquaintance", "Friend", "Close Friend", "Trusted Ally",
     "Dear Friend", "Cherished", "Beloved", "Soulmate", "Devoted"
   ];
-  return names[Math.min(Math.floor(level), 9)];
+  return positiveNames[Math.min(Math.floor(level), 9)];
+};
+
+/**
+ * Calculate relationship change after a quest based on performance, difficulty, 
+ * companion preferences, fame, and current bond level.
+ * 
+ * Returns a delta that can be positive or negative.
+ */
+export const calculateRelationshipDelta = (
+  performanceGrade: number,       // 0-10
+  questDifficulty: number,        // 1-5
+  fame: number,
+  companionCompatibility: number, // 0-9
+  currentRelationship: number,    // -10 to bondCap
+  progressionRate: number,        // companion's base rate
+  companionPreferences: string[], // what the companion values
+  questType?: string              // optional quest theme
+): number => {
+  // Base delta: centered around grade 5 ("Completed") being neutral-positive
+  // Below 3 = negative, 3-4 = small positive, 5+ = good positive
+  let delta = 0;
+  
+  if (performanceGrade <= 0) {
+    // Failed: significant relationship hit
+    delta = -0.8 - (Math.random() * 0.5);
+  } else if (performanceGrade <= 2) {
+    // Barely survived / Poor: relationship suffers
+    delta = -0.3 - (Math.random() * 0.3);
+  } else if (performanceGrade <= 3) {
+    // Mediocre: slight negative to slight positive
+    delta = (Math.random() * 0.4) - 0.2;
+  } else if (performanceGrade <= 4) {
+    // Adequate: small positive
+    delta = Math.random() * 0.3;
+  } else if (performanceGrade <= 6) {
+    // Completed / Good: solid positive
+    delta = 0.2 + (Math.random() * 0.4);
+  } else if (performanceGrade <= 8) {
+    // Impressive / Outstanding: strong positive
+    delta = 0.4 + (Math.random() * 0.5);
+  } else {
+    // Masterful / Exceptional: excellent
+    delta = 0.6 + (Math.random() * 0.6);
+  }
+  
+  // Difficulty scaling: harder quests amplify both gains and losses
+  const difficultyScale = [0, 0.7, 1.0, 1.2, 1.5, 2.0];
+  delta *= difficultyScale[questDifficulty] || 1.0;
+  
+  // Compatibility modifier: high compatibility = bond grows faster, low = slower
+  // But incompatible companions are also MORE hurt by poor performance
+  if (delta > 0) {
+    delta *= 0.6 + (companionCompatibility * 0.1); // 0.6x to 1.5x for positive
+  } else {
+    delta *= 1.4 - (companionCompatibility * 0.08); // 1.4x to 0.68x for negative (low compat = worse)
+  }
+  
+  // Fame modifier: famous heroes get more respect (reduces negative impact slightly)
+  if (fame > 0) {
+    const fameShield = Math.min(fame / 200, 0.3); // Up to 30% reduction in negativity
+    if (delta < 0) {
+      delta *= (1 - fameShield);
+    } else {
+      delta *= (1 + fameShield * 0.5); // Small fame bonus to positive gains
+    }
+  }
+  
+  // Current relationship momentum: 
+  // Already negative relationships are harder to improve, easier to worsen
+  // Already positive relationships are slightly more resilient
+  if (currentRelationship < 0) {
+    if (delta > 0) {
+      delta *= 0.7; // Harder to climb back from negativity
+    } else {
+      delta *= 1.2; // Easier to spiral deeper
+    }
+  } else if (currentRelationship > 5) {
+    if (delta < 0) {
+      delta *= 0.8; // Strong bonds are more resilient
+    }
+  }
+  
+  // Apply companion's base progression rate as a final scalar
+  delta *= progressionRate * 0.6;
+  
+  // Random variance: relationships are messy
+  delta += (Math.random() - 0.5) * 0.15;
+  
+  return delta;
+};
+
+/**
+ * Check if a companion at negative relationship becomes a threat
+ */
+export const isCompanionThreat = (relationship: number): { isThreat: boolean; severity: string; combatBonus: number } => {
+  if (relationship > -5) return { isThreat: false, severity: "none", combatBonus: 0 };
+  if (relationship > -8) return { isThreat: true, severity: "dangerous", combatBonus: 15 };
+  if (relationship > -9.5) return { isThreat: true, severity: "deadly", combatBonus: 30 };
+  return { isThreat: true, severity: "nemesis", combatBonus: 50 };
 };
 
 // Relationship milestone events (like VN scene unlocks)
