@@ -620,18 +620,31 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
             return updatedEncounter;
           });
           
-          // Update companion relationships with bond cap enforcement
+          // Update companion relationships dynamically based on quest performance
+          const gameDifficultyForRel = worldData.difficulty || 2;
           setCompanions(comps => comps.map(comp => {
-            // Ensure old companions have bondCap
             const bondCap = comp.bondCap || 10;
-            const cappedRelationship = Math.min(bondCap, comp.relationship + (Math.random() * comp.progressionRate));
-            const newRel = Math.min(bondCap, cappedRelationship);
+            
+            // Calculate relationship delta using performance, difficulty, fame, etc.
+            const delta = calculateRelationshipDelta(
+              performance.grade,
+              gameDifficultyForRel,
+              fameRef.current || 0,
+              comp.compatibility || 0,
+              comp.relationship,
+              comp.progressionRate,
+              comp.preferences || [],
+              currentQuest.type
+            );
+            
+            // Clamp between -10 and bondCap
+            const newRel = Math.max(-10, Math.min(bondCap, comp.relationship + delta));
             const oldLevel = Math.floor(comp.relationship);
             const newLevel = Math.floor(newRel);
             const oldName = getRelationshipName(comp.relationship);
             const newName = getRelationshipName(newRel);
             
-            // Track relationship milestones (like VN scene unlocks)
+            // Track positive relationship milestones (like VN scene unlocks)
             if (newLevel > oldLevel && newLevel >= 2) {
               const milestone = generateMilestone(newLevel, comp.name, comp.race);
               if (milestone) {
@@ -645,11 +658,44 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
               }
             }
             
+            // Relationship name change notifications
             if (oldName !== newName) {
+              if (newRel > comp.relationship) {
+                toast({
+                  title: `${comp.name} relationship improved!`,
+                  description: <span className="text-stat-increase">Now {newName}</span>
+                });
+              } else {
+                toast({
+                  title: `${comp.name} relationship deteriorated!`,
+                  description: <span className="text-stat-decrease">Now {newName}</span>,
+                  variant: "destructive"
+                });
+                setActivities(prev => trackActivity(prev, "relationship", `⚠️ ${comp.name} is now "${newName}" (relationship: ${Math.floor(newRel)})`));
+              }
+            }
+            
+            // Companion threat check at deep negative levels
+            if (newRel <= -5 && comp.relationship > -5) {
+              const threat = isCompanionThreat(newRel);
               toast({
-                title: `${comp.name} relationship increased!`,
-                description: <span className="text-stat-increase">Now {newName}</span>
+                title: `⚔️ ${comp.name} has become ${threat.severity}!`,
+                description: `They may actively work against you. Combat encounters +${threat.combatBonus}% difficulty.`,
+                variant: "destructive",
+                duration: 8000
               });
+              setLegendaryEvents(prev => [
+                createLegendaryEvent(`⚔️ ${comp.name} has turned ${threat.severity}! Relationship at ${Math.floor(newRel)}`),
+                ...prev
+              ].slice(0, 5));
+            }
+            
+            // Nemesis at -10
+            if (newRel <= -9.5 && comp.relationship > -9.5) {
+              setLegendaryEvents(prev => [
+                createLegendaryEvent(`💀 NEMESIS: ${comp.name} has become ${character.name}'s deadliest enemy!`),
+                ...prev
+              ].slice(0, 5));
             }
             
             // Bond cap warning
@@ -665,7 +711,6 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
             if (newRel >= 10 && bondCap === 10 && !married && comp.relationship < 10) {
               setMarried(comp);
               
-              // Add legendary ticker event for max bond
               setLegendaryEvents(prev => [
                 createLegendaryEvent(`💍 MAX BOND 10: ${comp.name} and ${character.name} are now married! Soul bond complete!`),
                 ...prev
@@ -675,7 +720,6 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
                 title: "💍 Marriage!",
                 description: `${comp.name} and ${character.name} are now married!`
               });
-              // Generate child using proper function
               const child = generateChild(character.name, character.race, comp.name, comp.race);
               setOffspringData(child);
               setChildren(prev => [...prev, child]);
