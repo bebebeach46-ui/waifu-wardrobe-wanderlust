@@ -629,7 +629,7 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
             const delta = calculateRelationshipDelta(
               performance.grade,
               gameDifficultyForRel,
-              fameRef.current || 0,
+              fame,
               comp.compatibility || 0,
               comp.relationship,
               comp.progressionRate,
