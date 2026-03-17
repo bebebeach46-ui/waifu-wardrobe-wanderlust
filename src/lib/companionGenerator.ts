@@ -499,3 +499,282 @@ export const generateCompanionAge = (race: string): number => {
   const [min, max] = range;
   return Math.floor(Math.random() * (max - min)) + min;
 };
+
+// ========== RELATIONSHIP REPAIR MECHANICS ==========
+
+/**
+ * Calculate gift effectiveness based on whether it matches companion preferences.
+ * Returns a multiplier: 0.3x (hated), 1x (neutral), 2-3x (loved).
+ */
+export const calculateGiftEffectiveness = (
+  giftCategory: string,
+  companionPreferences: string[],
+  currentRelationship: number
+): { multiplier: number; reaction: string; icon: string } => {
+  const isPreferred = companionPreferences.some(
+    pref => pref.toLowerCase().includes(giftCategory.toLowerCase()) ||
+            giftCategory.toLowerCase().includes(pref.toLowerCase())
+  );
+  
+  // Deep negative relationships are suspicious of gifts
+  if (currentRelationship <= -7) {
+    if (isPreferred) {
+      return { multiplier: 1.2, reaction: "grudgingly accepted", icon: "😤" };
+    }
+    return { multiplier: 0.3, reaction: "threw it back at you", icon: "💢" };
+  }
+  
+  if (currentRelationship <= -4) {
+    if (isPreferred) {
+      return { multiplier: 1.8, reaction: "was surprised by your thoughtfulness", icon: "😳" };
+    }
+    return { multiplier: 0.5, reaction: "barely acknowledged it", icon: "😒" };
+  }
+  
+  if (isPreferred) {
+    // Loved gift — bonus is stronger at negative relationships (repair value)
+    const repairBonus = currentRelationship < 0 ? 0.5 : 0;
+    return { 
+      multiplier: 2.5 + repairBonus, 
+      reaction: "absolutely loved it!", 
+      icon: "💖" 
+    };
+  }
+  
+  return { multiplier: 1.0, reaction: "appreciated the gesture", icon: "🎁" };
+};
+
+/**
+ * Gift categories mapped to companion preferences for matching.
+ */
+export const giftPreferenceMap: Record<string, string[]> = {
+  "Chocolate Box": ["Sweets", "Food"],
+  "Bouquet of Flowers": ["Flowers", "Art"],
+  "Legendary Gift Box": ["Rare Items", "Artifacts"],
+  "Marriage Proposal Ring": ["Jewelry"],
+  "Apology Letter": [],  // Works on everyone equally
+  "Peace Offering Feast": ["Food", "Sweets"],
+  "Handcrafted Weapon": ["Weapons", "Combat"],
+  "Enchanted Jewelry": ["Jewelry", "Magic Scrolls"],
+  "Rare Book Collection": ["Books", "Art"],
+  "Concert Tickets": ["Music"],
+  "Exotic Pet Egg": ["Pets"],
+  "Alchemist's Bundle": ["Potions"],
+};
+
+/**
+ * Apology events that can fire randomly when a companion is at negative relationship.
+ * Returns the relationship bonus and narrative text.
+ */
+export type ApologyEvent = {
+  name: string;
+  description: string;
+  relationshipGain: number;
+  icon: string;
+  minRelationship: number; // Only triggers at or below this level
+  successChance: number;   // 0-1
+};
+
+const apologyEvents: ApologyEvent[] = [
+  {
+    name: "Campfire Apology",
+    description: "sat down with {companion} by the campfire and sincerely apologized for past failures",
+    relationshipGain: 0.8,
+    icon: "🔥",
+    minRelationship: 0,
+    successChance: 0.7
+  },
+  {
+    name: "Saved from Danger",
+    description: "threw themselves in front of {companion} to block a surprise attack",
+    relationshipGain: 1.5,
+    icon: "🛡️",
+    minRelationship: -3,
+    successChance: 0.5
+  },
+  {
+    name: "Public Defense",
+    description: "defended {companion}'s honor in front of a crowd of skeptics",
+    relationshipGain: 1.0,
+    icon: "📢",
+    minRelationship: -2,
+    successChance: 0.65
+  },
+  {
+    name: "Heartfelt Confession",
+    description: "broke down and admitted their mistakes to {companion}, baring their soul",
+    relationshipGain: 1.2,
+    icon: "💬",
+    minRelationship: -5,
+    successChance: 0.4
+  },
+  {
+    name: "Revenge Fulfilled",
+    description: "tracked down and defeated the monster that once humiliated {companion}",
+    relationshipGain: 2.0,
+    icon: "⚔️",
+    minRelationship: -7,
+    successChance: 0.3
+  },
+  {
+    name: "Sacrifice Play",
+    description: "gave up a legendary reward so {companion} could have it instead",
+    relationshipGain: 2.5,
+    icon: "✨",
+    minRelationship: -9,
+    successChance: 0.2
+  }
+];
+
+/**
+ * Roll for an apology event. Only triggers for companions with negative relationships.
+ * Chance scales with how negative the relationship is (worse = more likely to trigger, but harder to succeed).
+ */
+export const rollForApologyEvent = (
+  companionName: string,
+  currentRelationship: number,
+  fame: number
+): { event: ApologyEvent; success: boolean; actualGain: number } | null => {
+  // Only triggers for negative relationships
+  if (currentRelationship >= 0) return null;
+  
+  // 8% base chance per quest tick, higher when deeply negative
+  const triggerChance = 0.08 + (Math.abs(currentRelationship) * 0.01);
+  if (Math.random() > triggerChance) return null;
+  
+  // Filter eligible events
+  const eligible = apologyEvents.filter(e => currentRelationship <= e.minRelationship);
+  if (eligible.length === 0) return null;
+  
+  const event = eligible[Math.floor(Math.random() * eligible.length)];
+  
+  // Fame boosts success chance slightly
+  const fameBonus = Math.min(fame / 500, 0.15);
+  const success = Math.random() < (event.successChance + fameBonus);
+  
+  // Failed apologies still give a tiny bit back (0.1-0.2), showing effort
+  const actualGain = success ? event.relationshipGain : 0.1 + Math.random() * 0.1;
+  
+  return { event, success, actualGain };
+};
+
+/**
+ * Repair side quest — a special quest that triggers when a companion is hostile.
+ * Completing it gives a large relationship boost.
+ */
+export type RepairQuest = {
+  name: string;
+  description: string;
+  companionName: string;
+  targetRelationshipGain: number;
+  difficulty: string;
+  icon: string;
+};
+
+const repairQuestTemplates = [
+  {
+    name: "Retrieve {companion}'s Lost Heirloom",
+    description: "A family treasure was stolen. Finding it could prove your worth.",
+    targetRelationshipGain: 3.0,
+    difficulty: "Hard",
+    icon: "🏺"
+  },
+  {
+    name: "Clear {companion}'s Name",
+    description: "False accusations tarnish their reputation. Only you can set things right.",
+    targetRelationshipGain: 2.5,
+    difficulty: "Medium",
+    icon: "📜"
+  },
+  {
+    name: "Protect {companion}'s Homeland",
+    description: "Their village is under threat. Defending it would mean everything.",
+    targetRelationshipGain: 4.0,
+    difficulty: "Very Hard",
+    icon: "🏘️"
+  },
+  {
+    name: "Fulfill {companion}'s Dream",
+    description: "They once spoke of a dream they'd abandoned. You could make it real.",
+    targetRelationshipGain: 3.5,
+    difficulty: "Hard",
+    icon: "⭐"
+  },
+  {
+    name: "Duel for {companion}'s Respect",
+    description: "Challenge them to an honorable duel. Win or lose, they'll respect the attempt.",
+    targetRelationshipGain: 2.0,
+    difficulty: "Medium",
+    icon: "🤺"
+  },
+  {
+    name: "Cook {companion}'s Favorite Dish",
+    description: "The way to anyone's heart is through their stomach. Probably.",
+    targetRelationshipGain: 1.5,
+    difficulty: "Easy",
+    icon: "🍳"
+  }
+];
+
+/**
+ * Roll for a repair quest trigger. Only for companions at -3 or below.
+ */
+export const rollForRepairQuest = (
+  companionName: string,
+  currentRelationship: number,
+  questsCompleted: number
+): RepairQuest | null => {
+  if (currentRelationship > -3) return null;
+  
+  // 5% chance per quest, cooldown of 20 quests between attempts
+  if (Math.random() > 0.05) return null;
+  
+  // Pick a template scaled to how bad the relationship is
+  const severity = Math.abs(currentRelationship);
+  const eligible = repairQuestTemplates.filter(t => {
+    if (severity >= 7) return true; // All templates available for deep negativity
+    if (severity >= 5) return t.targetRelationshipGain <= 3.5;
+    return t.targetRelationshipGain <= 2.5;
+  });
+  
+  const template = eligible[Math.floor(Math.random() * eligible.length)];
+  if (!template) return null;
+  
+  return {
+    ...template,
+    name: template.name.replace("{companion}", companionName),
+    description: template.description,
+    companionName
+  };
+};
+
+/**
+ * Calculate repair quest reward — performance on the repair quest scales the gain.
+ */
+export const calculateRepairQuestReward = (
+  repairQuest: RepairQuest,
+  performanceGrade: number // 0-10
+): { relationshipGain: number; narrative: string } => {
+  if (performanceGrade <= 2) {
+    return {
+      relationshipGain: repairQuest.targetRelationshipGain * 0.2,
+      narrative: `Attempted "${repairQuest.name}" but performed poorly. ${repairQuest.companionName} noticed the effort, at least.`
+    };
+  }
+  if (performanceGrade <= 4) {
+    return {
+      relationshipGain: repairQuest.targetRelationshipGain * 0.5,
+      narrative: `Partially completed "${repairQuest.name}". ${repairQuest.companionName} is warming up slightly.`
+    };
+  }
+  if (performanceGrade <= 7) {
+    return {
+      relationshipGain: repairQuest.targetRelationshipGain * 0.8,
+      narrative: `Successfully completed "${repairQuest.name}"! ${repairQuest.companionName} is reconsidering their feelings.`
+    };
+  }
+  return {
+    relationshipGain: repairQuest.targetRelationshipGain * 1.2,
+    narrative: `Masterfully completed "${repairQuest.name}"! ${repairQuest.companionName} was deeply moved.`
+  };
+};

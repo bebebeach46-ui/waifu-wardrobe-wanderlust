@@ -12,7 +12,7 @@ import { createEmptyCodex, addDiscovery, Codex, generateLoreEntry } from "@/lib/
 import { useToast } from "@/hooks/use-toast";
 import { generateCharacter, rollForNewSkill, rollForNewSpell, rollForEquipmentUnlock, getClassConfig } from "@/lib/characterGenerator";
 import { generateQuest, Quest, rollQuestPerformance, QuestPerformanceGrade, getFameTitle, performanceGrades } from "@/lib/questGenerator";
-import { generateCompanion, getRelationshipName, calculateCompatibility, getBondLevelCap, generateMilestone, generateChild, RelationshipMilestone, ChildInfo, generateCompanionAge, calculateRelationshipDelta, isCompanionThreat } from "@/lib/companionGenerator";
+import { generateCompanion, getRelationshipName, calculateCompatibility, getBondLevelCap, generateMilestone, generateChild, RelationshipMilestone, ChildInfo, generateCompanionAge, calculateRelationshipDelta, isCompanionThreat, calculateGiftEffectiveness, giftPreferenceMap, rollForApologyEvent, rollForRepairQuest, calculateRepairQuestReward, RepairQuest } from "@/lib/companionGenerator";
 import { CompanionEncounterState, initializeEncounterState, updateEncounterState, completeEncounter, getTopAffinities, EncounterPreference } from "@/lib/companionEncounterSystem";
 import { generateShopName } from "@/lib/skillGenerator";
 import { generateSummon } from "@/lib/summonGenerator";
@@ -97,6 +97,7 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
   const [codex, setCodex] = useState<Codex>(() => savedData?.codex || createEmptyCodex());
   const [encounterState, setEncounterState] = useState<CompanionEncounterState>(() => savedData?.encounterState || initializeEncounterState());
   const [legendaryEvents, setLegendaryEvents] = useState<TickerEvent[]>([]);
+  const [activeRepairQuest, setActiveRepairQuest] = useState<RepairQuest | null>(() => savedData?.activeRepairQuest || null);
   const [hasGrandVisionCrystal, setHasGrandVisionCrystal] = useState(() => {
     const completions = localStorage.getItem('difficulty_completions');
     return completions ? JSON.parse(completions).length > 0 : false;
@@ -739,7 +740,98 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
             };
           }));
           
-          // Random status effects (20% chance to add, 15% to remove)
+          // === APOLOGY EVENTS — random repair opportunities for negative companions ===
+          companions.forEach((comp) => {
+            if (comp.relationship >= 0) return;
+            
+            const apologyResult = rollForApologyEvent(comp.name, comp.relationship, fame);
+            if (apologyResult) {
+              const { event, success, actualGain } = apologyResult;
+              const narrative = event.description.replace("{companion}", comp.name);
+              
+              setCompanions(comps => comps.map(c => {
+                if (c.name === comp.name) {
+                  const newRel = Math.min(c.bondCap || 10, c.relationship + actualGain);
+                  const newName = getRelationshipName(newRel);
+                  return { ...c, relationship: newRel, relationshipName: newName };
+                }
+                return c;
+              }));
+              
+              if (success) {
+                toast({
+                  title: `${event.icon} ${event.name}!`,
+                  description: <span className="text-stat-increase">{character.name} {narrative} (+{actualGain.toFixed(1)} bond)</span>,
+                  duration: 6000
+                });
+              } else {
+                toast({
+                  title: `${event.icon} ${event.name} (Awkward...)`,
+                  description: `${character.name} tried but ${comp.name} wasn't convinced. (+${actualGain.toFixed(1)})`,
+                  duration: 4000
+                });
+              }
+              
+              setActivities(prev => trackActivity(prev, "relationship", 
+                `${event.icon} ${event.name} with ${comp.name}: ${success ? "Success" : "Partial"} (+${actualGain.toFixed(1)})`
+              ));
+            }
+          });
+          
+          // === REPAIR QUEST TRIGGERS — special quests to fix hostile relationships ===
+          if (!activeRepairQuest) {
+            for (const comp of companions) {
+              if (comp.relationship <= -3) {
+                const repairQuest = rollForRepairQuest(comp.name, comp.relationship, stats.questsCompleted);
+                if (repairQuest) {
+                  setActiveRepairQuest(repairQuest);
+                  toast({
+                    title: `${repairQuest.icon} Repair Quest Available!`,
+                    description: `"${repairQuest.name}" — ${repairQuest.description}`,
+                    duration: 8000
+                  });
+                  setLegendaryEvents(prev => [
+                    createLegendaryEvent(`${repairQuest.icon} REPAIR QUEST: "${repairQuest.name}" — A chance to mend the bond with ${comp.name}!`),
+                    ...prev
+                  ].slice(0, 5));
+                  setActivities(prev => trackActivity(prev, "relationship", 
+                    `${repairQuest.icon} Repair quest triggered: "${repairQuest.name}" for ${comp.name}`
+                  ));
+                  break; // Only one at a time
+                }
+              }
+            }
+          }
+          
+          // === REPAIR QUEST COMPLETION — auto-completes alongside normal quests ===
+          if (activeRepairQuest) {
+            // 30% chance per quest to "complete" the repair quest
+            if (Math.random() < 0.3) {
+              const repairResult = calculateRepairQuestReward(activeRepairQuest, performance.grade);
+              
+              setCompanions(comps => comps.map(c => {
+                if (c.name === activeRepairQuest.companionName) {
+                  const newRel = Math.min(c.bondCap || 10, c.relationship + repairResult.relationshipGain);
+                  const newName = getRelationshipName(newRel);
+                  return { ...c, relationship: newRel, relationshipName: newName };
+                }
+                return c;
+              }));
+              
+              toast({
+                title: `${activeRepairQuest.icon} Repair Quest Complete!`,
+                description: <span className="text-stat-increase">{repairResult.narrative} (+{repairResult.relationshipGain.toFixed(1)} bond)</span>,
+                duration: 8000
+              });
+              
+              setActivities(prev => trackActivity(prev, "relationship", 
+                `${activeRepairQuest.icon} Completed "${activeRepairQuest.name}" (+${repairResult.relationshipGain.toFixed(1)} bond with ${activeRepairQuest.companionName})`
+              ));
+              
+              setActiveRepairQuest(null);
+            }
+          }
+          
           if (Math.random() < 0.2) {
             const newEffect = getRandomStatusEffect();
             setStatusEffects(prev => {
@@ -1254,13 +1346,14 @@ Death occurred at: ${new Date().toLocaleString()}
       wounds,
       travelState,
       encounterState,
+      activeRepairQuest,
       simplifiedMode,
       fame,
       characterName: character.name,
       level: stats.level,
       timestamp: Date.now()
     };
-  }, [character, stats, worldData, companions, treasure, married, hasOffspring, offspringData, children, romanceDiary, statusEffects, summons, eventLog, deity, alignment, weather, materials, lifeSkills, activities, monstersKilled, currentQuest, shopName, activeEffects, codex, combatLog, wounds, travelState, encounterState, simplifiedMode, fame]);
+  }, [character, stats, worldData, companions, treasure, married, hasOffspring, offspringData, children, romanceDiary, statusEffects, summons, eventLog, deity, alignment, weather, materials, lifeSkills, activities, monstersKilled, currentQuest, shopName, activeEffects, codex, combatLog, wounds, travelState, encounterState, activeRepairQuest, simplifiedMode, fame]);
 
   const performSave = useCallback(() => {
     if (!saveDataRef.current) return null;
@@ -1513,22 +1606,57 @@ Death occurred at: ${new Date().toLocaleString()}
       case 'companion_gift':
         if (companions.length > 0) {
           const randomIndex = Math.floor(Math.random() * companions.length);
+          const targetComp = companions[randomIndex];
+          const giftCategory = item.effect.giftCategory || item.name;
+          const isRepairGift = item.effect.isRepair || false;
+          
+          // Calculate gift effectiveness based on preference matching
+          const giftResult = calculateGiftEffectiveness(
+            giftCategory,
+            targetComp.preferences || [],
+            targetComp.relationship
+          );
+          
+          // Repair gifts get bonus effectiveness on negative relationships
+          let repairBonus = 1.0;
+          if (isRepairGift && targetComp.relationship < 0) {
+            repairBonus = 1.5 + (Math.abs(targetComp.relationship) * 0.1); // Up to 2.5x for deeply negative
+          }
+          
+          const effectiveGain = item.effect.relationship * giftResult.multiplier * repairBonus;
+          
           setCompanions(comps => comps.map((comp, i) => {
             if (i === randomIndex) {
               const bondCap = comp.bondCap || 10;
-              const newRel = Math.min(bondCap, comp.relationship + item.effect.relationship);
+              const newRel = Math.min(bondCap, comp.relationship + effectiveGain);
+              const newName = getRelationshipName(newRel);
+              const oldName = getRelationshipName(comp.relationship);
+              
+              if (oldName !== newName && newRel > comp.relationship) {
+                toast({
+                  title: `${comp.name} relationship improved!`,
+                  description: <span className="text-stat-increase">Now {newName}</span>
+                });
+              }
+              
               return {
                 ...comp,
                 relationship: newRel,
-                relationshipName: getRelationshipName(newRel)
+                relationshipName: newName
               };
             }
             return comp;
           }));
+          
+          const gainText = effectiveGain >= 2 ? "greatly " : effectiveGain >= 1 ? "" : "slightly ";
           toast({
-            title: "Gift Given!",
-            description: <span className="text-stat-increase">{companions[randomIndex].name} relationship increased</span>
+            title: `${giftResult.icon} Gift Given to ${targetComp.name}!`,
+            description: <span className="text-stat-increase">{targetComp.name} {giftResult.reaction} (+{effectiveGain.toFixed(1)} bond)</span>
           });
+          
+          setActivities(prev => trackActivity(prev, "relationship", 
+            `${giftResult.icon} Gave ${item.name} to ${targetComp.name} — ${giftResult.reaction} (+${effectiveGain.toFixed(1)})`
+          ));
         } else {
           toast({
             title: "No Companions!",
