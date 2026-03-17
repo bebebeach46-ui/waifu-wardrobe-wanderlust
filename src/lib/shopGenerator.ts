@@ -228,26 +228,26 @@ const consumables: Omit<ShopItem, 'id'>[] = [
 const companionGifts: Omit<ShopItem, 'id'>[] = [
   {
     name: "Chocolate Box",
-    description: "Increases companion relationship by 1",
+    description: "A sweet gesture. +1 bond (more if they like Sweets!)",
     price: 300,
     type: 'companion_gift',
-    effect: { relationship: 1 },
+    effect: { relationship: 1, giftCategory: "Chocolate Box" },
     rarity: 'common'
   },
   {
     name: "Bouquet of Flowers",
-    description: "Increases companion relationship by 2",
+    description: "Classic romance. +2 bond (more if they like Flowers!)",
     price: 600,
     type: 'companion_gift',
-    effect: { relationship: 2 },
+    effect: { relationship: 2, giftCategory: "Bouquet of Flowers" },
     rarity: 'uncommon'
   },
   {
     name: "Legendary Gift Box",
-    description: "Increases companion relationship by 3",
+    description: "Exquisite treasures. +3 bond (more for Rare Item fans!)",
     price: 1200,
     type: 'companion_gift',
-    effect: { relationship: 3 },
+    effect: { relationship: 3, giftCategory: "Legendary Gift Box" },
     rarity: 'rare'
   },
   {
@@ -255,8 +255,65 @@ const companionGifts: Omit<ShopItem, 'id'>[] = [
     description: "Max out companion relationship instantly",
     price: 5000,
     type: 'companion_gift',
-    effect: { relationship: 10 },
+    effect: { relationship: 10, giftCategory: "Marriage Proposal Ring" },
     rarity: 'legendary'
+  },
+  // === REPAIR-FOCUSED GIFTS ===
+  {
+    name: "Apology Letter",
+    description: "A heartfelt written apology. Works on anyone, best for negative bonds.",
+    price: 200,
+    type: 'companion_gift',
+    effect: { relationship: 0.8, giftCategory: "Apology Letter", isRepair: true },
+    rarity: 'common'
+  },
+  {
+    name: "Peace Offering Feast",
+    description: "An elaborate feast to bury the hatchet. +2 bond (extra for Food lovers!)",
+    price: 500,
+    type: 'companion_gift',
+    effect: { relationship: 2, giftCategory: "Peace Offering Feast", isRepair: true },
+    rarity: 'uncommon'
+  },
+  {
+    name: "Handcrafted Weapon",
+    description: "A weapon forged with care. +2 bond (extra for Weapon/Combat fans!)",
+    price: 700,
+    type: 'companion_gift',
+    effect: { relationship: 2, giftCategory: "Handcrafted Weapon" },
+    rarity: 'uncommon'
+  },
+  {
+    name: "Enchanted Jewelry",
+    description: "A shimmering pendant. +2 bond (extra for Jewelry lovers!)",
+    price: 800,
+    type: 'companion_gift',
+    effect: { relationship: 2, giftCategory: "Enchanted Jewelry" },
+    rarity: 'uncommon'
+  },
+  {
+    name: "Rare Book Collection",
+    description: "First editions of legendary tomes. +2 bond (extra for Book fans!)",
+    price: 650,
+    type: 'companion_gift',
+    effect: { relationship: 2, giftCategory: "Rare Book Collection" },
+    rarity: 'uncommon'
+  },
+  {
+    name: "Atonement Relic",
+    description: "A sacred relic that amplifies sincere remorse. +3 bond for hostile companions.",
+    price: 1500,
+    type: 'companion_gift',
+    effect: { relationship: 3, giftCategory: "Apology Letter", isRepair: true },
+    rarity: 'rare'
+  },
+  {
+    name: "Soul Mending Crystal",
+    description: "Repairs even the most shattered bonds. +5 bond for enemies.",
+    price: 3000,
+    type: 'companion_gift',
+    effect: { relationship: 5, giftCategory: "Apology Letter", isRepair: true },
+    rarity: 'epic'
   }
 ];
 
