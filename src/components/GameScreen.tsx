@@ -740,7 +740,98 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
             };
           }));
           
-          // Random status effects (20% chance to add, 15% to remove)
+          // === APOLOGY EVENTS — random repair opportunities for negative companions ===
+          companions.forEach((comp) => {
+            if (comp.relationship >= 0) return;
+            
+            const apologyResult = rollForApologyEvent(comp.name, comp.relationship, fame);
+            if (apologyResult) {
+              const { event, success, actualGain } = apologyResult;
+              const narrative = event.description.replace("{companion}", comp.name);
+              
+              setCompanions(comps => comps.map(c => {
+                if (c.name === comp.name) {
+                  const newRel = Math.min(c.bondCap || 10, c.relationship + actualGain);
+                  const newName = getRelationshipName(newRel);
+                  return { ...c, relationship: newRel, relationshipName: newName };
+                }
+                return c;
+              }));
+              
+              if (success) {
+                toast({
+                  title: `${event.icon} ${event.name}!`,
+                  description: <span className="text-stat-increase">{character.name} {narrative} (+{actualGain.toFixed(1)} bond)</span>,
+                  duration: 6000
+                });
+              } else {
+                toast({
+                  title: `${event.icon} ${event.name} (Awkward...)`,
+                  description: `${character.name} tried but ${comp.name} wasn't convinced. (+${actualGain.toFixed(1)})`,
+                  duration: 4000
+                });
+              }
+              
+              setActivities(prev => trackActivity(prev, "relationship", 
+                `${event.icon} ${event.name} with ${comp.name}: ${success ? "Success" : "Partial"} (+${actualGain.toFixed(1)})`
+              ));
+            }
+          });
+          
+          // === REPAIR QUEST TRIGGERS — special quests to fix hostile relationships ===
+          if (!activeRepairQuest) {
+            for (const comp of companions) {
+              if (comp.relationship <= -3) {
+                const repairQuest = rollForRepairQuest(comp.name, comp.relationship, stats.questsCompleted);
+                if (repairQuest) {
+                  setActiveRepairQuest(repairQuest);
+                  toast({
+                    title: `${repairQuest.icon} Repair Quest Available!`,
+                    description: `"${repairQuest.name}" — ${repairQuest.description}`,
+                    duration: 8000
+                  });
+                  setLegendaryEvents(prev => [
+                    createLegendaryEvent(`${repairQuest.icon} REPAIR QUEST: "${repairQuest.name}" — A chance to mend the bond with ${comp.name}!`),
+                    ...prev
+                  ].slice(0, 5));
+                  setActivities(prev => trackActivity(prev, "relationship", 
+                    `${repairQuest.icon} Repair quest triggered: "${repairQuest.name}" for ${comp.name}`
+                  ));
+                  break; // Only one at a time
+                }
+              }
+            }
+          }
+          
+          // === REPAIR QUEST COMPLETION — auto-completes alongside normal quests ===
+          if (activeRepairQuest) {
+            // 30% chance per quest to "complete" the repair quest
+            if (Math.random() < 0.3) {
+              const repairResult = calculateRepairQuestReward(activeRepairQuest, performance.grade);
+              
+              setCompanions(comps => comps.map(c => {
+                if (c.name === activeRepairQuest.companionName) {
+                  const newRel = Math.min(c.bondCap || 10, c.relationship + repairResult.relationshipGain);
+                  const newName = getRelationshipName(newRel);
+                  return { ...c, relationship: newRel, relationshipName: newName };
+                }
+                return c;
+              }));
+              
+              toast({
+                title: `${activeRepairQuest.icon} Repair Quest Complete!`,
+                description: <span className="text-stat-increase">{repairResult.narrative} (+{repairResult.relationshipGain.toFixed(1)} bond)</span>,
+                duration: 8000
+              });
+              
+              setActivities(prev => trackActivity(prev, "relationship", 
+                `${activeRepairQuest.icon} Completed "${activeRepairQuest.name}" (+${repairResult.relationshipGain.toFixed(1)} bond with ${activeRepairQuest.companionName})`
+              ));
+              
+              setActiveRepairQuest(null);
+            }
+          }
+          
           if (Math.random() < 0.2) {
             const newEffect = getRandomStatusEffect();
             setStatusEffects(prev => {
