@@ -1515,22 +1515,57 @@ Death occurred at: ${new Date().toLocaleString()}
       case 'companion_gift':
         if (companions.length > 0) {
           const randomIndex = Math.floor(Math.random() * companions.length);
+          const targetComp = companions[randomIndex];
+          const giftCategory = item.effect.giftCategory || item.name;
+          const isRepairGift = item.effect.isRepair || false;
+          
+          // Calculate gift effectiveness based on preference matching
+          const giftResult = calculateGiftEffectiveness(
+            giftCategory,
+            targetComp.preferences || [],
+            targetComp.relationship
+          );
+          
+          // Repair gifts get bonus effectiveness on negative relationships
+          let repairBonus = 1.0;
+          if (isRepairGift && targetComp.relationship < 0) {
+            repairBonus = 1.5 + (Math.abs(targetComp.relationship) * 0.1); // Up to 2.5x for deeply negative
+          }
+          
+          const effectiveGain = item.effect.relationship * giftResult.multiplier * repairBonus;
+          
           setCompanions(comps => comps.map((comp, i) => {
             if (i === randomIndex) {
               const bondCap = comp.bondCap || 10;
-              const newRel = Math.min(bondCap, comp.relationship + item.effect.relationship);
+              const newRel = Math.min(bondCap, comp.relationship + effectiveGain);
+              const newName = getRelationshipName(newRel);
+              const oldName = getRelationshipName(comp.relationship);
+              
+              if (oldName !== newName && newRel > comp.relationship) {
+                toast({
+                  title: `${comp.name} relationship improved!`,
+                  description: <span className="text-stat-increase">Now {newName}</span>
+                });
+              }
+              
               return {
                 ...comp,
                 relationship: newRel,
-                relationshipName: getRelationshipName(newRel)
+                relationshipName: newName
               };
             }
             return comp;
           }));
+          
+          const gainText = effectiveGain >= 2 ? "greatly " : effectiveGain >= 1 ? "" : "slightly ";
           toast({
-            title: "Gift Given!",
-            description: <span className="text-stat-increase">{companions[randomIndex].name} relationship increased</span>
+            title: `${giftResult.icon} Gift Given to ${targetComp.name}!`,
+            description: <span className="text-stat-increase">{targetComp.name} {giftResult.reaction} (+{effectiveGain.toFixed(1)} bond)</span>
           });
+          
+          setActivities(prev => trackActivity(prev, "relationship", 
+            `${giftResult.icon} Gave ${item.name} to ${targetComp.name} — ${giftResult.reaction} (+${effectiveGain.toFixed(1)})`
+          ));
         } else {
           toast({
             title: "No Companions!",
