@@ -299,70 +299,65 @@ export const rollQuestPerformance = (
   fame: number,
   criticalHit: boolean
 ): QuestPerformanceGrade => {
-  // Expected level for this quest rank (rank 1 = level 1-5, rank 2 = level 6-10, etc.)
-  const expectedLevel = questRank * 5;
-  
-  // Level ratio: 1.0 means you're at expected level, >1 means overleveled
-  // At level 1 doing rank 1 quests, ratio = 1/5 = 0.2 → still a rookie
-  // At level 5 doing rank 1 quests, ratio = 5/5 = 1.0 → right on target
-  const levelRatio = Math.min(playerLevel / Math.max(expectedLevel, 1), 2.0);
-  
-  // Base roll: random 0-100
-  let roll = Math.random() * 100;
-  
-  // Experience bonus: heroes naturally get better as they level up
-  // Even a level 1 hero gets a small baseline, scaling up smoothly
-  const experienceBonus = Math.min(playerLevel * 1.5, 30);
-  roll += experienceBonus;
-  
-  // Level-to-quest ratio bonus: being at or above expected level helps significantly
-  // At ratio 0.2 (lv1 vs rank1): +0 bonus
-  // At ratio 1.0 (lv5 vs rank1): +15 bonus  
-  // At ratio 2.0 (lv10 vs rank1): +25 bonus
-  roll += Math.max(0, (levelRatio - 0.2)) * 18;
-  
-  // Fame bonus: reputation makes you perform better (more connections, better prep)
-  // Every 25 fame = +1 (more generous than before)
-  roll += Math.floor(fame / 25);
-  
-  // Wound penalty: each wound subtracts from performance, but scaled down
-  roll -= woundsTaken * 5;
-  
-  // Critical hit bonus: landing a crit shows mastery
-  if (criticalHit) roll += 20;
-  
-  // Quest difficulty penalty: harder quests are harder to ace, but less punishing
-  // Only penalize when quest rank significantly exceeds what's expected for your level
+  // Expected rank for this player level
   const expectedRank = Math.max(1, Math.ceil(playerLevel / 5));
   const rankGap = questRank - expectedRank;
-  if (rankGap > 0) {
-    roll -= rankGap * 8; // Only punish quests above your expected rank
+  
+  // Base roll: random 0-100 — this is the core randomness
+  let roll = Math.random() * 100;
+  
+  // Experience bonus: scales with level, meaningful even at level 1
+  // Level 1: +5, Level 5: +15, Level 10: +22, Level 20: +30 (cap)
+  const experienceBonus = Math.min(5 + playerLevel * 2.5, 30);
+  roll += experienceBonus;
+  
+  // Level advantage: being overleveled for a quest helps
+  // At-level quests: +0, 1 rank below: +8, 2 ranks below: +16
+  if (rankGap < 0) {
+    roll += Math.abs(rankGap) * 8;
   }
   
-  // Random variance: add some spice so results aren't too predictable
-  roll += (Math.random() - 0.3) * 20; // slight positive bias
+  // Fame bonus: reputation opens doors (every 20 fame = +1, cap +15)
+  roll += Math.min(Math.floor(fame / 20), 15);
   
-  // Failure chance: quests well above your level can fail
+  // Wound penalty: CAPPED so wounds can't create an inescapable spiral
+  // Max penalty of -15 regardless of wound count
+  const woundPenalty = Math.min(woundsTaken * 3, 15);
+  roll -= woundPenalty;
+  
+  // Critical hit bonus
+  if (criticalHit) roll += 15;
+  
+  // Quest difficulty penalty: only for quests ABOVE your expected rank
+  if (rankGap > 0) {
+    roll -= rankGap * 10;
+  }
+  
+  // Random variance: ±15 with slight positive bias
+  roll += (Math.random() - 0.35) * 30;
+  
+  // Failure chance: quests well above your level can outright fail
   if (rankGap >= 3 && Math.random() < rankGap * 0.08) {
     return performanceGrades[0]; // Failed
   }
   
-  // Small random failure chance (1.5%) for any quest — bad luck happens
-  if (Math.random() < 0.015) {
+  // Small random failure chance (1%) — bad luck happens
+  if (Math.random() < 0.01) {
     return performanceGrades[Math.floor(Math.random() * 2)]; // 0 or 1
   }
   
-  // Map roll to grade (0-10) — thresholds tuned for better distribution
+  // Map roll to grade — thresholds designed so level 1 averages ~grade 3-4
+  // and experienced heroes average ~grade 5-7
   let grade: number;
-  if (roll < 15) grade = 1;       // Barely survived
-  else if (roll < 30) grade = 2;  // Poor
-  else if (roll < 45) grade = 3;  // Mediocre
-  else if (roll < 58) grade = 4;  // Adequate
-  else if (roll < 72) grade = 5;  // Completed
-  else if (roll < 82) grade = 6;  // Good
-  else if (roll < 90) grade = 7;  // Impressive
-  else if (roll < 96) grade = 8;  // Outstanding
-  else if (roll < 100) grade = 9; // Masterful
+  if (roll < 20) grade = 1;       // Barely survived
+  else if (roll < 35) grade = 2;  // Poor
+  else if (roll < 50) grade = 3;  // Mediocre
+  else if (roll < 65) grade = 4;  // Adequate
+  else if (roll < 80) grade = 5;  // Completed
+  else if (roll < 92) grade = 6;  // Good
+  else if (roll < 102) grade = 7; // Impressive
+  else if (roll < 112) grade = 8; // Outstanding
+  else if (roll < 120) grade = 9; // Masterful
   else grade = 10;                // Exceptional (rare!)
   
   return performanceGrades[grade];
