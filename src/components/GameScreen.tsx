@@ -1255,13 +1255,14 @@ Death occurred at: ${new Date().toLocaleString()}
       wounds,
       travelState,
       encounterState,
+      activeRepairQuest,
       simplifiedMode,
       fame,
       characterName: character.name,
       level: stats.level,
       timestamp: Date.now()
     };
-  }, [character, stats, worldData, companions, treasure, married, hasOffspring, offspringData, children, romanceDiary, statusEffects, summons, eventLog, deity, alignment, weather, materials, lifeSkills, activities, monstersKilled, currentQuest, shopName, activeEffects, codex, combatLog, wounds, travelState, encounterState, simplifiedMode, fame]);
+  }, [character, stats, worldData, companions, treasure, married, hasOffspring, offspringData, children, romanceDiary, statusEffects, summons, eventLog, deity, alignment, weather, materials, lifeSkills, activities, monstersKilled, currentQuest, shopName, activeEffects, codex, combatLog, wounds, travelState, encounterState, activeRepairQuest, simplifiedMode, fame]);
 
   const performSave = useCallback(() => {
     if (!saveDataRef.current) return null;
