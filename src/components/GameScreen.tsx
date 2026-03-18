@@ -2472,6 +2472,17 @@ Death occurred at: ${new Date().toLocaleString()}
             </div>
           )}
 
+          {championsDefeated > 0 && (
+            <div className="space-y-2">
+              <div className="text-sm font-semibold flex items-center gap-1">
+                👑 Champions Defeated: {championsDefeated}
+              </div>
+              {getChampionSlayerTitle(championsDefeated) && (
+                <div className="text-xs text-accent">Title: {getChampionSlayerTitle(championsDefeated)}</div>
+              )}
+            </div>
+          )}
+
           {monstersKilled.length > 0 && (
             <div className="space-y-2">
               <div className="text-sm font-semibold flex items-center gap-1">
