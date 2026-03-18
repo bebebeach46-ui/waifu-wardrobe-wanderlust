@@ -1473,6 +1473,7 @@ Death occurred at: ${new Date().toLocaleString()}
     setShowMap(false);
     setIsDead(false);
     setDeathLog("");
+    setChampionsDefeated(0);
     
     toast({
       title: "A New Generation Begins",
