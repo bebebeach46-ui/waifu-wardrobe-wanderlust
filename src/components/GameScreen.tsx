@@ -370,8 +370,6 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
           setMonstersKilled(prev => trackMonsterKill(prev, monsterName, monster.rank.rank));
           setActivities(prev => trackActivity(prev, "combat", `Defeated Rank ${monster.rank.rank} ${monsterName} in ${currentQuest.name}${combatResult.critical ? ' (CRIT!)' : ''}`));
           
-          // Check if vision crystal is active or grand vision crystal unlocked
-          const hasVision = activeEffects.some(e => e.type === 'vision_crystal' && e.endTime > Date.now()) || hasGrandVisionCrystal;
           const playerMaxHp = 100 + (stats.level * 10);
           const bleedingDamage = calculateBleedingDamage(wounds);
           const painPenalty = calculatePainPenalty(wounds);
@@ -381,28 +379,18 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
           const playerCurrentHp = Math.max(1, Math.floor(playerMaxHp * (0.6 + Math.random() * 0.4)) - bleedingDamage + terrainHpMod);
           const enemyMaxHp = 50 + (monster.rank.rank * 20);
           
-          // Combat log with wound info
+          // Combat log with wound info - always show full details
           const woundInfo = newWound ? ` | Received: ${newWound.name} (Sev ${newWound.severity})` : '';
           const critInfo = combatResult.critical ? ' [CRITICAL HIT!]' : '';
           
-          if (hasVision) {
-            setCombatLog(prev => trackCombatLog(
-              prev,
-              `⚔️ Defeated ${monsterName} (Rank ${monster.rank.rank})${critInfo}${woundInfo}`,
-              playerCurrentHp,
-              0,
-              combatResult.damage,
-              { playerMaxHp, enemyMaxHp, monsterRank: monster.rank.rank }
-            ));
-          } else {
-            setCombatLog(prev => trackCombatLog(
-              prev,
-              `⚔️ Defeated ${monsterName} (Rank ${monster.rank.rank})${newWound ? ` | ${getWoundIcon(newWound.severity)} Wounded` : ''}`,
-              undefined,
-              undefined,
-              undefined
-            ));
-          }
+          setCombatLog(prev => trackCombatLog(
+            prev,
+            `⚔️ Defeated ${monsterName} (Rank ${monster.rank.rank})${critInfo}${woundInfo}`,
+            playerCurrentHp,
+            0,
+            combatResult.damage,
+            { playerMaxHp, enemyMaxHp, monsterRank: monster.rank.rank }
+          ));
           
           // Roll for shard drop (only rank 5+)
           const shardDropped = rollForShard(monster.rank) ? 1 : 0;
