@@ -924,6 +924,49 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
               
               // Check if we should move to a new area
               if (shouldChangeArea(updatedTravel.questsInCurrentArea)) {
+                // Champion encounter at end of area!
+                const champion = generateChampion(
+                  updatedTravel.currentRegion.dangerLevel,
+                  updatedTravel.currentArea.name,
+                  newLevel
+                );
+                const champResult = resolveChampionEncounter(
+                  champion,
+                  newLevel,
+                  character.stats,
+                  championsDefeated
+                );
+                
+                setChampionsDefeated(prev => prev + 1);
+                setFame(prev => prev + champResult.fameGained);
+                
+                // Champion combat log
+                setCombatLog(prev => trackCombatLog(
+                  prev,
+                  `👑 CHAMPION: ${champResult.combatNarrative}`,
+                  undefined,
+                  undefined,
+                  undefined,
+                  { champion: champion.name, species: champion.species, minions: champion.minions.length }
+                ));
+                
+                // Champion rewards on top of quest rewards
+                setStats(s => ({
+                  ...s,
+                  gold: s.gold + champion.goldReward,
+                  exp: s.exp + champion.expReward
+                }));
+                
+                setActivities(prev => trackActivity(prev, "combat", `Defeated Champion: ${champion.name} (${champion.species}) with ${champion.minions.reduce((s, m) => s + m.count, 0)} minions`));
+                
+                const slayerTitle = getChampionSlayerTitle(championsDefeated + 1);
+                
+                toast({
+                  title: `👑 Champion Defeated: ${champion.name}`,
+                  description: `${champion.species} vanquished! +${champion.goldReward}g +${champion.expReward}xp +${champResult.fameGained} fame${slayerTitle ? ` | Title: ${slayerTitle}` : ''}`,
+                  duration: 6000
+                });
+
                 const newTravel = travelToNewArea(updatedTravel, worldData, newLevel);
                 
                 // Notify about area/region change
