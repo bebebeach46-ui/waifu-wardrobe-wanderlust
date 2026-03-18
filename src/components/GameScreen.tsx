@@ -98,10 +98,6 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
   const [encounterState, setEncounterState] = useState<CompanionEncounterState>(() => savedData?.encounterState || initializeEncounterState());
   const [legendaryEvents, setLegendaryEvents] = useState<TickerEvent[]>([]);
   const [activeRepairQuest, setActiveRepairQuest] = useState<RepairQuest | null>(() => savedData?.activeRepairQuest || null);
-  const [hasGrandVisionCrystal, setHasGrandVisionCrystal] = useState(() => {
-    const completions = localStorage.getItem('difficulty_completions');
-    return completions ? JSON.parse(completions).length > 0 : false;
-  });
   const [stats, setStats] = useState(savedData?.stats || {
     level: 1,
     exp: 0,
