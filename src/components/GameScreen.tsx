@@ -5,6 +5,7 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { ChevronLeft, Save, Heart, Skull, Sparkles, Shield, Cloud, Hammer, TrendingUp, Crown, ShoppingCart, BookOpen, Star, Map, Compass, Eye, EyeOff } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Shop } from "@/components/Shop";
 import { ShopItem } from "@/lib/shopGenerator";
 import { CodexComponent } from "@/components/Codex";
