@@ -1020,14 +1020,6 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
       completedDifficulties.push(currentDifficulty);
       localStorage.setItem('difficulty_completions', JSON.stringify(completedDifficulties));
       
-      if (!hasGrandVisionCrystal) {
-        setHasGrandVisionCrystal(true);
-        toast({
-          title: "🏆 GRAND VISION CRYSTAL UNLOCKED!",
-          description: "You can now see detailed combat logs in all future playthroughs!",
-          duration: 8000
-        });
-      }
     }
     
     setIsDead(true);
