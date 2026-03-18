@@ -5,6 +5,7 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { ChevronLeft, Save, Heart, Skull, Sparkles, Shield, Cloud, Hammer, TrendingUp, Crown, ShoppingCart, BookOpen, Star, Map, Compass, Eye, EyeOff } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Shop } from "@/components/Shop";
 import { ShopItem } from "@/lib/shopGenerator";
 import { CodexComponent } from "@/components/Codex";
@@ -98,10 +99,6 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
   const [encounterState, setEncounterState] = useState<CompanionEncounterState>(() => savedData?.encounterState || initializeEncounterState());
   const [legendaryEvents, setLegendaryEvents] = useState<TickerEvent[]>([]);
   const [activeRepairQuest, setActiveRepairQuest] = useState<RepairQuest | null>(() => savedData?.activeRepairQuest || null);
-  const [hasGrandVisionCrystal, setHasGrandVisionCrystal] = useState(() => {
-    const completions = localStorage.getItem('difficulty_completions');
-    return completions ? JSON.parse(completions).length > 0 : false;
-  });
   const [stats, setStats] = useState(savedData?.stats || {
     level: 1,
     exp: 0,
@@ -374,8 +371,6 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
           setMonstersKilled(prev => trackMonsterKill(prev, monsterName, monster.rank.rank));
           setActivities(prev => trackActivity(prev, "combat", `Defeated Rank ${monster.rank.rank} ${monsterName} in ${currentQuest.name}${combatResult.critical ? ' (CRIT!)' : ''}`));
           
-          // Check if vision crystal is active or grand vision crystal unlocked
-          const hasVision = activeEffects.some(e => e.type === 'vision_crystal' && e.endTime > Date.now()) || hasGrandVisionCrystal;
           const playerMaxHp = 100 + (stats.level * 10);
           const bleedingDamage = calculateBleedingDamage(wounds);
           const painPenalty = calculatePainPenalty(wounds);
@@ -385,28 +380,18 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
           const playerCurrentHp = Math.max(1, Math.floor(playerMaxHp * (0.6 + Math.random() * 0.4)) - bleedingDamage + terrainHpMod);
           const enemyMaxHp = 50 + (monster.rank.rank * 20);
           
-          // Combat log with wound info
+          // Combat log with wound info - always show full details
           const woundInfo = newWound ? ` | Received: ${newWound.name} (Sev ${newWound.severity})` : '';
           const critInfo = combatResult.critical ? ' [CRITICAL HIT!]' : '';
           
-          if (hasVision) {
-            setCombatLog(prev => trackCombatLog(
-              prev,
-              `⚔️ Defeated ${monsterName} (Rank ${monster.rank.rank})${critInfo}${woundInfo}`,
-              playerCurrentHp,
-              0,
-              combatResult.damage,
-              { playerMaxHp, enemyMaxHp, monsterRank: monster.rank.rank }
-            ));
-          } else {
-            setCombatLog(prev => trackCombatLog(
-              prev,
-              `⚔️ Defeated ${monsterName} (Rank ${monster.rank.rank})${newWound ? ` | ${getWoundIcon(newWound.severity)} Wounded` : ''}`,
-              undefined,
-              undefined,
-              undefined
-            ));
-          }
+          setCombatLog(prev => trackCombatLog(
+            prev,
+            `⚔️ Defeated ${monsterName} (Rank ${monster.rank.rank})${critInfo}${woundInfo}`,
+            playerCurrentHp,
+            0,
+            combatResult.damage,
+            { playerMaxHp, enemyMaxHp, monsterRank: monster.rank.rank }
+          ));
           
           // Roll for shard drop (only rank 5+)
           const shardDropped = rollForShard(monster.rank) ? 1 : 0;
@@ -1036,14 +1021,6 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
       completedDifficulties.push(currentDifficulty);
       localStorage.setItem('difficulty_completions', JSON.stringify(completedDifficulties));
       
-      if (!hasGrandVisionCrystal) {
-        setHasGrandVisionCrystal(true);
-        toast({
-          title: "🏆 GRAND VISION CRYSTAL UNLOCKED!",
-          description: "You can now see detailed combat logs in all future playthroughs!",
-          duration: 8000
-        });
-      }
     }
     
     setIsDead(true);
@@ -1593,13 +1570,6 @@ Death occurred at: ${new Date().toLocaleString()}
             });
             break;
             
-          case 'vision_crystal':
-            setActiveEffects(prev => [...prev, { type: 'vision_crystal', endTime: Date.now() + item.effect.duration }]);
-            toast({
-              title: "💎 Vision Crystal Activated!",
-              description: "You can now see detailed combat information for 1 hour"
-            });
-            break;
         }
         break;
 
@@ -2341,48 +2311,50 @@ Death occurred at: ${new Date().toLocaleString()}
             </div>
           )}
 
-          {combatLog.length > 0 && (
-            <div className="space-y-2">
-              <div className="text-sm font-semibold flex items-center gap-2">
-                Combat Log
-                {(activeEffects.some(e => e.type === 'vision_crystal' && e.endTime > Date.now()) || hasGrandVisionCrystal) && (
-                  <span className="text-xs text-primary">💎 {hasGrandVisionCrystal ? 'Grand Vision' : 'Vision Active'}</span>
+          <Tabs defaultValue="combat" className="w-full">
+            <TabsList className="w-full">
+              <TabsTrigger value="combat" className="flex-1 text-xs">⚔️ Combat Log</TabsTrigger>
+              <TabsTrigger value="events" className="flex-1 text-xs">📜 Event Log</TabsTrigger>
+            </TabsList>
+            <TabsContent value="combat">
+              <div className="bg-muted p-2 rounded space-y-1 max-h-48 overflow-y-auto">
+                {combatLog.length === 0 ? (
+                  <div className="text-xs text-muted-foreground italic">No combat yet...</div>
+                ) : (
+                  combatLog.slice(0, 20).map((log, i) => (
+                    <div key={i} className="text-xs">
+                      <div>{log.description}</div>
+                      {log.playerHp !== undefined && (
+                        <div className="text-muted-foreground ml-2">
+                          HP: {log.playerHp}/{log.details?.playerMaxHp} | Enemy: {log.enemyHp}/{log.details?.enemyMaxHp} | DMG: {log.damage}
+                        </div>
+                      )}
+                    </div>
+                  ))
                 )}
               </div>
-              <div className="bg-muted p-2 rounded space-y-1 max-h-32 overflow-y-auto">
-                {combatLog.slice(0, 10).map((log, i) => (
-                  <div key={i} className="text-xs">
-                    <div>{log.description}</div>
-                    {log.playerHp !== undefined && (
-                      <div className="text-muted-foreground ml-2">
-                        HP: {log.playerHp}/{log.details?.playerMaxHp} | Enemy: {log.enemyHp}/{log.details?.enemyMaxHp} | DMG: {log.damage}
-                      </div>
-                    )}
-                  </div>
-                ))}
+            </TabsContent>
+            <TabsContent value="events">
+              <div className="bg-muted p-2 rounded space-y-1 max-h-48 overflow-y-auto">
+                {eventLog.length === 0 ? (
+                  <div className="text-xs text-muted-foreground italic">No events yet...</div>
+                ) : (
+                  eventLog.map((event, i) => (
+                    <div 
+                      key={i} 
+                      className={`text-xs ${
+                        event.sentiment === 'negative' ? 'text-event-negative' :
+                        event.sentiment === 'neutral' ? 'text-event-neutral' :
+                        'text-event-positive'
+                      }`}
+                    >
+                      • {event.text}
+                    </div>
+                  ))
+                )}
               </div>
-            </div>
-          )}
-
-          {eventLog.length > 0 && (
-            <div className="space-y-2">
-              <div className="text-sm font-semibold">Event Log</div>
-              <div className="bg-muted p-2 rounded space-y-1 max-h-32 overflow-y-auto">
-                {eventLog.map((event, i) => (
-                  <div 
-                    key={i} 
-                    className={`text-xs ${
-                      event.sentiment === 'negative' ? 'text-event-negative' :
-                      event.sentiment === 'neutral' ? 'text-event-neutral' :
-                      'text-event-positive'
-                    }`}
-                  >
-                    • {event.text}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+            </TabsContent>
+          </Tabs>
 
           <div className="space-y-2">
             <div className="text-sm font-semibold flex items-center gap-1">
