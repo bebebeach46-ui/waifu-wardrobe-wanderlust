@@ -2311,48 +2311,50 @@ Death occurred at: ${new Date().toLocaleString()}
             </div>
           )}
 
-          {combatLog.length > 0 && (
-            <div className="space-y-2">
-              <div className="text-sm font-semibold flex items-center gap-2">
-                Combat Log
-                {(activeEffects.some(e => e.type === 'vision_crystal' && e.endTime > Date.now()) || hasGrandVisionCrystal) && (
-                  <span className="text-xs text-primary">💎 {hasGrandVisionCrystal ? 'Grand Vision' : 'Vision Active'}</span>
+          <Tabs defaultValue="combat" className="w-full">
+            <TabsList className="w-full">
+              <TabsTrigger value="combat" className="flex-1 text-xs">⚔️ Combat Log</TabsTrigger>
+              <TabsTrigger value="events" className="flex-1 text-xs">📜 Event Log</TabsTrigger>
+            </TabsList>
+            <TabsContent value="combat">
+              <div className="bg-muted p-2 rounded space-y-1 max-h-48 overflow-y-auto">
+                {combatLog.length === 0 ? (
+                  <div className="text-xs text-muted-foreground italic">No combat yet...</div>
+                ) : (
+                  combatLog.slice(0, 20).map((log, i) => (
+                    <div key={i} className="text-xs">
+                      <div>{log.description}</div>
+                      {log.playerHp !== undefined && (
+                        <div className="text-muted-foreground ml-2">
+                          HP: {log.playerHp}/{log.details?.playerMaxHp} | Enemy: {log.enemyHp}/{log.details?.enemyMaxHp} | DMG: {log.damage}
+                        </div>
+                      )}
+                    </div>
+                  ))
                 )}
               </div>
-              <div className="bg-muted p-2 rounded space-y-1 max-h-32 overflow-y-auto">
-                {combatLog.slice(0, 10).map((log, i) => (
-                  <div key={i} className="text-xs">
-                    <div>{log.description}</div>
-                    {log.playerHp !== undefined && (
-                      <div className="text-muted-foreground ml-2">
-                        HP: {log.playerHp}/{log.details?.playerMaxHp} | Enemy: {log.enemyHp}/{log.details?.enemyMaxHp} | DMG: {log.damage}
-                      </div>
-                    )}
-                  </div>
-                ))}
+            </TabsContent>
+            <TabsContent value="events">
+              <div className="bg-muted p-2 rounded space-y-1 max-h-48 overflow-y-auto">
+                {eventLog.length === 0 ? (
+                  <div className="text-xs text-muted-foreground italic">No events yet...</div>
+                ) : (
+                  eventLog.map((event, i) => (
+                    <div 
+                      key={i} 
+                      className={`text-xs ${
+                        event.sentiment === 'negative' ? 'text-event-negative' :
+                        event.sentiment === 'neutral' ? 'text-event-neutral' :
+                        'text-event-positive'
+                      }`}
+                    >
+                      • {event.text}
+                    </div>
+                  ))
+                )}
               </div>
-            </div>
-          )}
-
-          {eventLog.length > 0 && (
-            <div className="space-y-2">
-              <div className="text-sm font-semibold">Event Log</div>
-              <div className="bg-muted p-2 rounded space-y-1 max-h-32 overflow-y-auto">
-                {eventLog.map((event, i) => (
-                  <div 
-                    key={i} 
-                    className={`text-xs ${
-                      event.sentiment === 'negative' ? 'text-event-negative' :
-                      event.sentiment === 'neutral' ? 'text-event-neutral' :
-                      'text-event-positive'
-                    }`}
-                  >
-                    • {event.text}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+            </TabsContent>
+          </Tabs>
 
           <div className="space-y-2">
             <div className="text-sm font-semibold flex items-center gap-1">
