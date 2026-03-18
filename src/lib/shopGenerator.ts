@@ -152,14 +152,6 @@ const equipmentUpgrades: Omit<ShopItem, 'id'>[] = [
 
 const consumables: Omit<ShopItem, 'id'>[] = [
   {
-    name: "Vision Crystal",
-    description: "See detailed combat information for 1 hour",
-    price: 50,
-    type: "consumable",
-    effect: { type: "vision_crystal", duration: 3600000 },
-    rarity: "common"
-  },
-  {
     name: "EXP Booster (1 hour)",
     description: "Double EXP gain for 1 hour",
     price: 1000,

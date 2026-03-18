@@ -1569,13 +1569,6 @@ Death occurred at: ${new Date().toLocaleString()}
             });
             break;
             
-          case 'vision_crystal':
-            setActiveEffects(prev => [...prev, { type: 'vision_crystal', endTime: Date.now() + item.effect.duration }]);
-            toast({
-              title: "💎 Vision Crystal Activated!",
-              description: "You can now see detailed combat information for 1 hour"
-            });
-            break;
         }
         break;
 
