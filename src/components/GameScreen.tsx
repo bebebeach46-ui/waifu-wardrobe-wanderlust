@@ -32,6 +32,7 @@ import { checkCriticalHit, calculateAttack } from "@/lib/combatSystem";
 import { generateDeathNarrative, formatLastBattleActions, generateFinalMomentsSection } from "@/lib/deathNarrativeGenerator";
 import { TravelState, initializeTravelState, shouldChangeArea, travelToNewArea, getDirectionIcon, getRegionDangerColor, generateMapOverlay, getMapTileIcon, getAreaEffects, getFeatureData, getFeatureEffectColor, getFeatureEffectBg } from "@/lib/locationSystem";
 import { EventTicker, TickerEvent, createLegendaryEvent } from "@/components/EventTicker";
+import { generateChampion, resolveChampionEncounter, getChampionSlayerTitle } from "@/lib/championSystem";
 
 interface GameScreenProps {
   worldData: any;
@@ -99,6 +100,7 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
   const [encounterState, setEncounterState] = useState<CompanionEncounterState>(() => savedData?.encounterState || initializeEncounterState());
   const [legendaryEvents, setLegendaryEvents] = useState<TickerEvent[]>([]);
   const [activeRepairQuest, setActiveRepairQuest] = useState<RepairQuest | null>(() => savedData?.activeRepairQuest || null);
+  const [championsDefeated, setChampionsDefeated] = useState<number>(() => savedData?.championsDefeated || 0);
   const [stats, setStats] = useState(savedData?.stats || {
     level: 1,
     exp: 0,
@@ -922,6 +924,49 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
               
               // Check if we should move to a new area
               if (shouldChangeArea(updatedTravel.questsInCurrentArea)) {
+                // Champion encounter at end of area!
+                const champion = generateChampion(
+                  updatedTravel.currentRegion.dangerLevel,
+                  updatedTravel.currentArea.name,
+                  newLevel
+                );
+                const champResult = resolveChampionEncounter(
+                  champion,
+                  newLevel,
+                  character.stats,
+                  championsDefeated
+                );
+                
+                setChampionsDefeated(prev => prev + 1);
+                setFame(prev => prev + champResult.fameGained);
+                
+                // Champion combat log
+                setCombatLog(prev => trackCombatLog(
+                  prev,
+                  `👑 CHAMPION: ${champResult.combatNarrative}`,
+                  undefined,
+                  undefined,
+                  undefined,
+                  { champion: champion.name, species: champion.species, minions: champion.minions.length }
+                ));
+                
+                // Champion rewards on top of quest rewards
+                setStats(s => ({
+                  ...s,
+                  gold: s.gold + champion.goldReward,
+                  exp: s.exp + champion.expReward
+                }));
+                
+                setActivities(prev => trackActivity(prev, "combat", `Defeated Champion: ${champion.name} (${champion.species}) with ${champion.minions.reduce((s, m) => s + m.count, 0)} minions`));
+                
+                const slayerTitle = getChampionSlayerTitle(championsDefeated + 1);
+                
+                toast({
+                  title: `👑 Champion Defeated: ${champion.name}`,
+                  description: `${champion.species} vanquished! +${champion.goldReward}g +${champion.expReward}xp +${champResult.fameGained} fame${slayerTitle ? ` | Title: ${slayerTitle}` : ''}`,
+                  duration: 6000
+                });
+
                 const newTravel = travelToNewArea(updatedTravel, worldData, newLevel);
                 
                 // Notify about area/region change
@@ -1324,13 +1369,14 @@ Death occurred at: ${new Date().toLocaleString()}
       travelState,
       encounterState,
       activeRepairQuest,
+      championsDefeated,
       simplifiedMode,
       fame,
       characterName: character.name,
       level: stats.level,
       timestamp: Date.now()
     };
-  }, [character, stats, worldData, companions, treasure, married, hasOffspring, offspringData, children, romanceDiary, statusEffects, summons, eventLog, deity, alignment, weather, materials, lifeSkills, activities, monstersKilled, currentQuest, shopName, activeEffects, codex, combatLog, wounds, travelState, encounterState, activeRepairQuest, simplifiedMode, fame]);
+  }, [character, stats, worldData, companions, treasure, married, hasOffspring, offspringData, children, romanceDiary, statusEffects, summons, eventLog, deity, alignment, weather, materials, lifeSkills, activities, monstersKilled, currentQuest, shopName, activeEffects, codex, combatLog, wounds, travelState, encounterState, activeRepairQuest, championsDefeated, simplifiedMode, fame]);
 
   const performSave = useCallback(() => {
     if (!saveDataRef.current) return null;
@@ -1427,6 +1473,7 @@ Death occurred at: ${new Date().toLocaleString()}
     setShowMap(false);
     setIsDead(false);
     setDeathLog("");
+    setChampionsDefeated(0);
     
     toast({
       title: "A New Generation Begins",
@@ -2422,6 +2469,17 @@ Death occurred at: ${new Date().toLocaleString()}
                   </span>
                 ))}
               </div>
+            </div>
+          )}
+
+          {championsDefeated > 0 && (
+            <div className="space-y-2">
+              <div className="text-sm font-semibold flex items-center gap-1">
+                👑 Champions Defeated: {championsDefeated}
+              </div>
+              {getChampionSlayerTitle(championsDefeated) && (
+                <div className="text-xs text-accent">Title: {getChampionSlayerTitle(championsDefeated)}</div>
+              )}
             </div>
           )}
 
