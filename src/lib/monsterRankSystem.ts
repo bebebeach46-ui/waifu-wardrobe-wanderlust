@@ -105,44 +105,64 @@ export const monsterRanks: MonsterRank[] = [
 export const monsterNamesByRank: Record<number, string[]> = {
   1: [
     "Horny Slime", "Cheeky Goblin", "Tsundere Rat", "Useless Skeleton",
-    "Wimpy Kobold", "Perverted Imp", "Annoying Pixie", "Pathetic Zombie"
+    "Wimpy Kobold", "Perverted Imp", "Annoying Pixie", "Pathetic Zombie",
+    "Gutter Crawler", "Blighted Rat", "Carrion Maggot", "Hollow Husk",
+    "Bone Rattle", "Feral Mongrel", "Corpse Tick", "Mire Leech"
   ],
   2: [
     "Generic Orc", "Basic Bitch Wolf", "Normie Bandit", "NPC Thief",
-    "Forgettable Guard", "Random Soldier", "Background Character", "Mob #42"
+    "Forgettable Guard", "Random Soldier", "Background Character", "Mob #42",
+    "Grave Robber", "Plague Hound", "Gallow's Crow", "Blighted Footpad",
+    "Crypt Shambler", "Swamp Lurker", "Iron Collar Deserter", "Branded Outlaw"
   ],
   3: [
     "Senpai's Minion", "Henchman-kun", "Sub-Boss Lackey", "Elite Goon",
-    "Wannabe Villain", "Chuunibyou Knight", "Edgy Assassin", "Try-Hard Mage"
+    "Wannabe Villain", "Chuunibyou Knight", "Edgy Assassin", "Try-Hard Mage",
+    "Pyre Warden", "Flayed Sentinel", "Corpse Knight", "Rot Priest",
+    "Branded Thrall", "Bone Warden", "Hollow Templar", "Plague Monk"
   ],
   4: [
     "Slightly Threatening Ogre", "Actually Dangerous Troll", "Competent Wyvern",
-    "Skilled Dark Mage", "Professional Mercenary", "Veteran Warrior", "Elite Guard Captain"
+    "Skilled Dark Mage", "Professional Mercenary", "Veteran Warrior", "Elite Guard Captain",
+    "Charnel Revenant", "Iron Wraith", "Fleshweaver Acolyte", "Barrow Wight",
+    "Bloodmire Stalker", "Penitent Abomination", "War-Scarred Lycanthrope"
   ],
   5: [
     "Powerful Demon Lord", "Thicc Dragon Whelp", "Yandere Succubus Queen",
-    "Overpowered Lich", "Main Villain's Lieutenant", "Chapter Boss", "Arc Antagonist"
+    "Overpowered Lich", "Main Villain's Lieutenant", "Chapter Boss", "Arc Antagonist",
+    "Dread Inquisitor", "Soul Flayer", "Ossuary Golem", "Blighted Wyrm",
+    "Grave Tyrant", "Hollow Archon", "Abyssal Centurion"
   ],
   6: [
     "Raid Boss Golem", "Dungeon Master", "Floor Guardian", "Guild Boss",
-    "Legendary Beast", "Ancient Behemoth", "Forbidden One", "That One Boss You Can't Beat"
+    "Legendary Beast", "Ancient Behemoth", "Forbidden One", "That One Boss You Can't Beat",
+    "Mausoleum Sovereign", "Carrion Colossus", "Blood-Soaked Executioner",
+    "Ashen Hierophant", "Nameless Horror", "Cathedral Haunter"
   ],
   7: [
     "Epic Dragon Knight", "Mythical Phoenix", "Legendary Kraken",
-    "Ancient Leviathan", "Primordial Titan", "Celestial Guardian", "Cosmic Horror"
+    "Ancient Leviathan", "Primordial Titan", "Celestial Guardian", "Cosmic Horror",
+    "Rot Father", "Soulstorm Herald", "Sepulcher King", "The Hungering Maw",
+    "Bonethrone Sovereign", "Voidborne Defiler", "Plague Titan"
   ],
   8: [
     "Mythic Elder Dragon", "Progenitor Demon", "First Vampire Lord",
-    "Original Sin Incarnate", "Eldritch Abomination", "Reality Warper", "Dimension Eater"
+    "Original Sin Incarnate", "Eldritch Abomination", "Reality Warper", "Dimension Eater",
+    "The Unburied Emperor", "Skinweaver Primarch", "Deathless Oracle",
+    "Catafalque Horror", "Charnel God Fragment", "Entropy Incarnate"
   ],
   9: [
     "World-Ending Apocalypse Beast", "Civilization Destroyer", "Planet Eater",
-    "Star Devourer", "Galaxy Crusher", "Universe Ender", "Existence Eraser"
+    "Star Devourer", "Galaxy Crusher", "Universe Ender", "Existence Eraser",
+    "The Pale Reckoning", "Grave of Nations", "Hollow Sun",
+    "The Last Plague", "Oblivion Made Flesh", "The Unspoken End"
   ],
   10: [
     "Divine Dragon God", "Primordial Chaos Dragon", "Dragon of the Beginning",
     "Final Boss Dragon", "True Final Form Dragon", "Secret Super Dragon",
-    "Developer's Favorite Dragon", "DLC Dragon"
+    "Developer's Favorite Dragon", "DLC Dragon",
+    "The Wyrm That Devours Eternity", "Bonelord Ouroboros",
+    "The Dragon Whose Name Kills", "Void Wyrm Absolute"
   ]
 };
 

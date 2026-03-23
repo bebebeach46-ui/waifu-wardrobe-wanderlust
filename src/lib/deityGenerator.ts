@@ -2,19 +2,36 @@ const deityNames = [
   "Kami-sama", "The One Above All", "Haruhi Suzumiya", "Lord RNGesus", "Lady Luck", 
   "Yggdrasil", "The Crimson King", "Amaterasu", "Truck-kun's Boss", "The Almighty Plot Device",
   "King of Heroes", "The Root", "Papa Bones", "Aqua (Useless Goddess)", "Madoka Kaname",
-  "The Outsider", "Cthulhu-chan", "Shenron", "Kyubey", "The God Emperor", "Tsukuyomi"
+  "The Outsider", "Cthulhu-chan", "Shenron", "Kyubey", "The God Emperor", "Tsukuyomi",
+  // Dark fantasy
+  "The Pale Mother", "Ashenmaw the Devourer", "The Hollow Throne", "Morzhul the Flayed",
+  "She Who Weeps Iron", "The Charnel Shepherd", "Bone-Father Kol", "The Eyeless Watcher",
+  "Vexathor the Undying", "The Worm Beneath", "Lady of the Pyre", "The Drowned Apostle",
+  "Nul, God of Nothing", "The Red Covenant", "Skathrix the Blighted", "The Unborn Crown",
+  "Haelstrom of the Void", "Mortessa the Still", "The Nameless Hunger", "Grave-King Ossian"
 ];
 
 const deityDomains = [
   "Luck and Gacha", "Reincarnation", "Plot Armor", "Power Levels", "Friendship Power",
   "Fan Service", "Sudden Power-Ups", "Convenient Timing", "Random Encounters", "Critical Hits",
-  "Loot Drops", "Experience Points", "Respawns", "Save Points", "Anime Logic"
+  "Loot Drops", "Experience Points", "Respawns", "Save Points", "Anime Logic",
+  // Dark fantasy
+  "Plague and Pestilence", "Blood and Oaths", "Entropy and Decay", "Grief and Mourning",
+  "Flayed Knowledge", "Bone Architecture", "Final Breaths", "Unmarked Graves",
+  "Forbidden Resurrection", "Carrion Wisdom", "Iron Judgment", "Hollow Mercy",
+  "The Space Between Stars", "Severed Fates", "Rusted Crowns"
 ];
 
 const deityPersonalities = [
   "benevolent but forgetful", "chaotic neutral", "lawful good but annoying",
   "secretly evil", "too lazy to care", "overly enthusiastic", "tsundere",
-  "yandere for their followers", "kuudere", "completely random", "perpetually drunk"
+  "yandere for their followers", "kuudere", "completely random", "perpetually drunk",
+  // Dark fantasy
+  "silently judgmental", "sorrowful and ancient", "coldly indifferent to mortal suffering",
+  "hungry in a way that transcends metaphor", "speaks only in the voices of the dead",
+  "kind in ways that feel like cruelty", "obsessively meticulous about suffering",
+  "genuinely believes destruction is compassion", "weary beyond reckoning",
+  "amused by mortal agony in a detached, scholarly way"
 ];
 
 export type Alignment = 

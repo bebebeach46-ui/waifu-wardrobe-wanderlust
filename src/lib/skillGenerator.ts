@@ -2,7 +2,14 @@ const physicalSkills = [
   "Kamehameha Strike", "One Punch", "Rasengan", "Detroit Smash", "Gum-Gum Pistol",
   "Omnislash", "Jet Black Wings", "Thunder Breathing", "Gentle Fist", "Iron Reaver Soul Stealer",
   "Serious Consecutive Punches", "Jet Gatling", "Water Wheel", "Spinning Bird Kick",
-  "Meteor Strike", "Shadow Clone Attack", "Bankai Slash", "Spirit Gun", "Alchemy Transmutation"
+  "Meteor Strike", "Shadow Clone Attack", "Bankai Slash", "Spirit Gun", "Alchemy Transmutation",
+  // Dark fantasy
+  "Sever the Thread", "Bonecrusher Verdict", "Flayed Nerve Strike", "Marrow Splinter",
+  "Dread Cleave", "Entropic Lunge", "Hollow Point Thrust", "Blood Tithe Slash",
+  "Carrion Wind", "Ironside Rend", "Gallowglass Blow", "Plague Fist",
+  "Shatter the Veil", "Visceral Execution", "Ashen Riposte", "Gravetender's Swing",
+  "Soul Siphon Strike", "Umbral Laceration", "Nightfall Bisection", "Wraith Step Assault",
+  "Ruinous Charge", "Deathmark Thrust", "Bloodletter's Flourish", "Catafalque Breaker"
 ];
 
 const magicSpells = [
@@ -30,7 +37,28 @@ const magicSpells = [
   { name: "Animate Dead Waifu", save: "none", failChance: 0.25 },
   { name: "Gate to Hentai Realm", save: "will", failChance: 0.3 },
   { name: "Timestop Groping Session", save: "none", failChance: 0.35 },
-  { name: "Banishment to Friend Zone", save: "will", failChance: 0.15 }
+  { name: "Banishment to Friend Zone", save: "will", failChance: 0.15 },
+  // Dark fantasy
+  { name: "Hemorrhage Cascade", save: "fortitude", failChance: 0.15 },
+  { name: "Wither Flesh", save: "fortitude", failChance: 0.1 },
+  { name: "Soul Flay", save: "will", failChance: 0.2 },
+  { name: "Blackfire Immolation", save: "reflex", failChance: 0.15 },
+  { name: "Summon the Crawling Dark", save: "will", failChance: 0.25 },
+  { name: "Corpse Blossom", save: "fortitude", failChance: 0.2 },
+  { name: "Whisper of the Hanged", save: "will", failChance: 0.15 },
+  { name: "Plague Wind", save: "fortitude", failChance: 0.2 },
+  { name: "Grave Frost", save: "reflex", failChance: 0.1 },
+  { name: "Rend Reality", save: "none", failChance: 0.35 },
+  { name: "Blood Crucible", save: "fortitude", failChance: 0.2 },
+  { name: "Necrotic Embrace", save: "will", failChance: 0.15 },
+  { name: "Chains of the Forsaken", save: "reflex", failChance: 0.15 },
+  { name: "Eldritch Puppetry", save: "will", failChance: 0.3 },
+  { name: "Voidmaw", save: "reflex", failChance: 0.25 },
+  { name: "Funeral Pyre of the Damned", save: "reflex", failChance: 0.3 },
+  { name: "Ossuary Eruption", save: "reflex", failChance: 0.2 },
+  { name: "Mark of the Hollow King", save: "will", failChance: 0.25 },
+  { name: "Skinweave Armor", save: "none", failChance: 0.1 },
+  { name: "Invoke the Nameless", save: "will", failChance: 0.4 }
 ];
 
 const shopNames = [
