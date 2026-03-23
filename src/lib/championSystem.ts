@@ -29,7 +29,13 @@ const species = [
   "Dhampir", "Drow", "Hobgoblin", "Gnoll Warlord", "Lizardfolk", "Minotaur",
   "Oni", "Rakshasa", "Cambion", "Duergar", "Goliath", "Yuan-Ti", "Kenku",
   "Kobold King", "Bugbear Chief", "Harpy Matriarch", "Lamia", "Medusa",
-  "Aasimar Fallen", "Warforged Rogue", "Revenant", "Lich (in disguise)"
+  "Aasimar Fallen", "Warforged Rogue", "Revenant", "Lich (in disguise)",
+  // Dark fantasy
+  "Plague Lord", "Skinwalker", "Grave-Born", "Blood Hag", "Ash Wraith",
+  "Iron Lich", "Carrion Knight", "Hollow One", "Bone Naga Sovereign",
+  "Death-Marked Human", "Cursed Inquisitor", "Defiled Paladin",
+  "Fleshcrafter", "Abyssal Warlord", "Ghoul Patriarch", "Striga",
+  "Wendigo Chieftain", "Barrow King", "Pyre Maiden", "Void-Touched Seer"
 ];
 
 // First names
@@ -38,7 +44,12 @@ const firstNames = [
   "Zara", "Balthazar", "Nyx", "Corvus", "Ashara", "Drakken", "Lilith",
   "Magnus", "Ravenna", "Silas", "Yuki", "Fenris", "Calista", "Draven",
   "Morgana", "Aldric", "Vesper", "Kazuya", "Sakura", "Ragna", "Freya",
-  "Gideon", "Hela", "Judas", "Karma", "Loki", "Mephisto", "Nero"
+  "Gideon", "Hela", "Judas", "Karma", "Loki", "Mephisto", "Nero",
+  // Dark fantasy
+  "Lazarus", "Morwen", "Caligula", "Thessaly", "Vashti", "Oberon",
+  "Cressida", "Alaric", "Malachai", "Severin", "Isadora", "Thanatos",
+  "Elspeth", "Grimshaw", "Carnifex", "Desmond", "Nocturne", "Sable",
+  "Hadrian", "Ysabel", "Cain", "Briar", "Ossian", "Amaranth"
 ];
 
 // Titles / epithets
@@ -52,7 +63,14 @@ const titles = [
   "the Self-Proclaimed Genius", "the Unnecessarily Dramatic",
   "the One Who Never Shuts Up", "Who-Must-Not-Be-Googled",
   "Tax Evader Supreme", "the Mid Boss", "Budget Final Boss",
-  "the LinkedIn Influencer", "Certified Villain™", "the Edge Lord"
+  "the LinkedIn Influencer", "Certified Villain™", "the Edge Lord",
+  // Dark fantasy
+  "the Flayed", "Architect of Ruin", "the Pyre-Walker", "Eater of Names",
+  "Who Wears the Skin of Saints", "the Hollow Sovereign", "Warden of Mass Graves",
+  "the Twice-Hanged", "Keeper of the Charnel Pit", "the Undying Grievance",
+  "Breaker of Holy Ground", "the Branded Heretic", "Who Speaks with Dead Tongues",
+  "the Rot-Crowned", "Ender of Bloodlines", "the Last Mercy",
+  "Bane of the Living", "the Unmarked Grave", "Who Burns from Within"
 ];
 
 // Minion types
@@ -61,7 +79,12 @@ const minionTypes = [
   "Summoned Imps", "Mechanical Golems", "Shadow Clones", "Enslaved Goblins",
   "Corrupt Soldiers", "Animated Armors", "Venomous Beasts", "Dark Acolytes",
   "Skeleton Warriors", "Berserker Wolves", "Trap Mimics", "Explosive Homunculi",
-  "Simp Army", "Reddit Moderators", "HOA Enforcers", "Middle Management"
+  "Simp Army", "Reddit Moderators", "HOA Enforcers", "Middle Management",
+  // Dark fantasy
+  "Flayed Penitents", "Bone Constructs", "Plague-Ravaged Thralls",
+  "Hollow-Eyed Conscripts", "Grave-Risen Veterans", "Skinstitched Abominations",
+  "Branded Heretics", "Iron Maiden Sentinels", "Carrion Swarms",
+  "Chained Wraiths", "Worm-Eaten Knights", "Blighted War Hounds"
 ];
 
 // Champion descriptions by species archetype
@@ -74,6 +97,15 @@ const descriptionTemplates = [
   "A disgraced {species} noble who took up banditry because 'the economy'",
   "This {species} claims to be the final boss but is clearly mid-game at best",
   "A {species} champion whose tragic backstory takes 45 minutes to explain",
+  // Dark fantasy
+  "A {species} warlord who nailed the heads of former rivals to the gates of {area}",
+  "This {species} rose from a plague pit and now commands {minion_count} damned souls",
+  "A feared {species} whose very presence causes livestock to die and wells to run black",
+  "Once executed for heresy, this {species} clawed free of the grave to claim dominion over {area}",
+  "A {species} despot who demands blood tithes from every settlement in {area}",
+  "This {species} carved their throne from the bones of a cathedral and rules {area} through dread",
+  "A {species} butcher who considers mercy a weakness and compassion a disease",
+  "The {species} known only as 'the Empty One' — their {minion_count} followers worship in terrified silence",
 ];
 
 const pick = <T>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];

@@ -1,8 +1,32 @@
 import { generateSkills, generateSpells, generateStats } from "./skillGenerator";
 
-const races = ["Human", "Elf", "Dwarf", "Orc", "Android", "Mutant", "Cyborg", "Demon", "Angel", "Catgirl", "Kitsune", "Vampire", "Dragon-kin"];
-const classes = ["Warrior", "Mage", "Rogue", "Ranger", "Paladin", "Necromancer", "Hacker", "Scavenger", "Monk", "Protagonist", "Isekai Hero", "Magical Girl/Boy"];
-const names = ["Aldrin", "Zephyr", "Kira", "Rex", "Nova", "Ash", "Raven", "Cipher", "Storm", "Vex", "Tanjiro", "Mob", "Senku", "Asta"];
+const races = [
+  "Human", "Elf", "Dwarf", "Orc", "Android", "Mutant", "Cyborg", "Demon", "Angel",
+  "Catgirl", "Kitsune", "Vampire", "Dragon-kin",
+  // Dark fantasy
+  "Revenant", "Hollow One", "Shade", "Wight", "Ghoul-blooded", "Hag-spawn",
+  "Cambion", "Tiefling", "Aasimar", "Genasi", "Duergar", "Deep Gnome",
+  "Goliath", "Firbolg", "Lizardfolk", "Yuan-Ti", "Kenku", "Tabaxi",
+  "Drow", "Half-Dragon", "Dhampir", "Skinwalker", "Wendigo-touched",
+  "Plague Bearer", "Ashen Born", "Fey-touched", "Abyssal Scion", "Void Walker"
+];
+const classes = [
+  "Warrior", "Mage", "Rogue", "Ranger", "Paladin", "Necromancer", "Hacker",
+  "Scavenger", "Monk", "Protagonist", "Isekai Hero", "Magical Girl/Boy",
+  // Dark fantasy
+  "Blood Knight", "Witch Hunter", "Inquisitor", "Plague Doctor", "Grave Warden",
+  "Hexblade", "Oathbreaker", "Shadow Dancer", "Flesh Sculptor", "Soul Reaver",
+  "Demonologist", "Beast Tamer", "War Priest", "Eldritch Scholar", "Bone Singer"
+];
+const names = [
+  "Aldrin", "Zephyr", "Kira", "Rex", "Nova", "Ash", "Raven", "Cipher", "Storm", "Vex",
+  // Dark fantasy
+  "Morrigan", "Lazarus", "Cain", "Isolde", "Theron", "Severin", "Lucretia",
+  "Oberon", "Salazar", "Amaranth", "Draven", "Seraphiel", "Caius", "Elara",
+  "Grimshaw", "Nocturne", "Vesper", "Ashwin", "Mordecai", "Sable",
+  "Corvinus", "Nyx", "Desmona", "Fenrik", "Briar", "Haelstrom",
+  "Vashti", "Alaric", "Thessaly", "Ozymandias", "Wraith", "Cinder"
+];
 const genders = ["Male", "Female"];
 
 // Class definitions: which slots start filled, how many skills/spells

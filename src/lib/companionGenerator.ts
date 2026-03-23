@@ -4,7 +4,13 @@ import { SkillRank } from "./skillRankGenerator";
 const companionNames = [
   "Sakura", "Asuna", "Rem", "Zero Two", "Mikasa", "Hinata", "Nami", "Ryuko",
   "Kirito", "Naruto", "Goku", "Saitama", "Luffy", "Ichigo", "Edward", "Spike",
-  "Aqua", "Megumin", "Darkness", "Nezuko", "Power", "Makima", "Faye", "Bulma"
+  "Aqua", "Megumin", "Darkness", "Nezuko", "Power", "Makima", "Faye", "Bulma",
+  // Dark fantasy
+  "Morwen", "Cassius", "Elara", "Theron", "Lysara", "Severin", "Brenna",
+  "Kaelen", "Isolde", "Draven", "Sable", "Fenris", "Nocturne", "Alaric",
+  "Selene", "Malachai", "Vivienne", "Corvus", "Ashara", "Grimhild",
+  "Lazarus", "Thessaly", "Oberon", "Ravenna", "Caius", "Vesper",
+  "Mordred", "Ysabel", "Vashti", "Dante", "Circe", "Hadrian"
 ];
 
 const companionRaces = [
@@ -26,26 +32,51 @@ const companionRaces = [
   "Goblin Girl", "Orc Girl (Tusked)", "Ogre Girl (Horned)",
   "Fairy (Butterfly Wings)", "Pixie (Dragonfly Wings)", "Imp (Bat Wings)",
   "Yuki-onna (Ice Horns)", "Jorogumo (Spider Features)", "Kappa (Turtle Shell)",
-  "Anubis (Jackal-eared)", "Bastet (Cat-eared)", "Apophis (Snake Features)"
+  "Anubis (Jackal-eared)", "Bastet (Cat-eared)", "Apophis (Snake Features)",
+  // Dark fantasy
+  "Revenant (Stitched)", "Wight (Frost-Veined)", "Shade (Translucent)",
+  "Cambion (Smoldering)", "Hag-spawn (Gnarled)", "Plague Bearer (Scarred)",
+  "Flesh Golem (Patchwork)", "Bone Naga (Skeletal)", "Banshee (Wailing)",
+  "Wendigo-touched (Gaunt)", "Ghoul (Hollow-Eyed)", "Skinwalker (Shifting)",
+  "Night Hag (Veiled)", "Wraith (Chained)", "Abyssal Scion (Void-Marked)",
+  "Striga (Cursed)", "Moroi (Pale)", "Draugr (Barnacled)"
 ];
 
 const companionClasses = [
   "Tsundere Warrior", "Kuudere Mage", "Yandere Assassin", "Dandere Healer",
   "Genki Ranger", "Senpai Knight", "Waifu Summoner", "Husbando Paladin",
-  "Childhood Friend Fighter", "Rival Sorcerer", "Mysterious Stranger"
+  "Childhood Friend Fighter", "Rival Sorcerer", "Mysterious Stranger",
+  // Dark fantasy
+  "Blood Sentinel", "Grave Whisperer", "Hex Weaver", "Bone Collector",
+  "Oathbreaker Knight", "Plague Alchemist", "Shadow Stalker", "Soul Shepherd",
+  "Iron Maiden", "Carrion Crow", "Dread Chaplain", "Hollow Warden"
 ];
 
 const preferences = [
   "Flowers", "Sweets", "Books", "Weapons", "Jewelry", "Rare Items", "Food",
   "Music", "Art", "Combat", "Magic Scrolls", "Potions", "Artifacts", "Pets",
-  "Master Fishermen", "Expert Smiths", "Legendary Alchemists", "Fashion Icons"
+  "Master Fishermen", "Expert Smiths", "Legendary Alchemists", "Fashion Icons",
+  // Dark fantasy
+  "Bone Carvings", "Cursed Relics", "Dried Herbs", "Blood Wine",
+  "Funeral Rites", "Dark Poetry", "Trophy Skulls", "Ancient Tomes",
+  "Moonstone", "Grave Dirt", "Venoms", "Occult Instruments"
 ];
 
 const animeReferences = [
   "from the Hidden Leaf Village", "wielding a Stand", "with Sharingan eyes",
   "equipped with 3D Maneuver Gear", "carrying a Death Note", "with a Zanpakuto",
   "riding a Titan", "with Nen abilities", "from UA Academy", "with Devil Fruit powers",
-  "blessed by Kami", "cursed by a Witch", "training for the Chunin Exams"
+  "blessed by Kami", "cursed by a Witch", "training for the Chunin Exams",
+  // Dark fantasy
+  "bearing the brand of a forgotten god", "with scars that weep black ichor",
+  "whose shadow moves independently", "carrying a blade forged from a saint's bones",
+  "with eyes that reflect no light", "marked by the Pale Court",
+  "who speaks a language that predates the world", "bound to a dying oath",
+  "wearing armor fused to their flesh", "followed by carrion birds",
+  "with a voice like grinding stone", "smelling of grave ash and iron",
+  "whose heartbeat echoes like a war drum", "branded by the Inquisition",
+  "haunted by the ghost of someone they killed", "who has died twice already",
+  "with veins visible through translucent skin", "exiled from a kingdom of the dead"
 ];
 
 // Calculate compatibility based on player character
