@@ -2364,7 +2364,7 @@ Death occurred at: ${new Date().toLocaleString()}
                     }`}
                     title={effect.description}
                   >
-                    {effect.icon} {effect.name}
+                    {effect.icon} {effect.name} {effect.isPermanent ? '(∞)' : `(${effect.duration ?? '?'})`}
                   </span>
                 ))}
               </div>
