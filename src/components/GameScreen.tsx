@@ -17,7 +17,7 @@ import { generateCompanion, getRelationshipName, calculateCompatibility, getBond
 import { CompanionEncounterState, initializeEncounterState, updateEncounterState, completeEncounter, getTopAffinities, EncounterPreference } from "@/lib/companionEncounterSystem";
 import { generateShopName } from "@/lib/skillGenerator";
 import { generateSummon } from "@/lib/summonGenerator";
-import { getRandomStatusEffect, StatusEffect } from "@/lib/statusEffectGenerator";
+import { getRandomStatusEffect, StatusEffect, tickStatusEffects, createPermanentEffect, canCurePermanentEffect } from "@/lib/statusEffectGenerator";
 import { generateEventLog, Event } from "@/lib/eventLogGenerator";
 import { generateDeity, getRandomAlignment, shiftAlignment, getAlignmentCompatibility, Alignment } from "@/lib/deityGenerator";
 import { getRandomWeather, weatherRequiresRest, Weather } from "@/lib/weatherGenerator";
@@ -27,7 +27,7 @@ import { checkEarlyDeath, checkRichRetirement, checkLegendaryFate, getNormalDeat
 import { trackActivity, trackMonsterKill, trackCombatLog, generateActivitySummary, generateMonstersKilledLog, ActivityLog, MonsterKill, CombatLog } from "@/lib/activityTracker";
 import { generateRandomDeathCause, generateEpitaph, DeathCause } from "@/lib/deathCauseGenerator";
 import { getMonsterByRank, rollForShard, getShardsNeededForSummon, canSummon } from "@/lib/monsterRankSystem";
-import { Wound, rollForWound, healWounds, calculatePainPenalty, calculateBleedingDamage, generateWoundSummary, getWoundIcon, getDamageTypeFromMonster, formatWound } from "@/lib/woundSystem";
+import { Wound, rollForWound, healWounds, calculatePainPenalty, calculateBleedingDamage, generateWoundSummary, getWoundIcon, getDamageTypeFromMonster, formatWound, getPermanentCondition } from "@/lib/woundSystem";
 import { checkCriticalHit, calculateAttack } from "@/lib/combatSystem";
 import { generateDeathNarrative, formatLastBattleActions, generateFinalMomentsSection } from "@/lib/deathNarrativeGenerator";
 import { TravelState, initializeTravelState, shouldChangeArea, travelToNewArea, getDirectionIcon, getRegionDangerColor, generateMapOverlay, getMapTileIcon, getAreaEffects, getFeatureData, getFeatureEffectColor, getFeatureEffectBg } from "@/lib/locationSystem";
@@ -325,9 +325,10 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
           if (newWound) {
             setWounds(prev => [...prev, newWound]);
             
-            // Check for fatal wound (severity 10 on vital area)
+            // Check for fatal wound (severity 10 on vital area, neck sev10 = always decapitation)
             if (newWound.isFatal) {
               setFatalWound(newWound);
+              const isDecapitation = newWound.bodyPart === "neck" && newWound.severity === 10;
               const cause = generateRandomDeathCause({
                 monsterName,
                 monsterRank: monster.rank.rank,
@@ -339,14 +340,41 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
               setDeathCause(cause);
               
               toast({
-                title: `💀 FATAL WOUND!`,
-                description: `${newWound.description} by ${monsterName}!`,
+                title: isDecapitation ? `⚰️ DECAPITATED!` : `💀 FATAL WOUND!`,
+                description: isDecapitation 
+                  ? `${monsterName} severed your head clean off. No healing can save you now.`
+                  : `${newWound.description} by ${monsterName}!`,
                 variant: "destructive",
                 duration: 5000
               });
               
               handleDeath();
               return prev;
+            }
+            
+            // Check for permanent conditions (blindness, lost limbs)
+            const permanentCondition = getPermanentCondition(newWound);
+            if (permanentCondition) {
+              const permEffect = createPermanentEffect(
+                permanentCondition.name,
+                permanentCondition.description,
+                permanentCondition.icon
+              );
+              setStatusEffects(prev => {
+                if (prev.find(e => e.name === permEffect.name)) return prev;
+                return [...prev, permEffect];
+              });
+              toast({
+                title: `${permanentCondition.icon} PERMANENT: ${permanentCondition.name}!`,
+                description: `${permanentCondition.description}. Only high-level healing can reverse this.`,
+                variant: "destructive",
+                duration: 8000
+              });
+              setCombatLog(prev => trackCombatLog(
+                prev,
+                `🦴 PERMANENT CONDITION: ${permanentCondition.name} — ${permanentCondition.description}`,
+                0, 0, 0
+              ));
             }
             
             // Non-fatal wound notification
@@ -819,24 +847,40 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
             }
           }
           
+          // Tick down status effect durations
+          const { remaining: tickedEffects, expired: expiredEffects } = tickStatusEffects(statusEffects);
+          if (expiredEffects.length > 0) {
+            setStatusEffects(tickedEffects);
+            expiredEffects.forEach(exp => {
+              toast({
+                title: `${exp.name} wore off`,
+                description: `Effect expired after running its course`
+              });
+            });
+          }
+          
           if (Math.random() < 0.2) {
-            const newEffect = getRandomStatusEffect();
+            const gameDiffForEffect = worldData.difficulty || 2;
+            const newEffect = getRandomStatusEffect(undefined, gameDiffForEffect);
             setStatusEffects(prev => {
               if (prev.find(e => e.name === newEffect.name)) return prev;
               return [...prev, newEffect];
             });
             toast({
-              title: `${newEffect.icon} ${newEffect.name}!`,
+              title: `${newEffect.icon} ${newEffect.name}! (${newEffect.duration} ticks)`,
               description: newEffect.description
             });
           }
           if (Math.random() < 0.15 && statusEffects.length > 0) {
-            const removed = statusEffects[Math.floor(Math.random() * statusEffects.length)];
-            setStatusEffects(prev => prev.filter(e => e.name !== removed.name));
-            toast({
-              title: `${removed.name} wore off`,
-              description: "Effect removed"
-            });
+            const removable = statusEffects.filter(e => !e.isPermanent && e.duration !== -1);
+            if (removable.length > 0) {
+              const removed = removable[Math.floor(Math.random() * removable.length)];
+              setStatusEffects(prev => prev.filter(e => e.name !== removed.name));
+              toast({
+                title: `${removed.name} wore off`,
+                description: "Effect removed"
+              });
+            }
           }
           
           setStats((s) => {
@@ -2320,7 +2364,7 @@ Death occurred at: ${new Date().toLocaleString()}
                     }`}
                     title={effect.description}
                   >
-                    {effect.icon} {effect.name}
+                    {effect.icon} {effect.name} {effect.isPermanent ? '(∞)' : `(${effect.duration ?? '?'})`}
                   </span>
                 ))}
               </div>

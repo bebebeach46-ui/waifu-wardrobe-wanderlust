@@ -242,6 +242,41 @@ const woundTemplates: Record<BodyPart, Record<WoundType, string[]>> = {
 // Fatal wound locations at severity 10
 const fatalLocations: BodyPart[] = ["head", "neck", "chest", "torso", "abdomen"];
 
+// Neck severity 10 is ALWAYS a fatal decapitation regardless of other factors
+export const isInstantDecapitation = (bodyPart: BodyPart, severity: WoundSeverity): boolean => {
+  return bodyPart === "neck" && severity === 10;
+};
+
+// Check if a wound causes a permanent status effect (blindness, lost limb)
+export const getPermanentCondition = (wound: Wound): { name: string; description: string; icon: string } | null => {
+  // Severity 8+ on head can cause blindness
+  if (wound.bodyPart === "head" && wound.severity >= 8 && 
+      (wound.type === "slash" || wound.type === "acid" || wound.type === "burn" || wound.type === "lightning")) {
+    if (Math.random() < 0.4) {
+      return { name: "Blinded", description: "Eyes destroyed — the world is darkness now", icon: "🕶️" };
+    }
+  }
+  
+  // Severity 9-10 on limbs = lost limb
+  const limbParts: BodyPart[] = ["left_arm", "right_arm", "left_hand", "right_hand", "left_leg", "right_leg", "left_foot", "right_foot"];
+  if (limbParts.includes(wound.bodyPart) && wound.severity >= 9) {
+    const partName = wound.bodyPart.replace('_', ' ');
+    return { name: `Lost ${partName}`, description: `${partName} severed — only the most powerful healing can restore it`, icon: "🦴" };
+  }
+  
+  // Severity 10 on wings = lost wings
+  if (wound.bodyPart === "wings" && wound.severity >= 9) {
+    return { name: "Wings Destroyed", description: "Grounded forever — unless a miracle intervenes", icon: "🪽" };
+  }
+  
+  // Severity 10 on tail
+  if (wound.bodyPart === "tail" && wound.severity >= 9) {
+    return { name: "Lost Tail", description: "Balance permanently compromised", icon: "🦎" };
+  }
+  
+  return null;
+};
+
 // Get random body part based on race (some races have extra parts)
 export const getBodyPartsForRace = (race: string): BodyPart[] => {
   const baseParts: BodyPart[] = [
@@ -334,7 +369,8 @@ export const generateWound = (
   const woundDesc = templates[templateIndex];
   
   const sevInfo = severityDescriptions[severity];
-  const isFatal = severity === 10 && fatalLocations.includes(bodyPart);
+  // Neck severity 10 is ALWAYS fatal (decapitation), plus other vital areas
+  const isFatal = isInstantDecapitation(bodyPart, severity) || (severity === 10 && fatalLocations.includes(bodyPart));
   
   return {
     id: `wound_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
