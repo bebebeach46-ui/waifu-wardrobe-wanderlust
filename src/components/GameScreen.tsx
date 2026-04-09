@@ -27,7 +27,7 @@ import { checkEarlyDeath, checkRichRetirement, checkLegendaryFate, getNormalDeat
 import { trackActivity, trackMonsterKill, trackCombatLog, generateActivitySummary, generateMonstersKilledLog, ActivityLog, MonsterKill, CombatLog } from "@/lib/activityTracker";
 import { generateRandomDeathCause, generateEpitaph, DeathCause } from "@/lib/deathCauseGenerator";
 import { getMonsterByRank, rollForShard, getShardsNeededForSummon, canSummon } from "@/lib/monsterRankSystem";
-import { Wound, rollForWound, healWounds, calculatePainPenalty, calculateBleedingDamage, generateWoundSummary, getWoundIcon, getDamageTypeFromMonster, formatWound } from "@/lib/woundSystem";
+import { Wound, rollForWound, healWounds, calculatePainPenalty, calculateBleedingDamage, generateWoundSummary, getWoundIcon, getDamageTypeFromMonster, formatWound, getPermanentCondition } from "@/lib/woundSystem";
 import { checkCriticalHit, calculateAttack } from "@/lib/combatSystem";
 import { generateDeathNarrative, formatLastBattleActions, generateFinalMomentsSection } from "@/lib/deathNarrativeGenerator";
 import { TravelState, initializeTravelState, shouldChangeArea, travelToNewArea, getDirectionIcon, getRegionDangerColor, generateMapOverlay, getMapTileIcon, getAreaEffects, getFeatureData, getFeatureEffectColor, getFeatureEffectBg } from "@/lib/locationSystem";
