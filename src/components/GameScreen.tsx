@@ -17,7 +17,7 @@ import { generateCompanion, getRelationshipName, calculateCompatibility, getBond
 import { CompanionEncounterState, initializeEncounterState, updateEncounterState, completeEncounter, getTopAffinities, EncounterPreference } from "@/lib/companionEncounterSystem";
 import { generateShopName } from "@/lib/skillGenerator";
 import { generateSummon } from "@/lib/summonGenerator";
-import { getRandomStatusEffect, StatusEffect } from "@/lib/statusEffectGenerator";
+import { getRandomStatusEffect, StatusEffect, tickStatusEffects, createPermanentEffect, canCurePermanentEffect } from "@/lib/statusEffectGenerator";
 import { generateEventLog, Event } from "@/lib/eventLogGenerator";
 import { generateDeity, getRandomAlignment, shiftAlignment, getAlignmentCompatibility, Alignment } from "@/lib/deityGenerator";
 import { getRandomWeather, weatherRequiresRest, Weather } from "@/lib/weatherGenerator";
