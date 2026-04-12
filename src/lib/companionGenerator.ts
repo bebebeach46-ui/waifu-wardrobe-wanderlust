@@ -116,18 +116,35 @@ export const calculateCompatibility = (
   return compatibility;
 };
 
-// Determine bond level cap based on compatibility and party composition
+// Determine bond level cap based on compatibility, party composition, and fame
 export const getBondLevelCap = (
   companionIndex: number,
   compatibility: number,
-  existingCompanions: any[]
+  existingCompanions: any[],
+  fame: number = 0
 ): number => {
   // Count how many companions are already at max bond
   const maxBondCompanions = existingCompanions.filter(c => c.bondCap === 10).length;
   
+  // Fame bonus: every 10 fame lowers the compatibility threshold for bond 10
+  // At 0 fame: need compatibility >= 5
+  // At 50 fame: need compatibility >= 3
+  // At 100+ fame: need compatibility >= 2
+  const fameBonus = Math.min(fame / 10, 3); // max 3 points of threshold reduction
+  const bond10Threshold = Math.max(2, 5 - Math.floor(fameBonus));
+  
   // First 2 high-compatibility companions can reach 10
-  if (compatibility >= 5 && maxBondCompanions < 2) {
+  if (compatibility >= bond10Threshold && maxBondCompanions < 2) {
     return 10;
+  }
+  
+  // Fame can also promote medium-compatibility companions to bond 10
+  // At 75+ fame, 20% chance for compatibility 3+ to get bond 10 (if slot available)
+  if (fame >= 75 && compatibility >= 3 && maxBondCompanions < 2) {
+    const fameChance = Math.min((fame - 75) * 0.004, 0.3); // up to 30% at 150 fame
+    if (Math.random() < fameChance) {
+      return 10;
+    }
   }
   
   // Medium compatibility can reach 8
