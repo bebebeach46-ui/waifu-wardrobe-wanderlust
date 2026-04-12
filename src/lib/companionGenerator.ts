@@ -159,7 +159,8 @@ export const getBondLevelCap = (
 export const generateCompanion = (
   worldData: any,
   playerCharacter?: any,
-  existingCompanions: any[] = []
+  existingCompanions: any[] = [],
+  fame: number = 0
 ) => {
   const name = companionNames[Math.floor(Math.random() * companionNames.length)];
   const race = companionRaces[Math.floor(Math.random() * companionRaces.length)];
@@ -211,7 +212,7 @@ export const generateCompanion = (
       playerCharacter.class,
       playerCharacter.skills || []
     );
-    const bondCap = getBondLevelCap(existingCompanions.length, compatibility, existingCompanions);
+    const bondCap = getBondLevelCap(existingCompanions.length, compatibility, existingCompanions, fame);
     
     return {
       ...companion,
