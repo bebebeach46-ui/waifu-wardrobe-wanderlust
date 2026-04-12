@@ -123,7 +123,7 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
           const compatibility = comp.compatibility !== undefined ? comp.compatibility : 
             calculateCompatibility(comp, character.race, character.class, lifeSkills);
           const bondCap = comp.bondCap !== undefined ? comp.bondCap : 
-            getBondLevelCap(index, compatibility, companions);
+            getBondLevelCap(index, compatibility, companions, fame);
           
           return {
             ...comp,
