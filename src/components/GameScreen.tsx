@@ -600,7 +600,7 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
               if (result.shouldAttractCompanion && result.preference && companions.length < 3) {
                 // Generate companion with preference matching
                 const characterWithSkills = { ...character, skills: lifeSkills };
-                const newCompanion = generateCompanion(worldData, characterWithSkills, companions);
+                const newCompanion = generateCompanion(worldData, characterWithSkills, companions, fame);
                 
                 // Override preferences to match the encounter preference
                 if (result.preference && !newCompanion.preferences.includes(result.preference)) {
@@ -1624,7 +1624,7 @@ Death occurred at: ${new Date().toLocaleString()}
           case 'summon_companion':
             if (companions.length < 3) {
               const characterWithSkills = { ...character, skills: lifeSkills };
-              const newCompanion = generateCompanion(worldData, characterWithSkills, companions);
+              const newCompanion = generateCompanion(worldData, characterWithSkills, companions, fame);
               setCompanions(c => [...c, newCompanion]);
               
               // Track companion in codex
