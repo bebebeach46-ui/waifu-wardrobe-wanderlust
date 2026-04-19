@@ -116,6 +116,16 @@ export const calculateCompatibility = (
   return compatibility;
 };
 
+// ===== POOL CAPS =====
+// Active slots: max companions that can travel with the hero at once
+export const ACTIVE_COMPANION_SLOTS = 10;
+// Reserve slots: companions waiting at home (auto-cycled when active dies)
+export const RESERVE_COMPANION_SLOTS = 50;
+// Heir slots: total successors that can be sired across all bond-10 partners
+export const HEIR_SLOTS = 50;
+// Hard cap on simultaneous Bond Rank 10 companions
+export const MAX_BOND_10_COMPANIONS = 2;
+
 // Determine bond level cap based on compatibility, party composition, and fame
 export const getBondLevelCap = (
   companionIndex: number,
