@@ -1584,6 +1584,9 @@ Death occurred at: ${new Date().toLocaleString()}
       totalDeaths: stats.totalDeaths
     });
     setCompanions([]);
+    setReserveCompanions([]);
+    setUniqueHeirMothers([]);
+    setFavoriteCompanionName(null);
     setTreasure(0);
     setMarried(null);
     setHasOffspring(false);
