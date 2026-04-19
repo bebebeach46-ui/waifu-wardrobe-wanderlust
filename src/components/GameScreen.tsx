@@ -1016,6 +1016,39 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
 
                 const newTravel = travelToNewArea(updatedTravel, worldData, newLevel);
                 
+                // === AGING TICK: 1 year per area cleared ===
+                // Age active companions; remove dead; promote from reserve
+                setCompanions(prevActive => {
+                  const survivors: any[] = [];
+                  const deaths: string[] = [];
+                  for (const c of prevActive) {
+                    const result = tickCompanionAge(c, 1);
+                    if (result.died) {
+                      deaths.push(`${c.name} (${c.race}, age ${result.companion.age})`);
+                    } else {
+                      survivors.push(result.companion);
+                    }
+                  }
+                  // Promote from reserve to fill openings (newest reserve first → LIFO)
+                  if (deaths.length > 0) {
+                    deaths.forEach(d => {
+                      toast({ title: "💀 Companion Passed Away", description: `${d} died of old age`, duration: 6000 });
+                      setActivities(prev => trackActivity(prev, "relationship", `${d} died of old age`));
+                    });
+                  }
+                  return survivors;
+                });
+                // Age reserve too; cull dead
+                setReserveCompanions(prevReserve => {
+                  const survivors: any[] = [];
+                  for (const c of prevReserve) {
+                    const result = tickCompanionAge(c, 1);
+                    if (!result.died) survivors.push(result.companion);
+                    else setActivities(prev => trackActivity(prev, "relationship", `Reserve companion ${c.name} died of old age (${result.companion.age})`));
+                  }
+                  return survivors;
+                });
+                
                 // Notify about area/region change
                 if (newTravel.areasExplored === 1) {
                   // New region!
