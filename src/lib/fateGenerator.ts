@@ -67,6 +67,24 @@ export const checkLegendaryFate = (level: number, questsCompleted: number): Fate
   return null;
 };
 
+/**
+ * Triggered when the hero has sired 50 heirs from 50 unique companions.
+ * Guaranteed legendary retirement with their favorite partner.
+ */
+export const checkLineageLegendary = (
+  uniqueHeirMothers: number,
+  favoriteName: string | null
+): FateOutcome | null => {
+  if (uniqueHeirMothers < 50) return null;
+  const partner = favoriteName || "their favorite companion";
+  return {
+    type: "legendary",
+    shortDesc: "Restored the world's future",
+    description: `Sired 50 lineages from 50 different companions — a feat unmatched in living memory. The bloodlines they planted will steward the world for generations. Retired in peace with ${partner} to watch their children's children inherit the realm.`,
+    isGameOver: true
+  };
+};
+
 export const getNormalDeath = (): FateOutcome => {
   return fateOutcomes.normalDeath[Math.floor(Math.random() * fateOutcomes.normalDeath.length)];
 };

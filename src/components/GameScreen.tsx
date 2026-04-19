@@ -13,7 +13,7 @@ import { createEmptyCodex, addDiscovery, Codex, generateLoreEntry } from "@/lib/
 import { useToast } from "@/hooks/use-toast";
 import { generateCharacter, rollForNewSkill, rollForNewSpell, rollForEquipmentUnlock, getClassConfig } from "@/lib/characterGenerator";
 import { generateQuest, Quest, rollQuestPerformance, QuestPerformanceGrade, getFameTitle, performanceGrades } from "@/lib/questGenerator";
-import { generateCompanion, getRelationshipName, calculateCompatibility, getBondLevelCap, generateMilestone, generateChild, RelationshipMilestone, ChildInfo, generateCompanionAge, calculateRelationshipDelta, isCompanionThreat, calculateGiftEffectiveness, giftPreferenceMap, rollForApologyEvent, rollForRepairQuest, calculateRepairQuestReward, RepairQuest } from "@/lib/companionGenerator";
+import { generateCompanion, getRelationshipName, calculateCompatibility, getBondLevelCap, generateMilestone, generateChild, RelationshipMilestone, ChildInfo, generateCompanionAge, calculateRelationshipDelta, isCompanionThreat, calculateGiftEffectiveness, giftPreferenceMap, rollForApologyEvent, rollForRepairQuest, calculateRepairQuestReward, RepairQuest, ACTIVE_COMPANION_SLOTS, RESERVE_COMPANION_SLOTS, HEIR_SLOTS, MAX_BOND_10_COMPANIONS, tickCompanionAge } from "@/lib/companionGenerator";
 import { CompanionEncounterState, initializeEncounterState, updateEncounterState, completeEncounter, getTopAffinities, EncounterPreference } from "@/lib/companionEncounterSystem";
 import { generateShopName } from "@/lib/skillGenerator";
 import { generateSummon } from "@/lib/summonGenerator";
@@ -23,7 +23,7 @@ import { generateDeity, getRandomAlignment, shiftAlignment, getAlignmentCompatib
 import { getRandomWeather, weatherRequiresRest, Weather } from "@/lib/weatherGenerator";
 import { getRandomGatheringActivity, getRandomCraftingActivity, shouldGatherMaterials, shouldCraft, Material } from "@/lib/materialsGenerator";
 import { generateRankedSkills, gainSkillExperience, RankedSkill } from "@/lib/skillRankGenerator";
-import { checkEarlyDeath, checkRichRetirement, checkLegendaryFate, getNormalDeath, FateOutcome } from "@/lib/fateGenerator";
+import { checkEarlyDeath, checkRichRetirement, checkLegendaryFate, checkLineageLegendary, getNormalDeath, FateOutcome } from "@/lib/fateGenerator";
 import { trackActivity, trackMonsterKill, trackCombatLog, generateActivitySummary, generateMonstersKilledLog, ActivityLog, MonsterKill, CombatLog } from "@/lib/activityTracker";
 import { generateRandomDeathCause, generateEpitaph, DeathCause } from "@/lib/deathCauseGenerator";
 import { getMonsterByRank, rollForShard, getShardsNeededForSummon, canSummon } from "@/lib/monsterRankSystem";
@@ -101,6 +101,9 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
   const [legendaryEvents, setLegendaryEvents] = useState<TickerEvent[]>([]);
   const [activeRepairQuest, setActiveRepairQuest] = useState<RepairQuest | null>(() => savedData?.activeRepairQuest || null);
   const [championsDefeated, setChampionsDefeated] = useState<number>(() => savedData?.championsDefeated || 0);
+  const [reserveCompanions, setReserveCompanions] = useState<any[]>(() => savedData?.reserveCompanions || []);
+  const [uniqueHeirMothers, setUniqueHeirMothers] = useState<string[]>(() => savedData?.uniqueHeirMothers || []);
+  const [favoriteCompanionName, setFavoriteCompanionName] = useState<string | null>(() => savedData?.favoriteCompanionName || null);
   const [stats, setStats] = useState(savedData?.stats || {
     level: 1,
     exp: 0,
@@ -135,6 +138,24 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
       }));
     }
   }, []);
+
+  // Promote reserve → active whenever a slot opens (deaths, etc.)
+  useEffect(() => {
+    if (companions.length < ACTIVE_COMPANION_SLOTS && reserveCompanions.length > 0) {
+      const slotsOpen = ACTIVE_COMPANION_SLOTS - companions.length;
+      const promoting = reserveCompanions.slice(-slotsOpen); // newest reserve first (LIFO)
+      const remaining = reserveCompanions.slice(0, -slotsOpen);
+      setCompanions(c => [...c, ...promoting]);
+      setReserveCompanions(remaining);
+      promoting.forEach(p => {
+        toast({
+          title: `🔄 ${p.name} joined the active party`,
+          description: `Promoted from reserve to fill an empty slot`,
+          duration: 5000
+        });
+      });
+    }
+  }, [companions.length, reserveCompanions]);
 
   // Migrate old quests to have rank property
   useEffect(() => {
@@ -236,9 +257,10 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
           const earlyDeath = checkEarlyDeath(stats.questsCompleted);
           const richRetirement = checkRichRetirement(stats.gold, stats.questsCompleted);
           const legendaryFate = checkLegendaryFate(stats.level, stats.questsCompleted);
+          const lineageFate = checkLineageLegendary(uniqueHeirMothers.length, favoriteCompanionName);
           
-          if (earlyDeath || richRetirement || legendaryFate) {
-            const fate = earlyDeath || richRetirement || legendaryFate;
+          if (earlyDeath || richRetirement || legendaryFate || lineageFate) {
+            const fate = lineageFate || earlyDeath || richRetirement || legendaryFate;
             setFateOutcome(fate);
             handleDeath();
             return prev;
@@ -571,7 +593,10 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
           
           // Update encounter state with quest completion - companions earned through special encounters
           setEncounterState(prevEncounter => {
-            const updatedEncounter = updateEncounterState(prevEncounter, currentQuest, companions.length);
+            const updatedEncounter = updateEncounterState(prevEncounter, currentQuest, companions.length, {
+              activeFull: companions.length >= ACTIVE_COMPANION_SLOTS,
+              reserveFull: companions.length >= ACTIVE_COMPANION_SLOTS && reserveCompanions.length >= RESERVE_COMPANION_SLOTS
+            });
             
             // Check for active encounter progress display
             if (updatedEncounter.activeEncounter && updatedEncounter.encounterProgress > 0 && 
@@ -597,37 +622,55 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
             if (updatedEncounter.encounterProgress >= 100 && updatedEncounter.activeEncounter) {
               const result = completeEncounter(updatedEncounter);
               
-              if (result.shouldAttractCompanion && result.preference && companions.length < 3) {
-                // Generate companion with preference matching
-                const characterWithSkills = { ...character, skills: lifeSkills };
-                const newCompanion = generateCompanion(worldData, characterWithSkills, companions, fame);
+              if (result.shouldAttractCompanion && result.preference) {
+                const totalCompanions = companions.length + reserveCompanions.length;
+                const reserveFull = reserveCompanions.length >= RESERVE_COMPANION_SLOTS;
+                const activeFull = companions.length >= ACTIVE_COMPANION_SLOTS;
                 
-                // Override preferences to match the encounter preference
-                if (result.preference && !newCompanion.preferences.includes(result.preference)) {
-                  newCompanion.preferences[0] = result.preference;
+                if (activeFull && reserveFull) {
+                  // Both pools full — encounter wasted
+                  toast({
+                    title: "💔 Companion Turned Away",
+                    description: "Your retinue is at full capacity (10 active + 50 reserve)",
+                    duration: 5000
+                  });
+                } else {
+                  // Generate companion with preference matching
+                  const characterWithSkills = { ...character, skills: lifeSkills };
+                  const newCompanion = generateCompanion(worldData, characterWithSkills, companions, fame);
+                  
+                  // Override preferences to match the encounter preference
+                  if (result.preference && !newCompanion.preferences.includes(result.preference)) {
+                    newCompanion.preferences[0] = result.preference;
+                  }
+                  
+                  const goesToReserve = activeFull;
+                  if (goesToReserve) {
+                    setReserveCompanions(r => [...r, newCompanion]);
+                  } else {
+                    setCompanions(c => [...c, newCompanion]);
+                  }
+                  
+                  // Track companion in codex
+                  setCodex(prev => addDiscovery(prev, 'companion', `${newCompanion.name}_${newCompanion.race}`, 
+                    newCompanion.name, 
+                    newCompanion.description,
+                    { race: newCompanion.race, class: newCompanion.class, gender: newCompanion.gender, alignment: newCompanion.alignment, compatibility: newCompanion.compatibility }
+                  ));
+                  
+                  const compatibilityDesc = newCompanion.compatibility >= 5 ? "highly compatible" :
+                                           newCompanion.compatibility >= 3 ? "somewhat compatible" : "interested";
+                  
+                  const encounterName = updatedEncounter.activeEncounter?.name || "a special encounter";
+                  
+                  toast({
+                    title: goesToReserve ? `🛖 Reserve Companion: ${newCompanion.name}` : `💖 Companion Earned: ${newCompanion.name}`,
+                    description: <span className="text-stat-increase">{goesToReserve ? "Active party full — sent to reserve. " : ""}Met through "{encounterName}" ({compatibilityDesc}). Bond Cap: {newCompanion.bondCap}</span>,
+                    duration: 8000
+                  });
+                  
+                  setActivities(prev => trackActivity(prev, "relationship", `${newCompanion.name} ${goesToReserve ? "joined reserve" : "joined active party"} after "${encounterName}" (Compatibility: ${newCompanion.compatibility})`));
                 }
-                
-                setCompanions(c => [...c, newCompanion]);
-                
-                // Track companion in codex
-                setCodex(prev => addDiscovery(prev, 'companion', `${newCompanion.name}_${newCompanion.race}`, 
-                  newCompanion.name, 
-                  newCompanion.description,
-                  { race: newCompanion.race, class: newCompanion.class, gender: newCompanion.gender, alignment: newCompanion.alignment, compatibility: newCompanion.compatibility }
-                ));
-                
-                const compatibilityDesc = newCompanion.compatibility >= 5 ? "highly compatible" :
-                                         newCompanion.compatibility >= 3 ? "somewhat compatible" : "interested";
-                
-                const encounterName = updatedEncounter.activeEncounter?.name || "a special encounter";
-                
-                toast({
-                  title: `💖 Companion Earned: ${newCompanion.name}`,
-                  description: <span className="text-stat-increase">Met through "{encounterName}" ({compatibilityDesc})! Bond Cap: {newCompanion.bondCap}</span>,
-                  duration: 8000
-                });
-                
-                setActivities(prev => trackActivity(prev, "relationship", `${newCompanion.name} joined after completing "${encounterName}" (Compatibility: ${newCompanion.compatibility})`));
               }
               
               return result.newState;
@@ -723,29 +766,46 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
               });
             }
             
-            // Marriage and child at max relationship (only if bond cap is 10)
-            if (newRel >= 10 && bondCap === 10 && !married && comp.relationship < 10) {
-              setMarried(comp);
+            // Marriage and heir at max relationship (only if bond cap is 10).
+            // Each unique bond-10 partner can sire one heir (up to HEIR_SLOTS total).
+            if (newRel >= 10 && bondCap === 10 && comp.relationship < 10) {
+              const alreadySired = uniqueHeirMothers.includes(comp.name);
+              
+              // Set married to first bond-10 partner; track favorite as highest-relationship
+              if (!married) setMarried(comp);
+              setFavoriteCompanionName(prev => prev || comp.name);
               
               setLegendaryEvents(prev => [
-                createLegendaryEvent(`💍 MAX BOND 10: ${comp.name} and ${character.name} are now married! Soul bond complete!`),
+                createLegendaryEvent(`💍 MAX BOND 10: ${comp.name} and ${character.name} have soul-bonded!`),
                 ...prev
               ].slice(0, 5));
               
               toast({
-                title: "💍 Marriage!",
-                description: `${comp.name} and ${character.name} are now married!`
+                title: "💍 Soul Bond Achieved!",
+                description: `${comp.name} and ${character.name} are now bonded for life!`
               });
-              const child = generateChild(character.name, character.race, comp.name, comp.race);
-              setOffspringData(child);
-              setChildren(prev => [...prev, child]);
-              setHasOffspring(true);
               
-              toast({
-                title: `👶 ${child.gender === "Male" ? "Son" : "Daughter"} Born!`,
-                description: `${child.name} has been born! Traits: ${child.traits.join(", ")}`,
-                duration: 8000
-              });
+              if (!alreadySired && children.length < HEIR_SLOTS) {
+                const child = generateChild(character.name, character.race, comp.name, comp.race);
+                setOffspringData(child);
+                setChildren(prev => [...prev, child]);
+                setHasOffspring(true);
+                setUniqueHeirMothers(prev => [...prev, comp.name]);
+                
+                const newCount = uniqueHeirMothers.length + 1;
+                toast({
+                  title: `👶 Heir Born — ${newCount}/${HEIR_SLOTS} Lineages`,
+                  description: `${child.name} (${child.gender}) has been born to ${comp.name}! Traits: ${child.traits.join(", ")}`,
+                  duration: 8000
+                });
+                
+                if (newCount === HEIR_SLOTS) {
+                  setLegendaryEvents(prev => [
+                    createLegendaryEvent(`🌟 LEGENDARY: ${character.name} has sired 50 lineages — the world's future is restored!`),
+                    ...prev
+                  ].slice(0, 5));
+                }
+              }
             }
             
             return {
@@ -1012,6 +1072,39 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
                 });
 
                 const newTravel = travelToNewArea(updatedTravel, worldData, newLevel);
+                
+                // === AGING TICK: 1 year per area cleared ===
+                // Age active companions; remove dead; promote from reserve
+                setCompanions(prevActive => {
+                  const survivors: any[] = [];
+                  const deaths: string[] = [];
+                  for (const c of prevActive) {
+                    const result = tickCompanionAge(c, 1);
+                    if (result.died) {
+                      deaths.push(`${c.name} (${c.race}, age ${result.companion.age})`);
+                    } else {
+                      survivors.push(result.companion);
+                    }
+                  }
+                  // Promote from reserve to fill openings (newest reserve first → LIFO)
+                  if (deaths.length > 0) {
+                    deaths.forEach(d => {
+                      toast({ title: "💀 Companion Passed Away", description: `${d} died of old age`, duration: 6000 });
+                      setActivities(prev => trackActivity(prev, "relationship", `${d} died of old age`));
+                    });
+                  }
+                  return survivors;
+                });
+                // Age reserve too; cull dead
+                setReserveCompanions(prevReserve => {
+                  const survivors: any[] = [];
+                  for (const c of prevReserve) {
+                    const result = tickCompanionAge(c, 1);
+                    if (!result.died) survivors.push(result.companion);
+                    else setActivities(prev => trackActivity(prev, "relationship", `Reserve companion ${c.name} died of old age (${result.companion.age})`));
+                  }
+                  return survivors;
+                });
                 
                 // Notify about area/region change
                 if (newTravel.areasExplored === 1) {
@@ -1416,11 +1509,14 @@ Death occurred at: ${new Date().toLocaleString()}
       championsDefeated,
       simplifiedMode,
       fame,
+      reserveCompanions,
+      uniqueHeirMothers,
+      favoriteCompanionName,
       characterName: character.name,
       level: stats.level,
       timestamp: Date.now()
     };
-  }, [character, stats, worldData, companions, treasure, married, hasOffspring, offspringData, children, romanceDiary, statusEffects, summons, eventLog, deity, alignment, weather, materials, lifeSkills, activities, monstersKilled, currentQuest, shopName, activeEffects, codex, combatLog, wounds, travelState, encounterState, activeRepairQuest, championsDefeated, simplifiedMode, fame]);
+  }, [character, stats, worldData, companions, treasure, married, hasOffspring, offspringData, children, romanceDiary, statusEffects, summons, eventLog, deity, alignment, weather, materials, lifeSkills, activities, monstersKilled, currentQuest, shopName, activeEffects, codex, combatLog, wounds, travelState, encounterState, activeRepairQuest, championsDefeated, simplifiedMode, fame, reserveCompanions, uniqueHeirMothers, favoriteCompanionName]);
 
   const performSave = useCallback(() => {
     if (!saveDataRef.current) return null;
@@ -1488,6 +1584,9 @@ Death occurred at: ${new Date().toLocaleString()}
       totalDeaths: stats.totalDeaths
     });
     setCompanions([]);
+    setReserveCompanions([]);
+    setUniqueHeirMothers([]);
+    setFavoriteCompanionName(null);
     setTreasure(0);
     setMarried(null);
     setHasOffspring(false);
@@ -1621,13 +1720,25 @@ Death occurred at: ${new Date().toLocaleString()}
             });
             break;
 
-          case 'summon_companion':
-            if (companions.length < 3) {
+          case 'summon_companion': {
+            const activeFull = companions.length >= ACTIVE_COMPANION_SLOTS;
+            const reserveFull = reserveCompanions.length >= RESERVE_COMPANION_SLOTS;
+            if (activeFull && reserveFull) {
+              toast({
+                title: "Retinue Full!",
+                description: `Max ${ACTIVE_COMPANION_SLOTS} active + ${RESERVE_COMPANION_SLOTS} reserve reached`,
+                variant: "destructive"
+              });
+            } else {
               const characterWithSkills = { ...character, skills: lifeSkills };
               const newCompanion = generateCompanion(worldData, characterWithSkills, companions, fame);
-              setCompanions(c => [...c, newCompanion]);
+              const goesToReserve = activeFull;
+              if (goesToReserve) {
+                setReserveCompanions(r => [...r, newCompanion]);
+              } else {
+                setCompanions(c => [...c, newCompanion]);
+              }
               
-              // Track companion in codex
               setCodex(prev => addDiscovery(prev, 'companion', `${newCompanion.name}_${newCompanion.race}`, 
                 newCompanion.name, 
                 newCompanion.description,
@@ -1638,20 +1749,15 @@ Death occurred at: ${new Date().toLocaleString()}
                                        newCompanion.compatibility >= 3 ? "somewhat compatible" : "interested";
               
               toast({
-                title: "🌟 Companion Summoned!",
-                description: <span className="text-stat-increase">{newCompanion.name} ({compatibilityDesc}) joined! Bond Cap: {newCompanion.bondCap}</span>,
+                title: goesToReserve ? "🛖 Summoned to Reserve!" : "🌟 Companion Summoned!",
+                description: <span className="text-stat-increase">{newCompanion.name} ({compatibilityDesc}) {goesToReserve ? "joined the reserve" : "joined the party"}! Bond Cap: {newCompanion.bondCap}</span>,
                 duration: 5000
               });
               
               setActivities(prev => trackActivity(prev, "relationship", `${newCompanion.name} was summoned (Compatibility: ${newCompanion.compatibility})`));
-            } else {
-              toast({
-                title: "Party Full!",
-                description: "Max 3 companions reached",
-                variant: "destructive"
-              });
             }
             break;
+          }
 
           case 'cleanse_debuffs':
             setStatusEffects(prev => prev.filter(e => e.type === 'good'));
@@ -2125,7 +2231,7 @@ Death occurred at: ${new Date().toLocaleString()}
       </div>
 
       {/* Companion Encounter System - Only in detailed mode */}
-      {!simplifiedMode && companions.length < 3 && (
+      {!simplifiedMode && (companions.length < ACTIVE_COMPANION_SLOTS || reserveCompanions.length < RESERVE_COMPANION_SLOTS) && (
         <div className="space-y-2">
           <div className="text-sm font-semibold flex items-center gap-1">
             <Sparkles className="w-4 h-4" /> Companion Encounters
@@ -2306,7 +2412,7 @@ Death occurred at: ${new Date().toLocaleString()}
       {!simplifiedMode && companions.length > 0 && (
         <div className="space-y-2">
           <div className="text-sm font-semibold flex items-center gap-1">
-            <Heart className="w-4 h-4" /> Companions ({companions.length}/3)
+            <Heart className="w-4 h-4" /> Active Companions ({companions.length}/{ACTIVE_COMPANION_SLOTS}) · Reserve {reserveCompanions.length}/{RESERVE_COMPANION_SLOTS} · Heirs {uniqueHeirMothers.length}/{HEIR_SLOTS}
           </div>
           <div className="space-y-2">
             {companions.map((comp, i) => {

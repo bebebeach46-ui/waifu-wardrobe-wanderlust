@@ -116,6 +116,16 @@ export const calculateCompatibility = (
   return compatibility;
 };
 
+// ===== POOL CAPS =====
+// Active slots: max companions that can travel with the hero at once
+export const ACTIVE_COMPANION_SLOTS = 10;
+// Reserve slots: companions waiting at home (auto-cycled when active dies)
+export const RESERVE_COMPANION_SLOTS = 50;
+// Heir slots: total successors that can be sired across all bond-10 partners
+export const HEIR_SLOTS = 50;
+// Hard cap on simultaneous Bond Rank 10 companions
+export const MAX_BOND_10_COMPANIONS = 2;
+
 // Determine bond level cap based on compatibility, party composition, and fame
 export const getBondLevelCap = (
   companionIndex: number,
@@ -133,14 +143,14 @@ export const getBondLevelCap = (
   const fameBonus = Math.min(fame / 10, 3); // max 3 points of threshold reduction
   const bond10Threshold = Math.max(2, 5 - Math.floor(fameBonus));
   
-  // First 2 high-compatibility companions can reach 10
-  if (compatibility >= bond10Threshold && maxBondCompanions < 2) {
+  // First MAX_BOND_10 high-compatibility companions can reach 10
+  if (compatibility >= bond10Threshold && maxBondCompanions < MAX_BOND_10_COMPANIONS) {
     return 10;
   }
   
   // Fame can also promote medium-compatibility companions to bond 10
   // At 75+ fame, 20% chance for compatibility 3+ to get bond 10 (if slot available)
-  if (fame >= 75 && compatibility >= 3 && maxBondCompanions < 2) {
+  if (fame >= 75 && compatibility >= 3 && maxBondCompanions < MAX_BOND_10_COMPANIONS) {
     const fameChance = Math.min((fame - 75) * 0.004, 0.3); // up to 30% at 150 fame
     if (Math.random() < fameChance) {
       return 10;
@@ -514,39 +524,136 @@ export const generateChild = (
 
 // Generate companion age based on race
 export const generateCompanionAge = (race: string): number => {
-  const ageRanges: Record<string, [number, number]> = {
-    "Human": [18, 40],
-    "High Elf": [100, 500],
-    "Dark Elf": [100, 400],
-    "Wood Elf": [80, 300],
-    "Demon": [100, 800],
-    "Angel": [200, 2000],
-    "Fallen Angel": [150, 1500],
-    "Vampire": [100, 1500],
-    "Dhampir": [25, 200],
-    "Werewolf": [20, 80],
-    "Android": [1, 30],
-    "Cyborg": [20, 60],
-    "Dragon-kin (Winged)": [50, 400],
-    "Dragon-kin (Horned)": [50, 400],
-    "Dragon-kin (Scaled)": [50, 400],
-    "Kitsune (Multi-tailed)": [100, 1000],
-    "Succubus (Winged)": [100, 800],
-    "Incubus (Horned)": [100, 800],
-    "Ghost Girl (Ethereal)": [50, 500],
-    "Fairy (Butterfly Wings)": [20, 200],
-    "Mermaid (Fish-tailed)": [18, 100],
+  const [adult, max] = getRaceLifespan(race);
+  // Spawn between adult and ~60% of max so they have years left to live
+  const upper = Math.max(adult + 5, Math.floor(adult + (max - adult) * 0.6));
+  return Math.floor(Math.random() * (upper - adult)) + adult;
+};
+
+// Returns [adultAge, naturalMaxAge] in years for a given race
+export const getRaceLifespan = (race: string): [number, number] => {
+  const lifespans: Record<string, [number, number]> = {
+    "Human": [18, 80],
+    "High Elf": [100, 900],
+    "Dark Elf": [100, 700],
+    "Wood Elf": [80, 600],
+    "Demon": [100, 1500],
+    "Angel": [200, 4000],
+    "Fallen Angel": [150, 3000],
+    "Vampire": [100, 3000],
+    "Dhampir": [25, 250],
+    "Werewolf": [20, 120],
+    "Werefox": [25, 200],
+    "Android": [1, 60],
+    "Cyborg": [20, 130],
+    "Catgirl (Neko)": [16, 70],
+    "Doggirl (Inu)": [16, 65],
+    "Foxgirl (Kitsune)": [18, 200],
+    "Wolfgirl (Okami)": [18, 90],
+    "Bunnygirl (Usagi)": [16, 60],
+    "Mousegirl": [14, 50],
+    "Raccoongirl (Tanuki)": [16, 80],
+    "Squirrelgirl": [14, 55],
+    "Dragon-kin (Winged)": [50, 800],
+    "Dragon-kin (Horned)": [50, 800],
+    "Dragon-kin (Scaled)": [50, 800],
+    "Half-Dragon": [40, 500],
+    "Kitsune (Multi-tailed)": [100, 1500],
+    "Oni (Horned)": [30, 250],
+    "Oni (Tusked)": [30, 250],
+    "Homunculus": [1, 40],
+    "Nekomata (Twin-tailed)": [50, 400],
+    "Bakeneko": [50, 400],
+    "Succubus (Winged)": [100, 1500],
+    "Incubus (Horned)": [100, 1500],
+    "Dullahan (Headless)": [100, 800],
+    "Lamia (Snake-tailed)": [40, 400],
+    "Harpy (Winged)": [18, 90],
+    "Arachne (Spider-bodied)": [30, 200],
+    "Centaur": [25, 150],
+    "Holstaur (Cow-eared)": [18, 80],
+    "Minotaur (Horned)": [25, 150],
+    "Slime Girl": [1, 50],
+    "Dryad (Plant-bodied)": [40, 600],
+    "Alraune (Flower-bodied)": [20, 200],
+    "Mermaid (Fish-tailed)": [18, 150],
+    "Siren (Scaled)": [25, 250],
+    "Selkie": [20, 200],
+    "Phoenix-kin (Flaming Wings)": [50, 1000],
+    "Tengu (Crow-winged)": [40, 400],
+    "Valkyrie (Armored Wings)": [100, 2000],
+    "Zombie Girl": [1, 100],
+    "Jiangshi (Hopping)": [50, 500],
+    "Ghost Girl (Ethereal)": [50, 800],
+    "Manticore (Scorpion-tailed)": [40, 300],
+    "Sphinx (Lion-bodied)": [50, 600],
+    "Chimera": [30, 250],
+    "Goblin Girl": [12, 50],
+    "Orc Girl (Tusked)": [16, 70],
+    "Ogre Girl (Horned)": [25, 120],
+    "Fairy (Butterfly Wings)": [20, 300],
+    "Pixie (Dragonfly Wings)": [20, 300],
+    "Imp (Bat Wings)": [30, 400],
+    "Yuki-onna (Ice Horns)": [50, 600],
+    "Jorogumo (Spider Features)": [50, 500],
+    "Kappa (Turtle Shell)": [25, 250],
+    "Anubis (Jackal-eared)": [40, 400],
+    "Bastet (Cat-eared)": [40, 400],
+    "Apophis (Snake Features)": [60, 800],
+    "Revenant (Stitched)": [1, 200],
+    "Wight (Frost-Veined)": [50, 500],
+    "Shade (Translucent)": [50, 600],
+    "Cambion (Smoldering)": [40, 400],
+    "Hag-spawn (Gnarled)": [40, 350],
+    "Plague Bearer (Scarred)": [18, 60],
+    "Flesh Golem (Patchwork)": [1, 80],
+    "Bone Naga (Skeletal)": [50, 600],
+    "Banshee (Wailing)": [40, 700],
+    "Wendigo-touched (Gaunt)": [25, 200],
+    "Ghoul (Hollow-Eyed)": [20, 150],
+    "Skinwalker (Shifting)": [30, 250],
+    "Night Hag (Veiled)": [60, 600],
+    "Wraith (Chained)": [50, 800],
+    "Abyssal Scion (Void-Marked)": [40, 600],
+    "Striga (Cursed)": [30, 300],
+    "Moroi (Pale)": [40, 500],
+    "Draugr (Barnacled)": [50, 400],
   };
   
-  // Try exact match, then partial match, then default
-  let range = ageRanges[race];
+  let range = lifespans[race];
   if (!range) {
-    const partialMatch = Object.keys(ageRanges).find(key => race.includes(key) || key.includes(race.split(" ")[0]));
-    range = partialMatch ? ageRanges[partialMatch] : [18, 50];
+    const partialMatch = Object.keys(lifespans).find(key => race.includes(key) || key.includes(race.split(" ")[0]));
+    range = partialMatch ? lifespans[partialMatch] : [18, 75];
+  }
+  return range;
+};
+
+/**
+ * Age a companion by N years. Returns updated companion plus death info.
+ * Death chance ramps as the companion approaches their natural max.
+ */
+export const tickCompanionAge = (
+  companion: any,
+  years: number = 1
+): { companion: any; died: boolean; ofOldAge: boolean } => {
+  const newAge = (companion.age || 18) + years;
+  const [, maxAge] = getRaceLifespan(companion.race);
+  
+  // Death chance scales: <80% of max = ~0%, 80-100% = climbing, >100% = guaranteed each tick
+  let died = false;
+  if (newAge >= maxAge) {
+    died = true;
+  } else if (newAge >= maxAge * 0.8) {
+    const proximity = (newAge - maxAge * 0.8) / (maxAge * 0.2); // 0..1
+    const deathChance = proximity * proximity * 0.35; // up to 35% per tick at the threshold
+    if (Math.random() < deathChance) died = true;
   }
   
-  const [min, max] = range;
-  return Math.floor(Math.random() * (max - min)) + min;
+  return {
+    companion: { ...companion, age: newAge },
+    died,
+    ofOldAge: died
+  };
 };
 
 // ========== RELATIONSHIP REPAIR MECHANICS ==========

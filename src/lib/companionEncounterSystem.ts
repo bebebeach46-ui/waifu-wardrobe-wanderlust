@@ -185,62 +185,72 @@
    return gains;
  };
  
- // Update encounter state after completing a quest
- export const updateEncounterState = (
-   state: CompanionEncounterState,
-   quest: Quest,
-   currentCompanionCount: number
- ): CompanionEncounterState => {
-   const newState = { ...state };
-   newState.questsSinceLastCompanion++;
-   newState.totalQuestsCompleted++;
-   
-   // Calculate and apply affinity gains
-   const gains = calculateAffinityGains(quest);
-   Object.entries(gains).forEach(([pref, amount]) => {
-     newState.affinity[pref] = (newState.affinity[pref] || 0) + amount;
-   });
-   
-   // Check if we should trigger a special encounter
-   if (!newState.activeEncounter && currentCompanionCount < 3) {
-     const encounter = checkForSpecialEncounter(newState);
-     if (encounter) {
-       newState.activeEncounter = encounter;
-       newState.encounterProgress = 0;
-     }
-   }
-   
-   // Progress active encounter
-   if (newState.activeEncounter) {
-     // Encounter takes 3-5 quests to complete
-     newState.encounterProgress += 20 + Math.random() * 15;
-   }
-   
-   return newState;
- };
+// Update encounter state after completing a quest
+export const updateEncounterState = (
+  state: CompanionEncounterState,
+  quest: Quest,
+  currentCompanionCount: number,
+  options?: { activeFull?: boolean; reserveFull?: boolean }
+): CompanionEncounterState => {
+  const newState = { ...state };
+  newState.questsSinceLastCompanion++;
+  newState.totalQuestsCompleted++;
+  
+  // Calculate and apply affinity gains
+  const gains = calculateAffinityGains(quest);
+  Object.entries(gains).forEach(([pref, amount]) => {
+    newState.affinity[pref] = (newState.affinity[pref] || 0) + amount;
+  });
+  
+  // Don't trigger new encounters if both active and reserve pools are full
+  const reserveFull = options?.reserveFull ?? false;
+  const activeFull = options?.activeFull ?? false;
+  
+  // Check if we should trigger a special encounter
+  if (!newState.activeEncounter && !reserveFull) {
+    // When active is full, encounters are 75% rarer (overflow goes to reserve)
+    const rateModifier = activeFull ? 0.25 : 1.0;
+    const encounter = checkForSpecialEncounter(newState, rateModifier);
+    if (encounter) {
+      newState.activeEncounter = encounter;
+      newState.encounterProgress = 0;
+    }
+  }
+  
+  // Progress active encounter
+  if (newState.activeEncounter) {
+    // Encounter takes 3-5 quests to complete
+    newState.encounterProgress += 20 + Math.random() * 15;
+  }
+  
+  return newState;
+};
  
- // Check if conditions are met for a special encounter
- const checkForSpecialEncounter = (state: CompanionEncounterState): SpecialEncounter | null => {
-   // Minimum 15 quests between companions
-   if (state.questsSinceLastCompanion < 15) return null;
-   
-   // Find the highest affinity preference that meets threshold
-   const sortedAffinities = Object.entries(state.affinity)
-     .filter(([_, value]) => value >= 25) // Minimum threshold
-     .sort(([, a], [, b]) => b - a);
-   
-   if (sortedAffinities.length === 0) return null;
-   
-   // 20% base chance, increases with affinity and quests since last companion
-   const questBonus = Math.min((state.questsSinceLastCompanion - 15) * 0.02, 0.3);
-   const affinityBonus = Math.min(sortedAffinities[0][1] / 200, 0.2);
-   const encounterChance = 0.2 + questBonus + affinityBonus;
-   
-   if (Math.random() > encounterChance) return null;
-   
-   const preference = sortedAffinities[0][0] as EncounterPreference;
-   return generateSpecialEncounter(preference, state.totalQuestsCompleted);
- };
+// Check if conditions are met for a special encounter
+const checkForSpecialEncounter = (
+  state: CompanionEncounterState,
+  rateModifier: number = 1.0
+): SpecialEncounter | null => {
+  // Minimum 15 quests between companions
+  if (state.questsSinceLastCompanion < 15) return null;
+  
+  // Find the highest affinity preference that meets threshold
+  const sortedAffinities = Object.entries(state.affinity)
+    .filter(([_, value]) => value >= 25) // Minimum threshold
+    .sort(([, a], [, b]) => b - a);
+  
+  if (sortedAffinities.length === 0) return null;
+  
+  // 20% base chance, increases with affinity and quests since last companion
+  const questBonus = Math.min((state.questsSinceLastCompanion - 15) * 0.02, 0.3);
+  const affinityBonus = Math.min(sortedAffinities[0][1] / 200, 0.2);
+  const encounterChance = (0.2 + questBonus + affinityBonus) * rateModifier;
+  
+  if (Math.random() > encounterChance) return null;
+  
+  const preference = sortedAffinities[0][0] as EncounterPreference;
+  return generateSpecialEncounter(preference, state.totalQuestsCompleted);
+};
  
  // Generate a special encounter for a preference
  export const generateSpecialEncounter = (
