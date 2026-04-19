@@ -593,7 +593,10 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
           
           // Update encounter state with quest completion - companions earned through special encounters
           setEncounterState(prevEncounter => {
-            const updatedEncounter = updateEncounterState(prevEncounter, currentQuest, companions.length);
+            const updatedEncounter = updateEncounterState(prevEncounter, currentQuest, companions.length, {
+              activeFull: companions.length >= ACTIVE_COMPANION_SLOTS,
+              reserveFull: companions.length >= ACTIVE_COMPANION_SLOTS && reserveCompanions.length >= RESERVE_COMPANION_SLOTS
+            });
             
             // Check for active encounter progress display
             if (updatedEncounter.activeEncounter && updatedEncounter.encounterProgress > 0 && 
@@ -619,37 +622,55 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
             if (updatedEncounter.encounterProgress >= 100 && updatedEncounter.activeEncounter) {
               const result = completeEncounter(updatedEncounter);
               
-              if (result.shouldAttractCompanion && result.preference && companions.length < 3) {
-                // Generate companion with preference matching
-                const characterWithSkills = { ...character, skills: lifeSkills };
-                const newCompanion = generateCompanion(worldData, characterWithSkills, companions, fame);
+              if (result.shouldAttractCompanion && result.preference) {
+                const totalCompanions = companions.length + reserveCompanions.length;
+                const reserveFull = reserveCompanions.length >= RESERVE_COMPANION_SLOTS;
+                const activeFull = companions.length >= ACTIVE_COMPANION_SLOTS;
                 
-                // Override preferences to match the encounter preference
-                if (result.preference && !newCompanion.preferences.includes(result.preference)) {
-                  newCompanion.preferences[0] = result.preference;
+                if (activeFull && reserveFull) {
+                  // Both pools full — encounter wasted
+                  toast({
+                    title: "💔 Companion Turned Away",
+                    description: "Your retinue is at full capacity (10 active + 50 reserve)",
+                    duration: 5000
+                  });
+                } else {
+                  // Generate companion with preference matching
+                  const characterWithSkills = { ...character, skills: lifeSkills };
+                  const newCompanion = generateCompanion(worldData, characterWithSkills, companions, fame);
+                  
+                  // Override preferences to match the encounter preference
+                  if (result.preference && !newCompanion.preferences.includes(result.preference)) {
+                    newCompanion.preferences[0] = result.preference;
+                  }
+                  
+                  const goesToReserve = activeFull;
+                  if (goesToReserve) {
+                    setReserveCompanions(r => [...r, newCompanion]);
+                  } else {
+                    setCompanions(c => [...c, newCompanion]);
+                  }
+                  
+                  // Track companion in codex
+                  setCodex(prev => addDiscovery(prev, 'companion', `${newCompanion.name}_${newCompanion.race}`, 
+                    newCompanion.name, 
+                    newCompanion.description,
+                    { race: newCompanion.race, class: newCompanion.class, gender: newCompanion.gender, alignment: newCompanion.alignment, compatibility: newCompanion.compatibility }
+                  ));
+                  
+                  const compatibilityDesc = newCompanion.compatibility >= 5 ? "highly compatible" :
+                                           newCompanion.compatibility >= 3 ? "somewhat compatible" : "interested";
+                  
+                  const encounterName = updatedEncounter.activeEncounter?.name || "a special encounter";
+                  
+                  toast({
+                    title: goesToReserve ? `🛖 Reserve Companion: ${newCompanion.name}` : `💖 Companion Earned: ${newCompanion.name}`,
+                    description: <span className="text-stat-increase">{goesToReserve ? "Active party full — sent to reserve. " : ""}Met through "{encounterName}" ({compatibilityDesc}). Bond Cap: {newCompanion.bondCap}</span>,
+                    duration: 8000
+                  });
+                  
+                  setActivities(prev => trackActivity(prev, "relationship", `${newCompanion.name} ${goesToReserve ? "joined reserve" : "joined active party"} after "${encounterName}" (Compatibility: ${newCompanion.compatibility})`));
                 }
-                
-                setCompanions(c => [...c, newCompanion]);
-                
-                // Track companion in codex
-                setCodex(prev => addDiscovery(prev, 'companion', `${newCompanion.name}_${newCompanion.race}`, 
-                  newCompanion.name, 
-                  newCompanion.description,
-                  { race: newCompanion.race, class: newCompanion.class, gender: newCompanion.gender, alignment: newCompanion.alignment, compatibility: newCompanion.compatibility }
-                ));
-                
-                const compatibilityDesc = newCompanion.compatibility >= 5 ? "highly compatible" :
-                                         newCompanion.compatibility >= 3 ? "somewhat compatible" : "interested";
-                
-                const encounterName = updatedEncounter.activeEncounter?.name || "a special encounter";
-                
-                toast({
-                  title: `💖 Companion Earned: ${newCompanion.name}`,
-                  description: <span className="text-stat-increase">Met through "{encounterName}" ({compatibilityDesc})! Bond Cap: {newCompanion.bondCap}</span>,
-                  duration: 8000
-                });
-                
-                setActivities(prev => trackActivity(prev, "relationship", `${newCompanion.name} joined after completing "${encounterName}" (Compatibility: ${newCompanion.compatibility})`));
               }
               
               return result.newState;
