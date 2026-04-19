@@ -143,14 +143,14 @@ export const getBondLevelCap = (
   const fameBonus = Math.min(fame / 10, 3); // max 3 points of threshold reduction
   const bond10Threshold = Math.max(2, 5 - Math.floor(fameBonus));
   
-  // First 2 high-compatibility companions can reach 10
-  if (compatibility >= bond10Threshold && maxBondCompanions < 2) {
+  // First MAX_BOND_10 high-compatibility companions can reach 10
+  if (compatibility >= bond10Threshold && maxBondCompanions < MAX_BOND_10_COMPANIONS) {
     return 10;
   }
   
   // Fame can also promote medium-compatibility companions to bond 10
   // At 75+ fame, 20% chance for compatibility 3+ to get bond 10 (if slot available)
-  if (fame >= 75 && compatibility >= 3 && maxBondCompanions < 2) {
+  if (fame >= 75 && compatibility >= 3 && maxBondCompanions < MAX_BOND_10_COMPANIONS) {
     const fameChance = Math.min((fame - 75) * 0.004, 0.3); // up to 30% at 150 fame
     if (Math.random() < fameChance) {
       return 10;
