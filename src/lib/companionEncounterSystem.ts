@@ -185,39 +185,46 @@
    return gains;
  };
  
- // Update encounter state after completing a quest
- export const updateEncounterState = (
-   state: CompanionEncounterState,
-   quest: Quest,
-   currentCompanionCount: number
- ): CompanionEncounterState => {
-   const newState = { ...state };
-   newState.questsSinceLastCompanion++;
-   newState.totalQuestsCompleted++;
-   
-   // Calculate and apply affinity gains
-   const gains = calculateAffinityGains(quest);
-   Object.entries(gains).forEach(([pref, amount]) => {
-     newState.affinity[pref] = (newState.affinity[pref] || 0) + amount;
-   });
-   
-   // Check if we should trigger a special encounter
-   if (!newState.activeEncounter && currentCompanionCount < 3) {
-     const encounter = checkForSpecialEncounter(newState);
-     if (encounter) {
-       newState.activeEncounter = encounter;
-       newState.encounterProgress = 0;
-     }
-   }
-   
-   // Progress active encounter
-   if (newState.activeEncounter) {
-     // Encounter takes 3-5 quests to complete
-     newState.encounterProgress += 20 + Math.random() * 15;
-   }
-   
-   return newState;
- };
+// Update encounter state after completing a quest
+export const updateEncounterState = (
+  state: CompanionEncounterState,
+  quest: Quest,
+  currentCompanionCount: number,
+  options?: { activeFull?: boolean; reserveFull?: boolean }
+): CompanionEncounterState => {
+  const newState = { ...state };
+  newState.questsSinceLastCompanion++;
+  newState.totalQuestsCompleted++;
+  
+  // Calculate and apply affinity gains
+  const gains = calculateAffinityGains(quest);
+  Object.entries(gains).forEach(([pref, amount]) => {
+    newState.affinity[pref] = (newState.affinity[pref] || 0) + amount;
+  });
+  
+  // Don't trigger new encounters if both active and reserve pools are full
+  const reserveFull = options?.reserveFull ?? false;
+  const activeFull = options?.activeFull ?? false;
+  
+  // Check if we should trigger a special encounter
+  if (!newState.activeEncounter && !reserveFull) {
+    // When active is full, encounters are 75% rarer (overflow goes to reserve)
+    const rateModifier = activeFull ? 0.25 : 1.0;
+    const encounter = checkForSpecialEncounter(newState, rateModifier);
+    if (encounter) {
+      newState.activeEncounter = encounter;
+      newState.encounterProgress = 0;
+    }
+  }
+  
+  // Progress active encounter
+  if (newState.activeEncounter) {
+    // Encounter takes 3-5 quests to complete
+    newState.encounterProgress += 20 + Math.random() * 15;
+  }
+  
+  return newState;
+};
  
  // Check if conditions are met for a special encounter
  const checkForSpecialEncounter = (state: CompanionEncounterState): SpecialEncounter | null => {
