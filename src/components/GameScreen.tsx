@@ -1714,13 +1714,25 @@ Death occurred at: ${new Date().toLocaleString()}
             });
             break;
 
-          case 'summon_companion':
-            if (companions.length < 3) {
+          case 'summon_companion': {
+            const activeFull = companions.length >= ACTIVE_COMPANION_SLOTS;
+            const reserveFull = reserveCompanions.length >= RESERVE_COMPANION_SLOTS;
+            if (activeFull && reserveFull) {
+              toast({
+                title: "Retinue Full!",
+                description: `Max ${ACTIVE_COMPANION_SLOTS} active + ${RESERVE_COMPANION_SLOTS} reserve reached`,
+                variant: "destructive"
+              });
+            } else {
               const characterWithSkills = { ...character, skills: lifeSkills };
               const newCompanion = generateCompanion(worldData, characterWithSkills, companions, fame);
-              setCompanions(c => [...c, newCompanion]);
+              const goesToReserve = activeFull;
+              if (goesToReserve) {
+                setReserveCompanions(r => [...r, newCompanion]);
+              } else {
+                setCompanions(c => [...c, newCompanion]);
+              }
               
-              // Track companion in codex
               setCodex(prev => addDiscovery(prev, 'companion', `${newCompanion.name}_${newCompanion.race}`, 
                 newCompanion.name, 
                 newCompanion.description,
@@ -1731,20 +1743,15 @@ Death occurred at: ${new Date().toLocaleString()}
                                        newCompanion.compatibility >= 3 ? "somewhat compatible" : "interested";
               
               toast({
-                title: "🌟 Companion Summoned!",
-                description: <span className="text-stat-increase">{newCompanion.name} ({compatibilityDesc}) joined! Bond Cap: {newCompanion.bondCap}</span>,
+                title: goesToReserve ? "🛖 Summoned to Reserve!" : "🌟 Companion Summoned!",
+                description: <span className="text-stat-increase">{newCompanion.name} ({compatibilityDesc}) {goesToReserve ? "joined the reserve" : "joined the party"}! Bond Cap: {newCompanion.bondCap}</span>,
                 duration: 5000
               });
               
               setActivities(prev => trackActivity(prev, "relationship", `${newCompanion.name} was summoned (Compatibility: ${newCompanion.compatibility})`));
-            } else {
-              toast({
-                title: "Party Full!",
-                description: "Max 3 companions reached",
-                variant: "destructive"
-              });
             }
             break;
+          }
 
           case 'cleanse_debuffs':
             setStatusEffects(prev => prev.filter(e => e.type === 'good'));
