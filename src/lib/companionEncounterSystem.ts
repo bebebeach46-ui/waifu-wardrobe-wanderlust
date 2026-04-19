@@ -226,28 +226,31 @@ export const updateEncounterState = (
   return newState;
 };
  
- // Check if conditions are met for a special encounter
- const checkForSpecialEncounter = (state: CompanionEncounterState): SpecialEncounter | null => {
-   // Minimum 15 quests between companions
-   if (state.questsSinceLastCompanion < 15) return null;
-   
-   // Find the highest affinity preference that meets threshold
-   const sortedAffinities = Object.entries(state.affinity)
-     .filter(([_, value]) => value >= 25) // Minimum threshold
-     .sort(([, a], [, b]) => b - a);
-   
-   if (sortedAffinities.length === 0) return null;
-   
-   // 20% base chance, increases with affinity and quests since last companion
-   const questBonus = Math.min((state.questsSinceLastCompanion - 15) * 0.02, 0.3);
-   const affinityBonus = Math.min(sortedAffinities[0][1] / 200, 0.2);
-   const encounterChance = 0.2 + questBonus + affinityBonus;
-   
-   if (Math.random() > encounterChance) return null;
-   
-   const preference = sortedAffinities[0][0] as EncounterPreference;
-   return generateSpecialEncounter(preference, state.totalQuestsCompleted);
- };
+// Check if conditions are met for a special encounter
+const checkForSpecialEncounter = (
+  state: CompanionEncounterState,
+  rateModifier: number = 1.0
+): SpecialEncounter | null => {
+  // Minimum 15 quests between companions
+  if (state.questsSinceLastCompanion < 15) return null;
+  
+  // Find the highest affinity preference that meets threshold
+  const sortedAffinities = Object.entries(state.affinity)
+    .filter(([_, value]) => value >= 25) // Minimum threshold
+    .sort(([, a], [, b]) => b - a);
+  
+  if (sortedAffinities.length === 0) return null;
+  
+  // 20% base chance, increases with affinity and quests since last companion
+  const questBonus = Math.min((state.questsSinceLastCompanion - 15) * 0.02, 0.3);
+  const affinityBonus = Math.min(sortedAffinities[0][1] / 200, 0.2);
+  const encounterChance = (0.2 + questBonus + affinityBonus) * rateModifier;
+  
+  if (Math.random() > encounterChance) return null;
+  
+  const preference = sortedAffinities[0][0] as EncounterPreference;
+  return generateSpecialEncounter(preference, state.totalQuestsCompleted);
+};
  
  // Generate a special encounter for a preference
  export const generateSpecialEncounter = (
