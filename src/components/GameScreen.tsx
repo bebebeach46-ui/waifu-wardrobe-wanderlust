@@ -139,6 +139,24 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
     }
   }, []);
 
+  // Promote reserve → active whenever a slot opens (deaths, etc.)
+  useEffect(() => {
+    if (companions.length < ACTIVE_COMPANION_SLOTS && reserveCompanions.length > 0) {
+      const slotsOpen = ACTIVE_COMPANION_SLOTS - companions.length;
+      const promoting = reserveCompanions.slice(-slotsOpen); // newest reserve first (LIFO)
+      const remaining = reserveCompanions.slice(0, -slotsOpen);
+      setCompanions(c => [...c, ...promoting]);
+      setReserveCompanions(remaining);
+      promoting.forEach(p => {
+        toast({
+          title: `🔄 ${p.name} joined the active party`,
+          description: `Promoted from reserve to fill an empty slot`,
+          duration: 5000
+        });
+      });
+    }
+  }, [companions.length, reserveCompanions]);
+
   // Migrate old quests to have rank property
   useEffect(() => {
     if (currentQuest && (!currentQuest.rank || !currentQuest.fullTitle)) {
