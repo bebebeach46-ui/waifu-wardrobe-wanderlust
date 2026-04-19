@@ -257,9 +257,10 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
           const earlyDeath = checkEarlyDeath(stats.questsCompleted);
           const richRetirement = checkRichRetirement(stats.gold, stats.questsCompleted);
           const legendaryFate = checkLegendaryFate(stats.level, stats.questsCompleted);
+          const lineageFate = checkLineageLegendary(uniqueHeirMothers.length, favoriteCompanionName);
           
-          if (earlyDeath || richRetirement || legendaryFate) {
-            const fate = earlyDeath || richRetirement || legendaryFate;
+          if (earlyDeath || richRetirement || legendaryFate || lineageFate) {
+            const fate = lineageFate || earlyDeath || richRetirement || legendaryFate;
             setFateOutcome(fate);
             handleDeath();
             return prev;
