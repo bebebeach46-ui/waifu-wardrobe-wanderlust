@@ -766,29 +766,46 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
               });
             }
             
-            // Marriage and child at max relationship (only if bond cap is 10)
-            if (newRel >= 10 && bondCap === 10 && !married && comp.relationship < 10) {
-              setMarried(comp);
+            // Marriage and heir at max relationship (only if bond cap is 10).
+            // Each unique bond-10 partner can sire one heir (up to HEIR_SLOTS total).
+            if (newRel >= 10 && bondCap === 10 && comp.relationship < 10) {
+              const alreadySired = uniqueHeirMothers.includes(comp.name);
+              
+              // Set married to first bond-10 partner; track favorite as highest-relationship
+              if (!married) setMarried(comp);
+              setFavoriteCompanionName(prev => prev || comp.name);
               
               setLegendaryEvents(prev => [
-                createLegendaryEvent(`💍 MAX BOND 10: ${comp.name} and ${character.name} are now married! Soul bond complete!`),
+                createLegendaryEvent(`💍 MAX BOND 10: ${comp.name} and ${character.name} have soul-bonded!`),
                 ...prev
               ].slice(0, 5));
               
               toast({
-                title: "💍 Marriage!",
-                description: `${comp.name} and ${character.name} are now married!`
+                title: "💍 Soul Bond Achieved!",
+                description: `${comp.name} and ${character.name} are now bonded for life!`
               });
-              const child = generateChild(character.name, character.race, comp.name, comp.race);
-              setOffspringData(child);
-              setChildren(prev => [...prev, child]);
-              setHasOffspring(true);
               
-              toast({
-                title: `👶 ${child.gender === "Male" ? "Son" : "Daughter"} Born!`,
-                description: `${child.name} has been born! Traits: ${child.traits.join(", ")}`,
-                duration: 8000
-              });
+              if (!alreadySired && children.length < HEIR_SLOTS) {
+                const child = generateChild(character.name, character.race, comp.name, comp.race);
+                setOffspringData(child);
+                setChildren(prev => [...prev, child]);
+                setHasOffspring(true);
+                setUniqueHeirMothers(prev => [...prev, comp.name]);
+                
+                const newCount = uniqueHeirMothers.length + 1;
+                toast({
+                  title: `👶 Heir Born — ${newCount}/${HEIR_SLOTS} Lineages`,
+                  description: `${child.name} (${child.gender}) has been born to ${comp.name}! Traits: ${child.traits.join(", ")}`,
+                  duration: 8000
+                });
+                
+                if (newCount === HEIR_SLOTS) {
+                  setLegendaryEvents(prev => [
+                    createLegendaryEvent(`🌟 LEGENDARY: ${character.name} has sired 50 lineages — the world's future is restored!`),
+                    ...prev
+                  ].slice(0, 5));
+                }
+              }
             }
             
             return {
