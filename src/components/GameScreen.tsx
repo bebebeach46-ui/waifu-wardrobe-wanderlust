@@ -13,7 +13,7 @@ import { createEmptyCodex, addDiscovery, Codex, generateLoreEntry } from "@/lib/
 import { useToast } from "@/hooks/use-toast";
 import { generateCharacter, rollForNewSkill, rollForNewSpell, rollForEquipmentUnlock, getClassConfig } from "@/lib/characterGenerator";
 import { generateQuest, Quest, rollQuestPerformance, QuestPerformanceGrade, getFameTitle, performanceGrades } from "@/lib/questGenerator";
-import { generateCompanion, getRelationshipName, calculateCompatibility, getBondLevelCap, generateMilestone, generateChild, RelationshipMilestone, ChildInfo, generateCompanionAge, calculateRelationshipDelta, isCompanionThreat, calculateGiftEffectiveness, giftPreferenceMap, rollForApologyEvent, rollForRepairQuest, calculateRepairQuestReward, RepairQuest } from "@/lib/companionGenerator";
+import { generateCompanion, getRelationshipName, calculateCompatibility, getBondLevelCap, generateMilestone, generateChild, RelationshipMilestone, ChildInfo, generateCompanionAge, calculateRelationshipDelta, isCompanionThreat, calculateGiftEffectiveness, giftPreferenceMap, rollForApologyEvent, rollForRepairQuest, calculateRepairQuestReward, RepairQuest, ACTIVE_COMPANION_SLOTS, RESERVE_COMPANION_SLOTS, HEIR_SLOTS, MAX_BOND_10_COMPANIONS, tickCompanionAge } from "@/lib/companionGenerator";
 import { CompanionEncounterState, initializeEncounterState, updateEncounterState, completeEncounter, getTopAffinities, EncounterPreference } from "@/lib/companionEncounterSystem";
 import { generateShopName } from "@/lib/skillGenerator";
 import { generateSummon } from "@/lib/summonGenerator";
@@ -23,7 +23,7 @@ import { generateDeity, getRandomAlignment, shiftAlignment, getAlignmentCompatib
 import { getRandomWeather, weatherRequiresRest, Weather } from "@/lib/weatherGenerator";
 import { getRandomGatheringActivity, getRandomCraftingActivity, shouldGatherMaterials, shouldCraft, Material } from "@/lib/materialsGenerator";
 import { generateRankedSkills, gainSkillExperience, RankedSkill } from "@/lib/skillRankGenerator";
-import { checkEarlyDeath, checkRichRetirement, checkLegendaryFate, getNormalDeath, FateOutcome } from "@/lib/fateGenerator";
+import { checkEarlyDeath, checkRichRetirement, checkLegendaryFate, checkLineageLegendary, getNormalDeath, FateOutcome } from "@/lib/fateGenerator";
 import { trackActivity, trackMonsterKill, trackCombatLog, generateActivitySummary, generateMonstersKilledLog, ActivityLog, MonsterKill, CombatLog } from "@/lib/activityTracker";
 import { generateRandomDeathCause, generateEpitaph, DeathCause } from "@/lib/deathCauseGenerator";
 import { getMonsterByRank, rollForShard, getShardsNeededForSummon, canSummon } from "@/lib/monsterRankSystem";
@@ -101,6 +101,9 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
   const [legendaryEvents, setLegendaryEvents] = useState<TickerEvent[]>([]);
   const [activeRepairQuest, setActiveRepairQuest] = useState<RepairQuest | null>(() => savedData?.activeRepairQuest || null);
   const [championsDefeated, setChampionsDefeated] = useState<number>(() => savedData?.championsDefeated || 0);
+  const [reserveCompanions, setReserveCompanions] = useState<any[]>(() => savedData?.reserveCompanions || []);
+  const [uniqueHeirMothers, setUniqueHeirMothers] = useState<string[]>(() => savedData?.uniqueHeirMothers || []);
+  const [favoriteCompanionName, setFavoriteCompanionName] = useState<string | null>(() => savedData?.favoriteCompanionName || null);
   const [stats, setStats] = useState(savedData?.stats || {
     level: 1,
     exp: 0,
