@@ -293,7 +293,29 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
           const questScaling = 1 + (stats.questsCompleted / 50) * 0.2;
           
           // Final death chance calculation
-          const deathChance = baseRate * levelProtection * questScaling;
+          let deathChance = baseRate * levelProtection * questScaling;
+          
+          // === HOSTILE COMPANION × AREA DANGER RISK ===
+          // Hostile companions in dangerous areas can kill, betray, or ambush the player
+          const currentAreaDanger = (travelState?.currentRegion?.dangerLevel ?? 0) + (travelState?.currentArea?.dangerModifier ?? 0);
+          const dangerNorm = Math.min(1, Math.max(0, currentAreaDanger / 13));
+          let hostilityWeight = 0;
+          let topThreat: any = null;
+          let topThreatBonus = 0;
+          for (const c of companions) {
+            const bond = typeof c.relationship === "number" ? c.relationship : 1;
+            if (bond <= -5) {
+              const threat = isCompanionThreat(bond);
+              hostilityWeight += threat.combatBonus / 100; // 0.15 / 0.30 / 0.50
+              if (threat.combatBonus > topThreatBonus) {
+                topThreatBonus = threat.combatBonus;
+                topThreat = c;
+              }
+            }
+          }
+          // Up to ~6% extra death chance per quest in max-danger areas with a Nemesis at your back
+          const companionPlot = hostilityWeight * dangerNorm * 0.12;
+          deathChance += companionPlot;
           
           // Generate monster with rank system (needed for death cause even if we die)
           const monster = getMonsterByRank(stats.level);
@@ -304,8 +326,32 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
           
           // Random normal death check
           if (Math.random() < deathChance) {
-            // Generate detailed death cause
             const activeStatus = statusEffects.length > 0 ? statusEffects[0].name : undefined;
+            
+            // Was this death caused by a hostile companion's plot?
+            const plotShare = deathChance > 0 ? companionPlot / deathChance : 0;
+            const killedByCompanion = topThreat && Math.random() < plotShare;
+            
+            if (killedByCompanion) {
+              const plotRoll = Math.random();
+              const where = travelState?.currentArea?.name || "the dangerous frontier";
+              let shortDesc: string;
+              let fullDescription: string;
+              if (topThreatBonus >= 50 && plotRoll < 0.5) {
+                shortDesc = `Assassinated by ${topThreat.name}`;
+                fullDescription = `Slain by ${topThreat.name} (${topThreat.race}) — a hostile companion who finally struck in the deadly ${where}`;
+              } else if (plotRoll < 0.66) {
+                shortDesc = `Ambushed via ${topThreat.name}'s plot`;
+                fullDescription = `Lured into an ambush in ${where} by ${topThreat.name} (${topThreat.race}) — sold out by a hostile companion`;
+              } else {
+                shortDesc = `Betrayed by ${topThreat.name}`;
+                fullDescription = `Stabbed in the back by ${topThreat.name} (${topThreat.race}) during a desperate moment in ${where}`;
+              }
+              setDeathCause({ shortDesc, fullDescription, category: "betrayal" } as any);
+              handleDeath();
+              return prev;
+            }
+            
             const cause = generateRandomDeathCause({
               monsterName,
               monsterRank: monster.rank.rank,
