@@ -745,7 +745,67 @@ export const tickCompanionAge = (
   };
 };
 
-// ========== RELATIONSHIP REPAIR MECHANICS ==========
+// ========== PASSIVE MOOD DRIFT ==========
+// Each quest, companions drift slightly based on the area's calm/danger and
+// how long the hero has neglected them. The hero cannot directly control this —
+// they can only observe the algorithm play out and hope.
+
+/**
+ * Apply per-quest passive mood drift to a companion.
+ *
+ * - Calm areas (low danger) gradually pull bonds toward stable values:
+ *     hostile bonds slowly heal upward; positive bonds receive a tiny lift.
+ * - Dangerous areas suppress this stabilization (stress prevents reconciliation).
+ * - The longer a companion goes without an interaction (gift, apology, repair quest),
+ *   the more their bond decays. Decay accelerates after long neglect.
+ */
+export const applyMoodDrift = (
+  companion: any,
+  areaDanger: number, // 0..13 typical
+): { relationship: number; driftTag: "stabilized" | "neglected" | "ignored" | "abandoned" | null } => {
+  const bond = typeof companion.relationship === "number" ? companion.relationship : 1;
+  const bondCap = companion.bondCap ?? 10;
+  const ignored = companion.questsSinceInteraction ?? 0;
+
+  const dangerNorm = Math.min(1, Math.max(0, areaDanger / 13));
+  const calm = 1 - dangerNorm;
+
+  let drift = 0;
+  let driftTag: "stabilized" | "neglected" | "ignored" | "abandoned" | null = null;
+
+  // Stabilization in calm areas (only meaningful below danger ~0.45)
+  if (calm > 0.55) {
+    if (bond < 0) {
+      // Hostile bonds: slow upward pull toward 0
+      const pull = (0.04 + calm * 0.06) * Math.min(1, Math.abs(bond) / 5);
+      drift += pull;
+      if (Math.random() < 0.35) driftTag = "stabilized";
+    } else if (bond > 0 && bond < bondCap && ignored < 8) {
+      // Positive bonds: tiny passive warmth — only if not being ignored
+      drift += 0.02 * calm;
+    }
+  }
+
+  // Neglect decay (independent of area; ramps with ignored quests)
+  if (ignored >= 6) {
+    const overdue = ignored - 6;
+    let decay = 0.03 + Math.min(overdue, 20) * 0.012; // up to ~0.27 per quest
+    if (bond < 0) decay *= 1.5;       // resentment compounds
+    if (bond >= 8) decay *= 0.5;      // soul-bonded are patient
+    decay *= 1 + dangerNorm * 0.6;    // danger amplifies neglect
+
+    drift -= decay;
+
+    if (overdue >= 20) driftTag = "abandoned";
+    else if (overdue >= 12) driftTag = "ignored";
+    else driftTag = "neglected";
+  }
+
+  const newRel = Math.max(-10, Math.min(bondCap, bond + drift));
+  return { relationship: newRel, driftTag };
+};
+
+
 
 /**
  * Calculate gift effectiveness based on whether it matches companion preferences.
