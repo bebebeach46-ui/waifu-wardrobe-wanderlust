@@ -727,8 +727,33 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
           
           // Update companion relationships dynamically based on quest performance
           const gameDifficultyForRel = worldData.difficulty || 2;
+          const driftDanger = (travelState?.currentRegion?.dangerLevel ?? 0) + (travelState?.currentArea?.dangerModifier ?? 0);
           setCompanions(comps => comps.map(comp => {
             const bondCap = comp.bondCap || 10;
+            
+            // === PASSIVE MOOD DRIFT (calm areas stabilize, neglect decays) ===
+            // Increment ignored counter; reset on gifts/apologies/repair quests elsewhere
+            const nextIgnored = (comp.questsSinceInteraction ?? 0) + 1;
+            const drifted = applyMoodDrift({ ...comp, questsSinceInteraction: nextIgnored }, driftDanger);
+            
+            if (drifted.driftTag === "stabilized" && Math.random() < 0.25) {
+              setActivities(prev => trackActivity(prev, "relationship",
+                `🕊️ ${comp.name}'s mood stabilizes in the calm of ${travelState?.currentArea?.name || "this place"}`));
+            } else if (drifted.driftTag === "abandoned") {
+              if (Math.random() < 0.4) {
+                toast({
+                  title: `💔 ${comp.name} feels abandoned`,
+                  description: `${nextIgnored} quests without a gift, apology, or repair effort`,
+                  variant: "destructive",
+                  duration: 5000,
+                });
+                setActivities(prev => trackActivity(prev, "relationship",
+                  `💔 ${comp.name} feels abandoned (${nextIgnored} quests ignored) — bond decays`));
+              }
+            } else if (drifted.driftTag === "ignored" && Math.random() < 0.2) {
+              setActivities(prev => trackActivity(prev, "relationship",
+                `😞 ${comp.name} feels ignored (${nextIgnored} quests without attention)`));
+            }
             
             // Calculate relationship delta using performance, difficulty, fame, etc.
             const delta = calculateRelationshipDelta(
@@ -736,14 +761,14 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
               gameDifficultyForRel,
               fame,
               comp.compatibility || 0,
-              comp.relationship,
+              drifted.relationship,
               comp.progressionRate,
               comp.preferences || [],
               currentQuest.type
             );
             
             // Clamp between -10 and bondCap
-            const newRel = Math.max(-10, Math.min(bondCap, comp.relationship + delta));
+            const newRel = Math.max(-10, Math.min(bondCap, drifted.relationship + delta));
             const oldLevel = Math.floor(comp.relationship);
             const newLevel = Math.floor(newRel);
             const oldName = getRelationshipName(comp.relationship);
