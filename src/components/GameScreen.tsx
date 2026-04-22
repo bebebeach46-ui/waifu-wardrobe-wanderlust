@@ -1074,34 +1074,58 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
                 const newTravel = travelToNewArea(updatedTravel, worldData, newLevel);
                 
                 // === AGING TICK: 1 year per area cleared ===
+                // Pass current area danger so hostile bonds can betray/ambush in deadly lands
+                const tickDanger = (updatedTravel.currentRegion?.dangerLevel ?? 0) + (updatedTravel.currentArea?.dangerModifier ?? 0);
+                const causeIcon: Record<string, string> = {
+                  old_age: "💀",
+                  betrayal: "🗡️",
+                  assassination: "🔪",
+                  ambush: "🏹",
+                  heroic_sacrifice: "🛡️",
+                  peaceful_passing: "🕊️",
+                };
+                const causeTitle: Record<string, string> = {
+                  old_age: "Companion Passed Away",
+                  betrayal: "Betrayal!",
+                  assassination: "Assassination Attempt!",
+                  ambush: "Ambush!",
+                  heroic_sacrifice: "Heroic Sacrifice",
+                  peaceful_passing: "A Peaceful End",
+                };
                 // Age active companions; remove dead; promote from reserve
                 setCompanions(prevActive => {
                   const survivors: any[] = [];
-                  const deaths: string[] = [];
+                  const deathEvents: { cause: string; narrative: string }[] = [];
                   for (const c of prevActive) {
-                    const result = tickCompanionAge(c, 1);
+                    const result = tickCompanionAge(c, 1, tickDanger);
                     if (result.died) {
-                      deaths.push(`${c.name} (${c.race}, age ${result.companion.age})`);
+                      deathEvents.push({
+                        cause: result.cause || "old_age",
+                        narrative: result.narrative || `${c.name} died`,
+                      });
                     } else {
                       survivors.push(result.companion);
                     }
                   }
-                  // Promote from reserve to fill openings (newest reserve first → LIFO)
-                  if (deaths.length > 0) {
-                    deaths.forEach(d => {
-                      toast({ title: "💀 Companion Passed Away", description: `${d} died of old age`, duration: 6000 });
-                      setActivities(prev => trackActivity(prev, "relationship", `${d} died of old age`));
+                  if (deathEvents.length > 0) {
+                    deathEvents.forEach(d => {
+                      toast({
+                        title: `${causeIcon[d.cause] || "💀"} ${causeTitle[d.cause] || "Companion Lost"}`,
+                        description: d.narrative,
+                        duration: 7000,
+                      });
+                      setActivities(prev => trackActivity(prev, "relationship", d.narrative));
                     });
                   }
                   return survivors;
                 });
-                // Age reserve too; cull dead
+                // Age reserve too; reserve companions face only natural lifespan (no field danger)
                 setReserveCompanions(prevReserve => {
                   const survivors: any[] = [];
                   for (const c of prevReserve) {
-                    const result = tickCompanionAge(c, 1);
+                    const result = tickCompanionAge(c, 1, 0);
                     if (!result.died) survivors.push(result.companion);
-                    else setActivities(prev => trackActivity(prev, "relationship", `Reserve companion ${c.name} died of old age (${result.companion.age})`));
+                    else setActivities(prev => trackActivity(prev, "relationship", result.narrative || `Reserve companion ${c.name} died at age ${result.companion.age}`));
                   }
                   return survivors;
                 });
