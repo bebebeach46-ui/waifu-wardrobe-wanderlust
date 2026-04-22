@@ -628,31 +628,120 @@ export const getRaceLifespan = (race: string): [number, number] => {
   return range;
 };
 
+export type CompanionDeathCause =
+  | "old_age"
+  | "betrayal"
+  | "assassination"
+  | "ambush"
+  | "heroic_sacrifice"
+  | "peaceful_passing";
+
 /**
  * Age a companion by N years. Returns updated companion plus death info.
- * Death chance ramps as the companion approaches their natural max.
+ * Death chance scales by:
+ *   - Natural lifespan proximity (old age)
+ *   - Bond rank: hostile (negative) companions can betray/assassinate
+ *   - Area danger: dangerous areas amplify ambush/betrayal risk
+ *   - High-bond (8+) companions in safe areas may pass peacefully; in deadly
+ *     areas they may die in heroic sacrifice
  */
 export const tickCompanionAge = (
   companion: any,
-  years: number = 1
-): { companion: any; died: boolean; ofOldAge: boolean } => {
+  years: number = 1,
+  areaDanger: number = 0 // 0-13 typical (region 1-10 + area mod -2..+3)
+): {
+  companion: any;
+  died: boolean;
+  ofOldAge: boolean;
+  cause: CompanionDeathCause | null;
+  narrative: string | null;
+} => {
   const newAge = (companion.age || 18) + years;
   const [, maxAge] = getRaceLifespan(companion.race);
-  
-  // Death chance scales: <80% of max = ~0%, 80-100% = climbing, >100% = guaranteed each tick
+  const bond = typeof companion.relationship === "number" ? companion.relationship : 1;
+  const name = companion.name || "Companion";
+  const race = companion.race || "Unknown";
+
+  // ---- 1. Natural old-age check ----
   let died = false;
+  let cause: CompanionDeathCause | null = null;
+  let narrative: string | null = null;
+
   if (newAge >= maxAge) {
     died = true;
+    cause = "old_age";
+    narrative = `${name} (${race}, age ${newAge}) reached the end of their natural lifespan`;
   } else if (newAge >= maxAge * 0.8) {
-    const proximity = (newAge - maxAge * 0.8) / (maxAge * 0.2); // 0..1
-    const deathChance = proximity * proximity * 0.35; // up to 35% per tick at the threshold
-    if (Math.random() < deathChance) died = true;
+    const proximity = (newAge - maxAge * 0.8) / (maxAge * 0.2);
+    const deathChance = proximity * proximity * 0.35;
+    if (Math.random() < deathChance) {
+      died = true;
+      cause = "old_age";
+      narrative = `${name} (${race}) succumbed to the weight of years (age ${newAge})`;
+    }
   }
-  
+
+  // ---- 2. Bond/danger-driven risks (independent of age) ----
+  // Skip if already died of old age
+  if (!died) {
+    // Normalize danger: 0..13 → 0..1
+    const dangerNorm = Math.min(1, Math.max(0, areaDanger / 13));
+
+    if (bond <= -5) {
+      // Hostile companions: betrayal/assassination/ambush risk
+      // Severity ramps with how negative the bond is and how dangerous the area
+      const hostility = Math.min(1, (-bond - 4) / 6); // -5 → 0.17, -10 → 1.0
+      // Base 4% per tick, scaled by hostility & danger (dangerous lands embolden enemies)
+      const treacheryChance = 0.04 + hostility * 0.18 + dangerNorm * hostility * 0.22;
+      if (Math.random() < treacheryChance) {
+        died = true;
+        const roll = Math.random();
+        if (bond <= -8 && roll < 0.5) {
+          cause = "assassination";
+          narrative = `${name} attempted assassination — they were slain in the struggle`;
+        } else if (dangerNorm > 0.5 && roll < 0.7) {
+          cause = "ambush";
+          narrative = `${name} led you into an ambush in the dangerous wilds — the plot collapsed and they fell`;
+        } else {
+          cause = "betrayal";
+          narrative = `${name} turned their blade on you — the betrayal cost them their life`;
+        }
+      }
+    } else if (bond >= 8) {
+      // Devoted companions in deadly areas may sacrifice themselves
+      if (dangerNorm > 0.55) {
+        const sacrificeChance = 0.015 + (dangerNorm - 0.55) * 0.06; // up to ~4%
+        if (Math.random() < sacrificeChance) {
+          died = true;
+          cause = "heroic_sacrifice";
+          narrative = `${name} threw themselves between you and certain death — a heroic sacrifice`;
+        }
+      } else if (dangerNorm < 0.2 && newAge >= maxAge * 0.6) {
+        // Aging high-bond companions in safe areas may pass peacefully
+        const peaceChance = 0.01;
+        if (Math.random() < peaceChance) {
+          died = true;
+          cause = "peaceful_passing";
+          narrative = `${name} (${race}) passed peacefully in their sleep, surrounded by the bonds they cherished`;
+        }
+      }
+    } else if (bond >= 0 && bond < 5 && dangerNorm > 0.6) {
+      // Lukewarm bonds in very dangerous areas: small abandonment-turned-fatal risk
+      const fadeChance = 0.005 + (dangerNorm - 0.6) * 0.02;
+      if (Math.random() < fadeChance) {
+        died = true;
+        cause = "ambush";
+        narrative = `${name} fell behind in the perilous lands — found later, ambushed`;
+      }
+    }
+  }
+
   return {
     companion: { ...companion, age: newAge },
     died,
-    ofOldAge: died
+    ofOldAge: cause === "old_age",
+    cause,
+    narrative,
   };
 };
 
