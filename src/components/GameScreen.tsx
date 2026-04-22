@@ -960,7 +960,7 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
                 if (c.name === activeRepairQuest.companionName) {
                   const newRel = Math.min(c.bondCap || 10, c.relationship + repairResult.relationshipGain);
                   const newName = getRelationshipName(newRel);
-                  return { ...c, relationship: newRel, relationshipName: newName };
+                  return { ...c, relationship: newRel, relationshipName: newName, questsSinceInteraction: 0 };
                 }
                 return c;
               }));
