@@ -1905,7 +1905,8 @@ Death occurred at: ${new Date().toLocaleString()}
               return {
                 ...comp,
                 relationship: newRel,
-                relationshipName: newName
+                relationshipName: newName,
+                questsSinceInteraction: 0,
               };
             }
             return comp;
