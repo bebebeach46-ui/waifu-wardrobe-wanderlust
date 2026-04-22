@@ -882,7 +882,8 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
             return {
               ...comp,
               relationship: newRel,
-              relationshipName: newName
+              relationshipName: newName,
+              questsSinceInteraction: nextIgnored,
             };
           }));
           
@@ -899,7 +900,7 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
                 if (c.name === comp.name) {
                   const newRel = Math.min(c.bondCap || 10, c.relationship + actualGain);
                   const newName = getRelationshipName(newRel);
-                  return { ...c, relationship: newRel, relationshipName: newName };
+                  return { ...c, relationship: newRel, relationshipName: newName, questsSinceInteraction: 0 };
                 }
                 return c;
               }));
