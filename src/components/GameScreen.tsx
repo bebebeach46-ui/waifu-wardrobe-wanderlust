@@ -396,6 +396,29 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
           );
           
           if (newWound) {
+            // Apply healer/companion wound severity reduction (capped at +3 across party)
+            const reduction = Math.round(partyBonuses.woundSeverityReduction);
+            if (reduction > 0 && newWound.severity > 1) {
+              const newSeverity = Math.max(1, newWound.severity - reduction) as typeof newWound.severity;
+              if (newSeverity < newWound.severity) {
+                const healerName = partyBonuses.contributions.find(c => c.role === "Healer")?.name;
+                newWound.severity = newSeverity;
+                newWound.bleedingRate = newSeverity >= 4 ? Math.floor(newSeverity / 2) : 0;
+                newWound.painLevel = newSeverity;
+                newWound.healingTime = newSeverity * 10;
+                // Recompute isFatal — only severity 10 on vital parts is fatal
+                newWound.isFatal = false;
+                if (healerName) {
+                  toast({
+                    title: `💚 ${healerName} mitigated the wound!`,
+                    description: <span className="text-stat-increase">Severity reduced by {reduction}</span>,
+                    duration: 3500,
+                  });
+                  setActivities(prev => trackActivity(prev, "relationship",
+                    `💚 ${healerName} mitigated a wound (severity −${reduction})`));
+                }
+              }
+            }
             setWounds(prev => [...prev, newWound]);
             
             // Check for fatal wound (severity 10 on vital area, neck sev10 = always decapitation)
