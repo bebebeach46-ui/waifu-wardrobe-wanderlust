@@ -105,6 +105,7 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
   const [reserveCompanions, setReserveCompanions] = useState<any[]>(() => savedData?.reserveCompanions || []);
   const [uniqueHeirMothers, setUniqueHeirMothers] = useState<string[]>(() => savedData?.uniqueHeirMothers || []);
   const [favoriteCompanionName, setFavoriteCompanionName] = useState<string | null>(() => savedData?.favoriteCompanionName || null);
+  const [rivalries, setRivalries] = useState<Rivalry[]>(() => savedData?.rivalries || []);
   const [stats, setStats] = useState(savedData?.stats || {
     level: 1,
     exp: 0,
