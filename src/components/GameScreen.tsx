@@ -549,10 +549,122 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
             fame,
             combatResult.critical
           );
-          setLastPerformance(performance);
           
-          // Apply performance to fame
-          setFame(prev => Math.max(-100, prev + performance.fameGain));
+          // === DEVOTION EVENTS — bond-rank-driven companion actions ===
+          const devotionEvents = rollDevotionEvents(companions, totalActiveWounds > 0);
+          let devotionPerfBoost = 0;
+          let devotionFame = 0;
+          let devotionGold = 0;
+          let devotionHealSeverity = 0;
+          const bondReciprocals: Record<string, number> = {};
+          
+          for (const ev of devotionEvents) {
+            devotionPerfBoost += ev.effect.perfBoost || 0;
+            devotionFame += ev.effect.fame || 0;
+            devotionGold += ev.effect.gold || 0;
+            devotionHealSeverity += ev.effect.healWoundSeverity || 0;
+            if (ev.effect.bondBoost) {
+              bondReciprocals[ev.companionName] = (bondReciprocals[ev.companionName] || 0) + ev.effect.bondBoost;
+            }
+            // Visual indicator: toast + activity log + ticker for romantic interludes
+            toast({
+              title: `${ev.icon} ${ev.title}`,
+              description: <span className="text-stat-increase">{ev.companionName} {ev.narrative}</span>,
+              duration: 4500,
+            });
+            setActivities(prev => trackActivity(prev, "relationship",
+              `${ev.icon} ${ev.companionName} ${ev.narrative}`));
+            if (ev.kind === "interlude") {
+              setLegendaryEvents(prev => [
+                createLegendaryEvent(`${ev.icon} ${ev.companionName} & ${character.name} — ${ev.narrative}`),
+                ...prev,
+              ].slice(0, 5));
+            }
+          }
+          
+          // Mid-battle healing from devotion: remove that much severity from worst wound
+          if (devotionHealSeverity > 0) {
+            setWounds(prev => {
+              if (prev.length === 0) return prev;
+              const sorted = [...prev].sort((a, b) => b.severity - a.severity);
+              const worst = sorted[0];
+              const newSev = Math.max(0, worst.severity - devotionHealSeverity);
+              if (newSev <= 0) {
+                return prev.filter(w => w.id !== worst.id);
+              }
+              return prev.map(w => w.id === worst.id
+                ? { ...w, severity: newSev as typeof w.severity, painLevel: newSev, bleedingRate: newSev >= 4 ? Math.floor(newSev / 2) : 0 }
+                : w);
+            });
+          }
+          
+          // === RIVALRY TICK — escalating bonuses from competitive companions ===
+          const rivalryTick = tickRivalries(companions, rivalries);
+          setRivalries(rivalryTick.rivalries);
+          let rivalryPerfBoost = 0;
+          let rivalryFame = 0;
+          for (const np of rivalryTick.newPairs) {
+            toast({
+              title: `⚡ Rivalry Declared: ${np.nameA} vs. ${np.nameB}`,
+              description: <span className="text-stat-increase">They compete for your love — both will push themselves harder for you.</span>,
+              duration: 6000,
+            });
+            setActivities(prev => trackActivity(prev, "relationship",
+              `⚡ ${np.nameA} and ${np.nameB} declared a rivalry for ${character.name}'s heart`));
+          }
+          for (const re of rivalryTick.events) {
+            rivalryPerfBoost += re.perfBoost;
+            rivalryFame += re.fameBoost;
+            toast({
+              title: `${re.icon} ${re.title}`,
+              description: <span className="text-stat-increase">{re.narrative} (+{Math.round(re.perfBoost * 100)}% quest perf)</span>,
+              duration: 4500,
+            });
+            setActivities(prev => trackActivity(prev, "relationship",
+              `${re.icon} ${re.narrative}`));
+          }
+          for (const res of rivalryTick.resolutions) {
+            const title = res.winner === "tie"
+              ? `💞 Rivalry Tied: ${res.nameA} & ${res.nameB}`
+              : `💍 Rivalry Won by ${res.winner === "A" ? res.nameA : res.nameB}`;
+            toast({
+              title,
+              description: <span className="text-stat-increase">{res.narrative}</span>,
+              duration: 7000,
+            });
+            setLegendaryEvents(prev => [
+              createLegendaryEvent(`${res.winner === "tie" ? "💞" : "💍"} ${title} — ${res.narrative}`),
+              ...prev,
+            ].slice(0, 5));
+            setActivities(prev => trackActivity(prev, "relationship", `${title} — ${res.narrative}`));
+          }
+          
+          // === Apply party bond bonuses + devotion + rivalry boosts to performance ===
+          const totalPerfMult = 1 + partyBonuses.questPerformanceMult + devotionPerfBoost + rivalryPerfBoost;
+          const boostedRewardMult = performance.rewardMultiplier * totalPerfMult;
+          const totalFlatFame = Math.round(performance.fameGain + partyBonuses.flatFameBonus + devotionFame + rivalryFame);
+          
+          // Surface the aggregated bonus when meaningful
+          if ((partyBonuses.questPerformanceMult + devotionPerfBoost + rivalryPerfBoost) > 0.05 && performance.grade > 0) {
+            const totalPct = Math.round((partyBonuses.questPerformanceMult + devotionPerfBoost + rivalryPerfBoost) * 100);
+            setActivities(prev => trackActivity(prev, "relationship",
+              `🤝 Companions boosted quest rewards by +${totalPct}%`));
+          }
+          
+          setLastPerformance({ ...performance, rewardMultiplier: boostedRewardMult, fameGain: totalFlatFame });
+          
+          // Apply (boosted) fame to the hero
+          setFame(prev => Math.max(-100, prev + totalFlatFame));
+          
+          // Reciprocal bond boosts to companions who triggered devotion events
+          if (Object.keys(bondReciprocals).length > 0) {
+            setCompanions(comps => comps.map(c => {
+              const boost = bondReciprocals[c.name];
+              if (!boost) return c;
+              const cap = c.bondCap || 10;
+              return { ...c, relationship: Math.min(cap, (c.relationship || 0) + boost) };
+            }));
+          }
           
           // Performance toast
           if (performance.grade === 0) {
@@ -564,20 +676,21 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
             });
           } else if (performance.grade >= 8) {
             toast({
-              title: `${performance.icon} ${performance.name}! (+${performance.fameGain} Fame)`,
-              description: `${currentQuest.name} — ${Math.floor(performance.rewardMultiplier * 100)}% rewards!`,
+              title: `${performance.icon} ${performance.name}! (+${totalFlatFame} Fame)`,
+              description: `${currentQuest.name} — ${Math.floor(boostedRewardMult * 100)}% rewards!`,
               duration: 5000
             });
           }
           
           setActivities(prev => trackActivity(prev, "quest", `${performance.icon} ${currentQuest.name}: ${performance.name} (Grade ${performance.grade}/10)`));
           
-          // Calculate rewards with rank multipliers, difficulty bonus, AND performance
+          // Calculate rewards with rank multipliers, difficulty bonus, AND performance + bond bonuses
           const difficultyMultipliers = [0, 1.0, 1.2, 1.5, 2.0, 3.0]; // Index 0 unused, 1-5 for difficulties
           const difficultyBonus = difficultyMultipliers[gameDifficulty];
-          const performanceMultiplier = performance.rewardMultiplier;
+          const performanceMultiplier = boostedRewardMult;
+          const goldMult = 1 + partyBonuses.goldMult;
           
-          const treasureFound = Math.floor((Math.random() * 50 + 10) * monster.rank.goldMultiplier * difficultyBonus * performanceMultiplier);
+          const treasureFound = Math.floor(((Math.random() * 50 + 10) * monster.rank.goldMultiplier * difficultyBonus * performanceMultiplier * goldMult) + devotionGold);
           const enemiesKilled = Math.floor(Math.random() * 5) + 1;
           
           // Weather changes
