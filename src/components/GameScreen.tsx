@@ -14,6 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { generateCharacter, rollForNewSkill, rollForNewSpell, rollForEquipmentUnlock, getClassConfig } from "@/lib/characterGenerator";
 import { generateQuest, Quest, rollQuestPerformance, QuestPerformanceGrade, getFameTitle, performanceGrades } from "@/lib/questGenerator";
 import { generateCompanion, getRelationshipName, calculateCompatibility, getBondLevelCap, generateMilestone, generateChild, RelationshipMilestone, ChildInfo, generateCompanionAge, calculateRelationshipDelta, isCompanionThreat, calculateGiftEffectiveness, giftPreferenceMap, rollForApologyEvent, rollForRepairQuest, calculateRepairQuestReward, RepairQuest, ACTIVE_COMPANION_SLOTS, RESERVE_COMPANION_SLOTS, HEIR_SLOTS, MAX_BOND_10_COMPANIONS, tickCompanionAge, applyMoodDrift } from "@/lib/companionGenerator";
+import { calculatePartyBondBonuses, rollDevotionEvents, tickRivalries, inferCompanionRole, getRoleIcon, Rivalry } from "@/lib/companionBondBonuses";
 import { CompanionEncounterState, initializeEncounterState, updateEncounterState, completeEncounter, getTopAffinities, EncounterPreference } from "@/lib/companionEncounterSystem";
 import { generateShopName } from "@/lib/skillGenerator";
 import { generateSummon } from "@/lib/summonGenerator";
@@ -104,6 +105,7 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
   const [reserveCompanions, setReserveCompanions] = useState<any[]>(() => savedData?.reserveCompanions || []);
   const [uniqueHeirMothers, setUniqueHeirMothers] = useState<string[]>(() => savedData?.uniqueHeirMothers || []);
   const [favoriteCompanionName, setFavoriteCompanionName] = useState<string | null>(() => savedData?.favoriteCompanionName || null);
+  const [rivalries, setRivalries] = useState<Rivalry[]>(() => savedData?.rivalries || []);
   const [stats, setStats] = useState(savedData?.stats || {
     level: 1,
     exp: 0,
@@ -317,6 +319,9 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
           const companionPlot = hostilityWeight * dangerNorm * 0.12;
           deathChance += companionPlot;
           
+          // === COMPANION BOND BONUSES (passive support from positive bonds) ===
+          const partyBonuses = calculatePartyBondBonuses(companions);
+          
           // Generate monster with rank system (needed for death cause even if we die)
           const monster = getMonsterByRank(stats.level);
           const monsterName = monster.name;
@@ -391,6 +396,29 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
           );
           
           if (newWound) {
+            // Apply healer/companion wound severity reduction (capped at +3 across party)
+            const reduction = Math.round(partyBonuses.woundSeverityReduction);
+            if (reduction > 0 && newWound.severity > 1) {
+              const newSeverity = Math.max(1, newWound.severity - reduction) as typeof newWound.severity;
+              if (newSeverity < newWound.severity) {
+                const healerName = partyBonuses.contributions.find(c => c.role === "Healer")?.name;
+                newWound.severity = newSeverity;
+                newWound.bleedingRate = newSeverity >= 4 ? Math.floor(newSeverity / 2) : 0;
+                newWound.painLevel = newSeverity;
+                newWound.healingTime = newSeverity * 10;
+                // Recompute isFatal — only severity 10 on vital parts is fatal
+                newWound.isFatal = false;
+                if (healerName) {
+                  toast({
+                    title: `💚 ${healerName} mitigated the wound!`,
+                    description: <span className="text-stat-increase">Severity reduced by {reduction}</span>,
+                    duration: 3500,
+                  });
+                  setActivities(prev => trackActivity(prev, "relationship",
+                    `💚 ${healerName} mitigated a wound (severity −${reduction})`));
+                }
+              }
+            }
             setWounds(prev => [...prev, newWound]);
             
             // Check for fatal wound (severity 10 on vital area, neck sev10 = always decapitation)
@@ -521,10 +549,122 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
             fame,
             combatResult.critical
           );
-          setLastPerformance(performance);
           
-          // Apply performance to fame
-          setFame(prev => Math.max(-100, prev + performance.fameGain));
+          // === DEVOTION EVENTS — bond-rank-driven companion actions ===
+          const devotionEvents = rollDevotionEvents(companions, totalActiveWounds > 0);
+          let devotionPerfBoost = 0;
+          let devotionFame = 0;
+          let devotionGold = 0;
+          let devotionHealSeverity = 0;
+          const bondReciprocals: Record<string, number> = {};
+          
+          for (const ev of devotionEvents) {
+            devotionPerfBoost += ev.effect.perfBoost || 0;
+            devotionFame += ev.effect.fame || 0;
+            devotionGold += ev.effect.gold || 0;
+            devotionHealSeverity += ev.effect.healWoundSeverity || 0;
+            if (ev.effect.bondBoost) {
+              bondReciprocals[ev.companionName] = (bondReciprocals[ev.companionName] || 0) + ev.effect.bondBoost;
+            }
+            // Visual indicator: toast + activity log + ticker for romantic interludes
+            toast({
+              title: `${ev.icon} ${ev.title}`,
+              description: <span className="text-stat-increase">{ev.companionName} {ev.narrative}</span>,
+              duration: 4500,
+            });
+            setActivities(prev => trackActivity(prev, "relationship",
+              `${ev.icon} ${ev.companionName} ${ev.narrative}`));
+            if (ev.kind === "interlude") {
+              setLegendaryEvents(prev => [
+                createLegendaryEvent(`${ev.icon} ${ev.companionName} & ${character.name} — ${ev.narrative}`),
+                ...prev,
+              ].slice(0, 5));
+            }
+          }
+          
+          // Mid-battle healing from devotion: remove that much severity from worst wound
+          if (devotionHealSeverity > 0) {
+            setWounds(prev => {
+              if (prev.length === 0) return prev;
+              const sorted = [...prev].sort((a, b) => b.severity - a.severity);
+              const worst = sorted[0];
+              const newSev = Math.max(0, worst.severity - devotionHealSeverity);
+              if (newSev <= 0) {
+                return prev.filter(w => w.id !== worst.id);
+              }
+              return prev.map(w => w.id === worst.id
+                ? { ...w, severity: newSev as typeof w.severity, painLevel: newSev, bleedingRate: newSev >= 4 ? Math.floor(newSev / 2) : 0 }
+                : w);
+            });
+          }
+          
+          // === RIVALRY TICK — escalating bonuses from competitive companions ===
+          const rivalryTick = tickRivalries(companions, rivalries);
+          setRivalries(rivalryTick.rivalries);
+          let rivalryPerfBoost = 0;
+          let rivalryFame = 0;
+          for (const np of rivalryTick.newPairs) {
+            toast({
+              title: `⚡ Rivalry Declared: ${np.nameA} vs. ${np.nameB}`,
+              description: <span className="text-stat-increase">They compete for your love — both will push themselves harder for you.</span>,
+              duration: 6000,
+            });
+            setActivities(prev => trackActivity(prev, "relationship",
+              `⚡ ${np.nameA} and ${np.nameB} declared a rivalry for ${character.name}'s heart`));
+          }
+          for (const re of rivalryTick.events) {
+            rivalryPerfBoost += re.perfBoost;
+            rivalryFame += re.fameBoost;
+            toast({
+              title: `${re.icon} ${re.title}`,
+              description: <span className="text-stat-increase">{re.narrative} (+{Math.round(re.perfBoost * 100)}% quest perf)</span>,
+              duration: 4500,
+            });
+            setActivities(prev => trackActivity(prev, "relationship",
+              `${re.icon} ${re.narrative}`));
+          }
+          for (const res of rivalryTick.resolutions) {
+            const title = res.winner === "tie"
+              ? `💞 Rivalry Tied: ${res.nameA} & ${res.nameB}`
+              : `💍 Rivalry Won by ${res.winner === "A" ? res.nameA : res.nameB}`;
+            toast({
+              title,
+              description: <span className="text-stat-increase">{res.narrative}</span>,
+              duration: 7000,
+            });
+            setLegendaryEvents(prev => [
+              createLegendaryEvent(`${res.winner === "tie" ? "💞" : "💍"} ${title} — ${res.narrative}`),
+              ...prev,
+            ].slice(0, 5));
+            setActivities(prev => trackActivity(prev, "relationship", `${title} — ${res.narrative}`));
+          }
+          
+          // === Apply party bond bonuses + devotion + rivalry boosts to performance ===
+          const totalPerfMult = 1 + partyBonuses.questPerformanceMult + devotionPerfBoost + rivalryPerfBoost;
+          const boostedRewardMult = performance.rewardMultiplier * totalPerfMult;
+          const totalFlatFame = Math.round(performance.fameGain + partyBonuses.flatFameBonus + devotionFame + rivalryFame);
+          
+          // Surface the aggregated bonus when meaningful
+          if ((partyBonuses.questPerformanceMult + devotionPerfBoost + rivalryPerfBoost) > 0.05 && performance.grade > 0) {
+            const totalPct = Math.round((partyBonuses.questPerformanceMult + devotionPerfBoost + rivalryPerfBoost) * 100);
+            setActivities(prev => trackActivity(prev, "relationship",
+              `🤝 Companions boosted quest rewards by +${totalPct}%`));
+          }
+          
+          setLastPerformance({ ...performance, rewardMultiplier: boostedRewardMult, fameGain: totalFlatFame });
+          
+          // Apply (boosted) fame to the hero
+          setFame(prev => Math.max(-100, prev + totalFlatFame));
+          
+          // Reciprocal bond boosts to companions who triggered devotion events
+          if (Object.keys(bondReciprocals).length > 0) {
+            setCompanions(comps => comps.map(c => {
+              const boost = bondReciprocals[c.name];
+              if (!boost) return c;
+              const cap = c.bondCap || 10;
+              return { ...c, relationship: Math.min(cap, (c.relationship || 0) + boost) };
+            }));
+          }
           
           // Performance toast
           if (performance.grade === 0) {
@@ -536,20 +676,21 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
             });
           } else if (performance.grade >= 8) {
             toast({
-              title: `${performance.icon} ${performance.name}! (+${performance.fameGain} Fame)`,
-              description: `${currentQuest.name} — ${Math.floor(performance.rewardMultiplier * 100)}% rewards!`,
+              title: `${performance.icon} ${performance.name}! (+${totalFlatFame} Fame)`,
+              description: `${currentQuest.name} — ${Math.floor(boostedRewardMult * 100)}% rewards!`,
               duration: 5000
             });
           }
           
           setActivities(prev => trackActivity(prev, "quest", `${performance.icon} ${currentQuest.name}: ${performance.name} (Grade ${performance.grade}/10)`));
           
-          // Calculate rewards with rank multipliers, difficulty bonus, AND performance
+          // Calculate rewards with rank multipliers, difficulty bonus, AND performance + bond bonuses
           const difficultyMultipliers = [0, 1.0, 1.2, 1.5, 2.0, 3.0]; // Index 0 unused, 1-5 for difficulties
           const difficultyBonus = difficultyMultipliers[gameDifficulty];
-          const performanceMultiplier = performance.rewardMultiplier;
+          const performanceMultiplier = boostedRewardMult;
+          const goldMult = 1 + partyBonuses.goldMult;
           
-          const treasureFound = Math.floor((Math.random() * 50 + 10) * monster.rank.goldMultiplier * difficultyBonus * performanceMultiplier);
+          const treasureFound = Math.floor(((Math.random() * 50 + 10) * monster.rank.goldMultiplier * difficultyBonus * performanceMultiplier * goldMult) + devotionGold);
           const enemiesKilled = Math.floor(Math.random() * 5) + 1;
           
           // Weather changes
@@ -1608,11 +1749,12 @@ Death occurred at: ${new Date().toLocaleString()}
       reserveCompanions,
       uniqueHeirMothers,
       favoriteCompanionName,
+      rivalries,
       characterName: character.name,
       level: stats.level,
       timestamp: Date.now()
     };
-  }, [character, stats, worldData, companions, treasure, married, hasOffspring, offspringData, children, romanceDiary, statusEffects, summons, eventLog, deity, alignment, weather, materials, lifeSkills, activities, monstersKilled, currentQuest, shopName, activeEffects, codex, combatLog, wounds, travelState, encounterState, activeRepairQuest, championsDefeated, simplifiedMode, fame, reserveCompanions, uniqueHeirMothers, favoriteCompanionName]);
+  }, [character, stats, worldData, companions, treasure, married, hasOffspring, offspringData, children, romanceDiary, statusEffects, summons, eventLog, deity, alignment, weather, materials, lifeSkills, activities, monstersKilled, currentQuest, shopName, activeEffects, codex, combatLog, wounds, travelState, encounterState, activeRepairQuest, championsDefeated, simplifiedMode, fame, reserveCompanions, uniqueHeirMothers, favoriteCompanionName, rivalries]);
 
   const performSave = useCallback(() => {
     if (!saveDataRef.current) return null;
@@ -2515,11 +2657,25 @@ Death occurred at: ${new Date().toLocaleString()}
             {companions.map((comp, i) => {
               const bondCap = comp.bondCap || 10;
               const compatibility = comp.compatibility !== undefined ? comp.compatibility : 'N/A';
+              const role = inferCompanionRole(comp);
+              const roleIcon = getRoleIcon(role);
+              const bond = typeof comp.relationship === "number" ? comp.relationship : 0;
+              const inRivalry = rivalries.some(r => !r.resolution && (r.nameA === comp.name || r.nameB === comp.name));
               return (
                 <div key={i} className="bg-muted p-2 rounded space-y-1">
                   <div className="flex justify-between items-start">
                     <div>
-                      <div className="font-medium text-sm">{comp.name}</div>
+                      <div className="font-medium text-sm flex items-center gap-1">
+                        {comp.name}
+                        <span className="text-xs px-1.5 py-0.5 rounded bg-accent/20 text-accent" title={`${role} role`}>
+                          {roleIcon} {role}
+                        </span>
+                        {inRivalry && (
+                          <span className="text-xs px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-500" title="In active rivalry">
+                            ⚡ Rival
+                          </span>
+                        )}
+                      </div>
                       <div className="text-xs text-muted-foreground">{comp.description}</div>
                     </div>
                     <div className="text-right">
@@ -2540,6 +2696,11 @@ Death occurred at: ${new Date().toLocaleString()}
                   <div className="text-xs text-muted-foreground">
                     Likes: {comp.preferences.join(', ')}
                   </div>
+                  {bond >= 3 && (
+                    <div className="text-xs text-stat-increase">
+                      {roleIcon} Bond Tier {bond >= 9 ? "V" : bond >= 7 ? "IV" : bond >= 5 ? "III" : "II"} — passive {role.toLowerCase()} bonus active
+                    </div>
+                  )}
                   <Progress value={(comp.relationship / bondCap) * 100} className="h-1" />
                 </div>
               );
