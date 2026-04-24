@@ -2657,11 +2657,25 @@ Death occurred at: ${new Date().toLocaleString()}
             {companions.map((comp, i) => {
               const bondCap = comp.bondCap || 10;
               const compatibility = comp.compatibility !== undefined ? comp.compatibility : 'N/A';
+              const role = inferCompanionRole(comp);
+              const roleIcon = getRoleIcon(role);
+              const bond = typeof comp.relationship === "number" ? comp.relationship : 0;
+              const inRivalry = rivalries.some(r => !r.resolution && (r.nameA === comp.name || r.nameB === comp.name));
               return (
                 <div key={i} className="bg-muted p-2 rounded space-y-1">
                   <div className="flex justify-between items-start">
                     <div>
-                      <div className="font-medium text-sm">{comp.name}</div>
+                      <div className="font-medium text-sm flex items-center gap-1">
+                        {comp.name}
+                        <span className="text-xs px-1.5 py-0.5 rounded bg-accent/20 text-accent" title={`${role} role`}>
+                          {roleIcon} {role}
+                        </span>
+                        {inRivalry && (
+                          <span className="text-xs px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-500" title="In active rivalry">
+                            ⚡ Rival
+                          </span>
+                        )}
+                      </div>
                       <div className="text-xs text-muted-foreground">{comp.description}</div>
                     </div>
                     <div className="text-right">
@@ -2682,6 +2696,11 @@ Death occurred at: ${new Date().toLocaleString()}
                   <div className="text-xs text-muted-foreground">
                     Likes: {comp.preferences.join(', ')}
                   </div>
+                  {bond >= 3 && (
+                    <div className="text-xs text-stat-increase">
+                      {roleIcon} Bond Tier {bond >= 9 ? "V" : bond >= 7 ? "IV" : bond >= 5 ? "III" : "II"} — passive {role.toLowerCase()} bonus active
+                    </div>
+                  )}
                   <Progress value={(comp.relationship / bondCap) * 100} className="h-1" />
                 </div>
               );
