@@ -728,15 +728,15 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
           }
           
           // === Apply party bond bonuses + devotion + rivalry boosts to performance ===
-          // Hostile companions sabotage the run (questPerformanceMalus, flatFameLoss)
+          // Hostile companions sabotage the run (questPerformanceMalus, flatFameLoss + sabotage events)
           const totalPerfMult = Math.max(0.1,
             1 + partyBonuses.questPerformanceMult + devotionPerfBoost + rivalryPerfBoost
-              - partyMaluses.questPerformanceMalus
+              - partyMaluses.questPerformanceMalus - sabotagePerfPenalty
           );
           const boostedRewardMult = performance.rewardMultiplier * totalPerfMult;
           const totalFlatFame = Math.round(
             performance.fameGain + partyBonuses.flatFameBonus + devotionFame + rivalryFame
-              - partyMaluses.flatFameLoss
+              - partyMaluses.flatFameLoss - sabotageFameLoss
           );
 
           // Surface the aggregated bonus when meaningful
