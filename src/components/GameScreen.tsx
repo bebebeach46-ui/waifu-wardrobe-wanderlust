@@ -686,7 +686,7 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
             });
           }
 
-          // Sabotage gold/fame are deducted later alongside devotion deltas (see below)
+          // === RIVALRY TICK — escalating bonuses from competitive companions ===
           const rivalryTick = tickRivalries(companions, rivalries);
           setRivalries(rivalryTick.rivalries);
           let rivalryPerfBoost = 0;
