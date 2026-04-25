@@ -425,6 +425,26 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
           );
           
           if (newWound) {
+            // Hostile companions can WORSEN wounds (sabotage, "missed" parry, tainted bandages)
+            const sabotage = Math.round(partyMaluses.woundSeverityIncrease);
+            if (sabotage > 0 && newWound.severity < 10) {
+              const worsened = Math.min(10, newWound.severity + sabotage) as typeof newWound.severity;
+              if (worsened > newWound.severity) {
+                const saboteur = partyMaluses.contributions[0]?.name;
+                newWound.severity = worsened;
+                newWound.bleedingRate = worsened >= 4 ? Math.floor(worsened / 2) : 0;
+                newWound.painLevel = worsened;
+                newWound.healingTime = worsened * 10;
+                if (saboteur) {
+                  toast({
+                    title: `🩸 ${saboteur} let the wound fester`,
+                    description: <span className="text-stat-decrease">Severity worsened by {sabotage}</span>,
+                    variant: "destructive",
+                    duration: 3500,
+                  });
+                }
+              }
+            }
             // Apply healer/companion wound severity reduction (capped at +3 across party)
             const reduction = Math.round(partyBonuses.woundSeverityReduction);
             if (reduction > 0 && newWound.severity > 1) {
