@@ -14,7 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { generateCharacter, rollForNewSkill, rollForNewSpell, rollForEquipmentUnlock, getClassConfig } from "@/lib/characterGenerator";
 import { generateQuest, Quest, rollQuestPerformance, QuestPerformanceGrade, getFameTitle, performanceGrades } from "@/lib/questGenerator";
 import { generateCompanion, getRelationshipName, calculateCompatibility, getBondLevelCap, generateMilestone, generateChild, RelationshipMilestone, ChildInfo, generateCompanionAge, calculateRelationshipDelta, isCompanionThreat, calculateGiftEffectiveness, giftPreferenceMap, rollForApologyEvent, rollForRepairQuest, calculateRepairQuestReward, RepairQuest, ACTIVE_COMPANION_SLOTS, RESERVE_COMPANION_SLOTS, HEIR_SLOTS, MAX_BOND_10_COMPANIONS, tickCompanionAge, applyMoodDrift } from "@/lib/companionGenerator";
-import { calculatePartyBondBonuses, rollDevotionEvents, tickRivalries, inferCompanionRole, getRoleIcon, Rivalry } from "@/lib/companionBondBonuses";
+import { calculatePartyBondBonuses, calculatePartyBondMaluses, rollDevotionEvents, tickRivalries, inferCompanionRole, getRoleIcon, Rivalry } from "@/lib/companionBondBonuses";
 import { CompanionEncounterState, initializeEncounterState, updateEncounterState, completeEncounter, getTopAffinities, EncounterPreference } from "@/lib/companionEncounterSystem";
 import { generateShopName } from "@/lib/skillGenerator";
 import { generateSummon } from "@/lib/summonGenerator";
@@ -318,7 +318,13 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
           // Up to ~6% extra death chance per quest in max-danger areas with a Nemesis at your back
           const companionPlot = hostilityWeight * dangerNorm * 0.12;
           deathChance += companionPlot;
-          
+
+          // === BOND MALUSES (passive sabotage from negative bonds) ===
+          // Nemesis (bond -10) companions add a FLAT death-chance contribution
+          // even in calm regions, scaled up by neglect (questsSinceInteraction).
+          const partyMaluses = calculatePartyBondMaluses(companions);
+          deathChance += partyMaluses.bonusDeathChance;
+
           // === COMPANION BOND BONUSES (passive support from positive bonds) ===
           const partyBonuses = calculatePartyBondBonuses(companions);
           
@@ -332,25 +338,48 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
           // Random normal death check
           if (Math.random() < deathChance) {
             const activeStatus = statusEffects.length > 0 ? statusEffects[0].name : undefined;
-            
+
             // Was this death caused by a hostile companion's plot?
-            const plotShare = deathChance > 0 ? companionPlot / deathChance : 0;
-            const killedByCompanion = topThreat && Math.random() < plotShare;
-            
+            // Combine area-danger plot (companionPlot) AND nemesis sabotage (bonusDeathChance)
+            const totalCompanionPlot = companionPlot + partyMaluses.bonusDeathChance;
+            const plotShare = deathChance > 0 ? totalCompanionPlot / deathChance : 0;
+            const killedByCompanion = (topThreat || partyMaluses.topNemesis) && Math.random() < plotShare;
+
             if (killedByCompanion) {
+              // Prefer the Nemesis as killer when their sabotage outweighed the area-plot,
+              // otherwise the area-amplified topThreat. The Nemesis's "ignored" status
+              // unlocks more sinister narratives.
+              const nemesisDominant =
+                partyMaluses.topNemesis &&
+                partyMaluses.topNemesis.deathContribution >= companionPlot;
+              const killer = nemesisDominant
+                ? companions.find(c => c.name === partyMaluses.topNemesis!.name) || topThreat
+                : topThreat || companions.find(c => c.name === partyMaluses.topNemesis!.name);
+              const killerNeglect = killer?.questsSinceInteraction ?? 0;
+              const killerBond = typeof killer?.relationship === "number" ? killer.relationship : -10;
+              const isNemesis = killerBond <= -10;
+
               const plotRoll = Math.random();
               const where = travelState?.currentArea?.name || "the dangerous frontier";
               let shortDesc: string;
               let fullDescription: string;
-              if (topThreatBonus >= 50 && plotRoll < 0.5) {
-                shortDesc = `Assassinated by ${topThreat.name}`;
-                fullDescription = `Slain by ${topThreat.name} (${topThreat.race}) — a hostile companion who finally struck in the deadly ${where}`;
+
+              if (isNemesis && killerNeglect >= 12) {
+                // Long-ignored Nemesis: most damning narrative
+                shortDesc = `Slain by a forsaken Nemesis: ${killer.name}`;
+                fullDescription = `${killer.name} (${killer.race}) had been ignored for ${killerNeglect} quests — long enough to plot, recruit, and execute. The hero died in ${where}, never seeing the blade coming.`;
+              } else if (isNemesis) {
+                shortDesc = `Murdered by Nemesis ${killer.name}`;
+                fullDescription = `Cut down in ${where} by ${killer.name} (${killer.race}) — a Nemesis whose hatred finally boiled over.`;
+              } else if (topThreatBonus >= 50 && plotRoll < 0.5) {
+                shortDesc = `Assassinated by ${killer.name}`;
+                fullDescription = `Slain by ${killer.name} (${killer.race}) — a hostile companion who finally struck in the deadly ${where}`;
               } else if (plotRoll < 0.66) {
-                shortDesc = `Ambushed via ${topThreat.name}'s plot`;
-                fullDescription = `Lured into an ambush in ${where} by ${topThreat.name} (${topThreat.race}) — sold out by a hostile companion`;
+                shortDesc = `Ambushed via ${killer.name}'s plot`;
+                fullDescription = `Lured into an ambush in ${where} by ${killer.name} (${killer.race}) — sold out by a hostile companion`;
               } else {
-                shortDesc = `Betrayed by ${topThreat.name}`;
-                fullDescription = `Stabbed in the back by ${topThreat.name} (${topThreat.race}) during a desperate moment in ${where}`;
+                shortDesc = `Betrayed by ${killer.name}`;
+                fullDescription = `Stabbed in the back by ${killer.name} (${killer.race}) during a desperate moment in ${where}`;
               }
               setDeathCause({ shortDesc, fullDescription, category: "betrayal" } as any);
               handleDeath();
@@ -396,6 +425,26 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
           );
           
           if (newWound) {
+            // Hostile companions can WORSEN wounds (sabotage, "missed" parry, tainted bandages)
+            const sabotage = Math.round(partyMaluses.woundSeverityIncrease);
+            if (sabotage > 0 && newWound.severity < 10) {
+              const worsened = Math.min(10, newWound.severity + sabotage) as typeof newWound.severity;
+              if (worsened > newWound.severity) {
+                const saboteur = partyMaluses.contributions[0]?.name;
+                newWound.severity = worsened;
+                newWound.bleedingRate = worsened >= 4 ? Math.floor(worsened / 2) : 0;
+                newWound.painLevel = worsened;
+                newWound.healingTime = worsened * 10;
+                if (saboteur) {
+                  toast({
+                    title: `🩸 ${saboteur} let the wound fester`,
+                    description: <span className="text-stat-decrease">Severity worsened by {sabotage}</span>,
+                    variant: "destructive",
+                    duration: 3500,
+                  });
+                }
+              }
+            }
             // Apply healer/companion wound severity reduction (capped at +3 across party)
             const reduction = Math.round(partyBonuses.woundSeverityReduction);
             if (reduction > 0 && newWound.severity > 1) {
@@ -640,19 +689,37 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
           }
           
           // === Apply party bond bonuses + devotion + rivalry boosts to performance ===
-          const totalPerfMult = 1 + partyBonuses.questPerformanceMult + devotionPerfBoost + rivalryPerfBoost;
+          // Hostile companions sabotage the run (questPerformanceMalus, flatFameLoss)
+          const totalPerfMult = Math.max(0.1,
+            1 + partyBonuses.questPerformanceMult + devotionPerfBoost + rivalryPerfBoost
+              - partyMaluses.questPerformanceMalus
+          );
           const boostedRewardMult = performance.rewardMultiplier * totalPerfMult;
-          const totalFlatFame = Math.round(performance.fameGain + partyBonuses.flatFameBonus + devotionFame + rivalryFame);
-          
+          const totalFlatFame = Math.round(
+            performance.fameGain + partyBonuses.flatFameBonus + devotionFame + rivalryFame
+              - partyMaluses.flatFameLoss
+          );
+
           // Surface the aggregated bonus when meaningful
           if ((partyBonuses.questPerformanceMult + devotionPerfBoost + rivalryPerfBoost) > 0.05 && performance.grade > 0) {
             const totalPct = Math.round((partyBonuses.questPerformanceMult + devotionPerfBoost + rivalryPerfBoost) * 100);
             setActivities(prev => trackActivity(prev, "relationship",
               `🤝 Companions boosted quest rewards by +${totalPct}%`));
           }
-          
+          // Surface sabotage when meaningful
+          if (partyMaluses.questPerformanceMalus > 0.05 && partyMaluses.contributions[0]) {
+            const lossPct = Math.round(partyMaluses.questPerformanceMalus * 100);
+            setActivities(prev => trackActivity(prev, "relationship",
+              `🗡️ Hostile companions sabotaged the quest (−${lossPct}% rewards)`));
+          }
+          // Nemesis-neglect warning: dangerous and getting worse
+          if (partyMaluses.topNemesis && partyMaluses.topNemesis.neglect >= 8) {
+            setActivities(prev => trackActivity(prev, "relationship",
+              `☠️ ${partyMaluses.topNemesis!.name} grows deadlier each quest you ignore them...`));
+          }
+
           setLastPerformance({ ...performance, rewardMultiplier: boostedRewardMult, fameGain: totalFlatFame });
-          
+
           // Apply (boosted) fame to the hero
           setFame(prev => Math.max(-100, prev + totalFlatFame));
           
@@ -688,7 +755,7 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
           const difficultyMultipliers = [0, 1.0, 1.2, 1.5, 2.0, 3.0]; // Index 0 unused, 1-5 for difficulties
           const difficultyBonus = difficultyMultipliers[gameDifficulty];
           const performanceMultiplier = boostedRewardMult;
-          const goldMult = 1 + partyBonuses.goldMult;
+          const goldMult = Math.max(0.1, 1 + partyBonuses.goldMult - partyMaluses.goldMalus);
           
           const treasureFound = Math.floor(((Math.random() * 50 + 10) * monster.rank.goldMultiplier * difficultyBonus * performanceMultiplier * goldMult) + devotionGold);
           const enemiesKilled = Math.floor(Math.random() * 5) + 1;

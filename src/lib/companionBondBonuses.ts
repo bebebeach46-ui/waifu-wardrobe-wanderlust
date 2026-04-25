@@ -152,6 +152,128 @@ export const calculatePartyBondBonuses = (companions: any[]): PartyBondBonuses =
 };
 
 // ===========================================================================
+// BOND MALUSES — negative-bond companions actively sabotage the party
+// ---------------------------------------------------------------------------
+// Hostile companions (bond <= -3) drag the hero down: spoiling rations,
+// poisoning morale, "missing" a parry, or selling intel. The deeper the
+// hostility the worse the malus. Bond -10 (Nemesis) escalates into outright
+// death-risk, and the longer such a companion is IGNORED (high
+// questsSinceInteraction) the more dangerous they become — they have time
+// to plot, recruit accomplices, and lay traps.
+// ===========================================================================
+
+export interface PartyBondMaluses {
+  // Subtractive penalty to quest performance (0..0.5)
+  questPerformanceMalus: number;
+  // Flat addition to wound severity rolls (0..3)
+  woundSeverityIncrease: number;
+  // Multiplicative gold loss factor (0..0.5)
+  goldMalus: number;
+  // Flat fame loss per quest (0..3)
+  flatFameLoss: number;
+  // ADDITIONAL flat death-chance contributed by hostile companions (0..0.12)
+  // This is layered ON TOP of the GameScreen's existing dangerArea×hostility
+  // calculation so a Nemesis is dangerous even in calm regions.
+  bonusDeathChance: number;
+  // The single most dangerous hostile companion (for narrative attribution)
+  topNemesis: null | { name: string; race: string; bond: number; neglect: number; deathContribution: number };
+  contributions: Array<{
+    name: string;
+    bond: number;
+    neglect: number;
+    summary: string;
+  }>;
+}
+
+/**
+ * Compute per-quest passive maluses caused by hostile companions.
+ *   Bond -3 to -4  : minor sabotage (perf/fame nibble)
+ *   Bond -5 to -7  : dangerous (gold loss, wound severity, perf drop)
+ *   Bond -8 to -9  : deadly (small death-chance contribution)
+ *   Bond -10       : NEMESIS — meaningful death-chance contribution that
+ *                    SCALES with how long they have been ignored.
+ *
+ * "Ignored" is read from companion.questsSinceInteraction (set by the
+ * passive mood-drift system). After 6 quests with no interaction, every
+ * additional ignored quest amplifies the Nemesis's danger up to ~3x.
+ */
+export const calculatePartyBondMaluses = (companions: any[]): PartyBondMaluses => {
+  const out: PartyBondMaluses = {
+    questPerformanceMalus: 0,
+    woundSeverityIncrease: 0,
+    goldMalus: 0,
+    flatFameLoss: 0,
+    bonusDeathChance: 0,
+    topNemesis: null,
+    contributions: [],
+  };
+
+  let topNemesisDeath = 0;
+
+  for (const c of companions || []) {
+    const bond = typeof c?.relationship === "number" ? c.relationship : 0;
+    if (bond > -3) continue;
+
+    const neglect = Math.max(0, (c?.questsSinceInteraction ?? 0) - 6);
+    // Neglect amplifier: 1.0 baseline, up to 3.0 after ~25 ignored quests
+    const neglectMult = 1 + Math.min(2, neglect * 0.08);
+
+    // Severity tier
+    const severity =
+      bond <= -10 ? 4 :  // Nemesis
+      bond <= -8  ? 3 :  // Deadly
+      bond <= -5  ? 2 :  // Dangerous
+                    1;   // Bitter
+
+    let summary = "";
+
+    // Generic per-tier maluses
+    out.questPerformanceMalus += severity * 0.025 * neglectMult;
+    out.flatFameLoss          += severity * 0.2   * neglectMult;
+    if (severity >= 2) {
+      out.goldMalus            += (severity - 1) * 0.05 * neglectMult;
+      out.woundSeverityIncrease += (severity - 1) * 0.3  * neglectMult;
+    }
+
+    // DEATH-CHANCE contribution — only deep hostility, with NEMESIS scaling hard on neglect
+    let deathContribution = 0;
+    if (severity === 3) {
+      // Deadly: small flat addition, modest neglect scaling (max 1.5x)
+      deathContribution = 0.008 * Math.min(1.5, neglectMult);
+    } else if (severity === 4) {
+      // NEMESIS: meaningful flat addition, full neglect scaling (up to 3x)
+      // Base 2.5% per quest, up to ~7.5% if utterly ignored.
+      deathContribution = 0.025 * neglectMult;
+      if (deathContribution > topNemesisDeath) {
+        topNemesisDeath = deathContribution;
+        out.topNemesis = {
+          name: c.name, race: c.race, bond, neglect,
+          deathContribution,
+        };
+      }
+    }
+    out.bonusDeathChance += deathContribution;
+
+    summary =
+      severity === 4 ? `NEMESIS — +${(deathContribution * 100).toFixed(1)}% death/quest${neglect > 0 ? ` (ignored ${neglect}q)` : ""}` :
+      severity === 3 ? `Deadly — +${(deathContribution * 100).toFixed(1)}% death/quest, sabotage` :
+      severity === 2 ? `Dangerous — gold/morale loss${neglect > 0 ? `, ignored` : ""}` :
+                       `Bitter — minor sabotage`;
+
+    out.contributions.push({ name: c.name, bond, neglect, summary });
+  }
+
+  // Caps to avoid runaway death spirals
+  out.questPerformanceMalus  = Math.min(out.questPerformanceMalus, 0.5);
+  out.woundSeverityIncrease  = Math.min(out.woundSeverityIncrease, 3);
+  out.goldMalus              = Math.min(out.goldMalus, 0.5);
+  out.flatFameLoss           = Math.min(out.flatFameLoss, 3);
+  out.bonusDeathChance       = Math.min(out.bonusDeathChance, 0.12);
+
+  return out;
+};
+
+// ===========================================================================
 // DEVOTION EVENTS — triggered per quest, weighted by bond rank
 // ===========================================================================
 
