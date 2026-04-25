@@ -447,7 +447,9 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
           }, false);
           
           // Monster attacks back - roll for wounds
-          const monsterDamage = Math.floor(Math.random() * (10 + monster.rank.rank * 5)) + monster.rank.rank * 2;
+          // Hostile Fighters/Mages amplify enemy damage (leaked openings, miscast wards)
+          const baseMonsterDamage = Math.floor(Math.random() * (10 + monster.rank.rank * 5)) + monster.rank.rank * 2;
+          const monsterDamage = Math.floor(baseMonsterDamage * partyMaluses.enemyDamageMult);
           const monsterCrit = checkCriticalHit(10 + monster.rank.rank * 2); // Monster dex scales with rank
           const damageType = getDamageTypeFromMonster(monsterName);
           
