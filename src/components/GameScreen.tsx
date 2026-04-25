@@ -318,7 +318,13 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
           // Up to ~6% extra death chance per quest in max-danger areas with a Nemesis at your back
           const companionPlot = hostilityWeight * dangerNorm * 0.12;
           deathChance += companionPlot;
-          
+
+          // === BOND MALUSES (passive sabotage from negative bonds) ===
+          // Nemesis (bond -10) companions add a FLAT death-chance contribution
+          // even in calm regions, scaled up by neglect (questsSinceInteraction).
+          const partyMaluses = calculatePartyBondMaluses(companions);
+          deathChance += partyMaluses.bonusDeathChance;
+
           // === COMPANION BOND BONUSES (passive support from positive bonds) ===
           const partyBonuses = calculatePartyBondBonuses(companions);
           
@@ -332,25 +338,48 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
           // Random normal death check
           if (Math.random() < deathChance) {
             const activeStatus = statusEffects.length > 0 ? statusEffects[0].name : undefined;
-            
+
             // Was this death caused by a hostile companion's plot?
-            const plotShare = deathChance > 0 ? companionPlot / deathChance : 0;
-            const killedByCompanion = topThreat && Math.random() < plotShare;
-            
+            // Combine area-danger plot (companionPlot) AND nemesis sabotage (bonusDeathChance)
+            const totalCompanionPlot = companionPlot + partyMaluses.bonusDeathChance;
+            const plotShare = deathChance > 0 ? totalCompanionPlot / deathChance : 0;
+            const killedByCompanion = (topThreat || partyMaluses.topNemesis) && Math.random() < plotShare;
+
             if (killedByCompanion) {
+              // Prefer the Nemesis as killer when their sabotage outweighed the area-plot,
+              // otherwise the area-amplified topThreat. The Nemesis's "ignored" status
+              // unlocks more sinister narratives.
+              const nemesisDominant =
+                partyMaluses.topNemesis &&
+                partyMaluses.topNemesis.deathContribution >= companionPlot;
+              const killer = nemesisDominant
+                ? companions.find(c => c.name === partyMaluses.topNemesis!.name) || topThreat
+                : topThreat || companions.find(c => c.name === partyMaluses.topNemesis!.name);
+              const killerNeglect = killer?.questsSinceInteraction ?? 0;
+              const killerBond = typeof killer?.relationship === "number" ? killer.relationship : -10;
+              const isNemesis = killerBond <= -10;
+
               const plotRoll = Math.random();
               const where = travelState?.currentArea?.name || "the dangerous frontier";
               let shortDesc: string;
               let fullDescription: string;
-              if (topThreatBonus >= 50 && plotRoll < 0.5) {
-                shortDesc = `Assassinated by ${topThreat.name}`;
-                fullDescription = `Slain by ${topThreat.name} (${topThreat.race}) — a hostile companion who finally struck in the deadly ${where}`;
+
+              if (isNemesis && killerNeglect >= 12) {
+                // Long-ignored Nemesis: most damning narrative
+                shortDesc = `Slain by a forsaken Nemesis: ${killer.name}`;
+                fullDescription = `${killer.name} (${killer.race}) had been ignored for ${killerNeglect} quests — long enough to plot, recruit, and execute. The hero died in ${where}, never seeing the blade coming.`;
+              } else if (isNemesis) {
+                shortDesc = `Murdered by Nemesis ${killer.name}`;
+                fullDescription = `Cut down in ${where} by ${killer.name} (${killer.race}) — a Nemesis whose hatred finally boiled over.`;
+              } else if (topThreatBonus >= 50 && plotRoll < 0.5) {
+                shortDesc = `Assassinated by ${killer.name}`;
+                fullDescription = `Slain by ${killer.name} (${killer.race}) — a hostile companion who finally struck in the deadly ${where}`;
               } else if (plotRoll < 0.66) {
-                shortDesc = `Ambushed via ${topThreat.name}'s plot`;
-                fullDescription = `Lured into an ambush in ${where} by ${topThreat.name} (${topThreat.race}) — sold out by a hostile companion`;
+                shortDesc = `Ambushed via ${killer.name}'s plot`;
+                fullDescription = `Lured into an ambush in ${where} by ${killer.name} (${killer.race}) — sold out by a hostile companion`;
               } else {
-                shortDesc = `Betrayed by ${topThreat.name}`;
-                fullDescription = `Stabbed in the back by ${topThreat.name} (${topThreat.race}) during a desperate moment in ${where}`;
+                shortDesc = `Betrayed by ${killer.name}`;
+                fullDescription = `Stabbed in the back by ${killer.name} (${killer.race}) during a desperate moment in ${where}`;
               }
               setDeathCause({ shortDesc, fullDescription, category: "betrayal" } as any);
               handleDeath();
