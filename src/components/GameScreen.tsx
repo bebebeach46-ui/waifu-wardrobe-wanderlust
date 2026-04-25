@@ -325,6 +325,45 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
           const partyMaluses = calculatePartyBondMaluses(companions);
           deathChance += partyMaluses.bonusDeathChance;
 
+          // === SABOTAGE EVENTS — role-flavored counterpart to devotion ===
+          // Rolled EARLY so enemyDamageMult / addWoundSeverity can apply to this quest's wounds.
+          const sabotageEvents = rollSabotageEvents(companions);
+          let sabotagePerfPenalty = 0;
+          let sabotageFameLoss = 0;
+          let sabotageGoldLoss = 0;
+          let sabotageAddSeverity = 0;
+          let sabotagePoison = false;
+          for (const ev of sabotageEvents) {
+            sabotagePerfPenalty += ev.effect.perfPenalty || 0;
+            sabotageFameLoss   += ev.effect.fameLoss   || 0;
+            sabotageGoldLoss   += ev.effect.goldLoss   || 0;
+            sabotageAddSeverity += ev.effect.addWoundSeverity || 0;
+            if (ev.effect.triggerPoison) sabotagePoison = true;
+
+            toast({
+              title: `${ev.icon} ${ev.title}`,
+              description: <span className="text-stat-decrease">{ev.companionName} {ev.narrative}</span>,
+              variant: "destructive",
+              duration: 5000,
+            });
+            setActivities(prev => trackActivity(prev, "relationship",
+              `${ev.icon} ${ev.companionName} ${ev.narrative}`));
+          }
+          // Apply role-poison: inflict Poisoned status if rolled (sabotage event OR passive poisonChance)
+          const poisonRolled = sabotagePoison || (Math.random() < (partyMaluses?.poisonChance || 0));
+          if (poisonRolled) {
+            setStatusEffects(prev => {
+              if (prev.some(e => e.name === "Poisoned")) return prev;
+              return [...prev, {
+                name: "Poisoned",
+                type: "bad",
+                description: "Tainted by a hostile companion's hand",
+                icon: "☠️",
+                duration: 6,
+              }];
+            });
+          }
+
           // === COMPANION BOND BONUSES (passive support from positive bonds) ===
           const partyBonuses = calculatePartyBondBonuses(companions);
           
