@@ -14,7 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { generateCharacter, rollForNewSkill, rollForNewSpell, rollForEquipmentUnlock, getClassConfig } from "@/lib/characterGenerator";
 import { generateQuest, Quest, rollQuestPerformance, QuestPerformanceGrade, getFameTitle, performanceGrades } from "@/lib/questGenerator";
 import { generateCompanion, getRelationshipName, calculateCompatibility, getBondLevelCap, generateMilestone, generateChild, RelationshipMilestone, ChildInfo, generateCompanionAge, calculateRelationshipDelta, isCompanionThreat, calculateGiftEffectiveness, giftPreferenceMap, rollForApologyEvent, rollForRepairQuest, calculateRepairQuestReward, RepairQuest, ACTIVE_COMPANION_SLOTS, RESERVE_COMPANION_SLOTS, HEIR_SLOTS, MAX_BOND_10_COMPANIONS, tickCompanionAge, applyMoodDrift } from "@/lib/companionGenerator";
-import { calculatePartyBondBonuses, calculatePartyBondMaluses, rollDevotionEvents, tickRivalries, inferCompanionRole, getRoleIcon, Rivalry } from "@/lib/companionBondBonuses";
+import { calculatePartyBondBonuses, calculatePartyBondMaluses, rollDevotionEvents, rollSabotageEvents, tickRivalries, inferCompanionRole, getRoleIcon, Rivalry } from "@/lib/companionBondBonuses";
 import { CompanionEncounterState, initializeEncounterState, updateEncounterState, completeEncounter, getTopAffinities, EncounterPreference } from "@/lib/companionEncounterSystem";
 import { generateShopName } from "@/lib/skillGenerator";
 import { generateSummon } from "@/lib/summonGenerator";
@@ -325,6 +325,45 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
           const partyMaluses = calculatePartyBondMaluses(companions);
           deathChance += partyMaluses.bonusDeathChance;
 
+          // === SABOTAGE EVENTS — role-flavored counterpart to devotion ===
+          // Rolled EARLY so enemyDamageMult / addWoundSeverity can apply to this quest's wounds.
+          const sabotageEvents = rollSabotageEvents(companions);
+          let sabotagePerfPenalty = 0;
+          let sabotageFameLoss = 0;
+          let sabotageGoldLoss = 0;
+          let sabotageAddSeverity = 0;
+          let sabotagePoison = false;
+          for (const ev of sabotageEvents) {
+            sabotagePerfPenalty += ev.effect.perfPenalty || 0;
+            sabotageFameLoss   += ev.effect.fameLoss   || 0;
+            sabotageGoldLoss   += ev.effect.goldLoss   || 0;
+            sabotageAddSeverity += ev.effect.addWoundSeverity || 0;
+            if (ev.effect.triggerPoison) sabotagePoison = true;
+
+            toast({
+              title: `${ev.icon} ${ev.title}`,
+              description: <span className="text-stat-decrease">{ev.companionName} {ev.narrative}</span>,
+              variant: "destructive",
+              duration: 5000,
+            });
+            setActivities(prev => trackActivity(prev, "relationship",
+              `${ev.icon} ${ev.companionName} ${ev.narrative}`));
+          }
+          // Apply role-poison: inflict Poisoned status if rolled (sabotage event OR passive poisonChance)
+          const poisonRolled = sabotagePoison || (Math.random() < (partyMaluses?.poisonChance || 0));
+          if (poisonRolled) {
+            setStatusEffects(prev => {
+              if (prev.some(e => e.name === "Poisoned")) return prev;
+              return [...prev, {
+                name: "Poisoned",
+                type: "bad",
+                description: "Tainted by a hostile companion's hand",
+                icon: "☠️",
+                duration: 6,
+              }];
+            });
+          }
+
           // === COMPANION BOND BONUSES (passive support from positive bonds) ===
           const partyBonuses = calculatePartyBondBonuses(companions);
           
@@ -408,7 +447,9 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
           }, false);
           
           // Monster attacks back - roll for wounds
-          const monsterDamage = Math.floor(Math.random() * (10 + monster.rank.rank * 5)) + monster.rank.rank * 2;
+          // Hostile Fighters/Mages amplify enemy damage (leaked openings, miscast wards)
+          const baseMonsterDamage = Math.floor(Math.random() * (10 + monster.rank.rank * 5)) + monster.rank.rank * 2;
+          const monsterDamage = Math.floor(baseMonsterDamage * partyMaluses.enemyDamageMult);
           const monsterCrit = checkCriticalHit(10 + monster.rank.rank * 2); // Monster dex scales with rank
           const damageType = getDamageTypeFromMonster(monsterName);
           
@@ -425,8 +466,8 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
           );
           
           if (newWound) {
-            // Hostile companions can WORSEN wounds (sabotage, "missed" parry, tainted bandages)
-            const sabotage = Math.round(partyMaluses.woundSeverityIncrease);
+            // Hostile companions can WORSEN wounds (passive sabotage + this quest's sabotage events)
+            const sabotage = Math.round(partyMaluses.woundSeverityIncrease + sabotageAddSeverity);
             if (sabotage > 0 && newWound.severity < 10) {
               const worsened = Math.min(10, newWound.severity + sabotage) as typeof newWound.severity;
               if (worsened > newWound.severity) {
@@ -646,7 +687,7 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
                 : w);
             });
           }
-          
+
           // === RIVALRY TICK — escalating bonuses from competitive companions ===
           const rivalryTick = tickRivalries(companions, rivalries);
           setRivalries(rivalryTick.rivalries);
@@ -689,15 +730,15 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
           }
           
           // === Apply party bond bonuses + devotion + rivalry boosts to performance ===
-          // Hostile companions sabotage the run (questPerformanceMalus, flatFameLoss)
+          // Hostile companions sabotage the run (questPerformanceMalus, flatFameLoss + sabotage events)
           const totalPerfMult = Math.max(0.1,
             1 + partyBonuses.questPerformanceMult + devotionPerfBoost + rivalryPerfBoost
-              - partyMaluses.questPerformanceMalus
+              - partyMaluses.questPerformanceMalus - sabotagePerfPenalty
           );
           const boostedRewardMult = performance.rewardMultiplier * totalPerfMult;
           const totalFlatFame = Math.round(
             performance.fameGain + partyBonuses.flatFameBonus + devotionFame + rivalryFame
-              - partyMaluses.flatFameLoss
+              - partyMaluses.flatFameLoss - sabotageFameLoss
           );
 
           // Surface the aggregated bonus when meaningful
@@ -757,7 +798,7 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
           const performanceMultiplier = boostedRewardMult;
           const goldMult = Math.max(0.1, 1 + partyBonuses.goldMult - partyMaluses.goldMalus);
           
-          const treasureFound = Math.floor(((Math.random() * 50 + 10) * monster.rank.goldMultiplier * difficultyBonus * performanceMultiplier * goldMult) + devotionGold);
+          const treasureFound = Math.max(0, Math.floor(((Math.random() * 50 + 10) * monster.rank.goldMultiplier * difficultyBonus * performanceMultiplier * goldMult) + devotionGold - sabotageGoldLoss));
           const enemiesKilled = Math.floor(Math.random() * 5) + 1;
           
           // Weather changes

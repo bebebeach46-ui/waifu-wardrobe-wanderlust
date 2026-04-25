@@ -175,10 +175,18 @@ export interface PartyBondMaluses {
   // This is layered ON TOP of the GameScreen's existing dangerArea×hostility
   // calculation so a Nemesis is dangerous even in calm regions.
   bonusDeathChance: number;
+  // Multiplier applied to enemy damage rolls (1.0..1.5) — Fighters/Mages
+  // who hate you can leak openings, miss key counterspells, or "fail" to
+  // tank, exposing the hero to harder hits.
+  enemyDamageMult: number;
+  // Probability (0..0.4) of a poisoning/tainted-meal status this quest from
+  // a hostile Cook or Healer with apothecary skills.
+  poisonChance: number;
   // The single most dangerous hostile companion (for narrative attribution)
   topNemesis: null | { name: string; race: string; bond: number; neglect: number; deathContribution: number };
   contributions: Array<{
     name: string;
+    role: CompanionRole;
     bond: number;
     neglect: number;
     summary: string;
@@ -196,6 +204,14 @@ export interface PartyBondMaluses {
  * "Ignored" is read from companion.questsSinceInteraction (set by the
  * passive mood-drift system). After 6 quests with no interaction, every
  * additional ignored quest amplifies the Nemesis's danger up to ~3x.
+ *
+ * EACH ROLE CONTRIBUTES A DIFFERENT FLAVOR OF SABOTAGE (mirroring bonuses):
+ *   Fighter — leaks openings → enemyDamageMult, perf loss
+ *   Mage    — misfires/withholds counterspells → enemyDamageMult, deathChance
+ *   Healer  — crafts poison, "treats" with venom → poisonChance, severity++
+ *   Crafter — sabotages gear → goldMalus, severity++, perf loss
+ *   Cook    — taints meals → poisonChance, fame loss, perf loss
+ *   Support — spreads dissent → fame loss, perf loss
  */
 export const calculatePartyBondMaluses = (companions: any[]): PartyBondMaluses => {
   const out: PartyBondMaluses = {
@@ -204,11 +220,14 @@ export const calculatePartyBondMaluses = (companions: any[]): PartyBondMaluses =
     goldMalus: 0,
     flatFameLoss: 0,
     bonusDeathChance: 0,
+    enemyDamageMult: 1,
+    poisonChance: 0,
     topNemesis: null,
     contributions: [],
   };
 
   let topNemesisDeath = 0;
+  let enemyDamageBonus = 0; // accumulated additive bonus, applied to mult at end
 
   for (const c of companions || []) {
     const bond = typeof c?.relationship === "number" ? c.relationship : 0;
@@ -225,14 +244,56 @@ export const calculatePartyBondMaluses = (companions: any[]): PartyBondMaluses =
       bond <= -5  ? 2 :  // Dangerous
                     1;   // Bitter
 
-    let summary = "";
+    const role = inferCompanionRole(c);
+    // Common sabotage weight — every hostile companion at least nibbles morale
+    const w = severity * 0.012 * neglectMult;
+    out.flatFameLoss += w * 8;            // fame loss applies to everyone
 
-    // Generic per-tier maluses
-    out.questPerformanceMalus += severity * 0.025 * neglectMult;
-    out.flatFameLoss          += severity * 0.2   * neglectMult;
-    if (severity >= 2) {
-      out.goldMalus            += (severity - 1) * 0.05 * neglectMult;
-      out.woundSeverityIncrease += (severity - 1) * 0.3  * neglectMult;
+    let summary = "";
+    let roleNote = "";
+
+    switch (role) {
+      case "Fighter":
+        // Leaks openings: enemies hit harder, perf drops
+        enemyDamageBonus += w * 1.0;       // up to ~+15% enemy damage at Nemesis+neglect
+        out.questPerformanceMalus += w * 1.2;
+        if (severity >= 2) out.woundSeverityIncrease += (severity - 1) * 0.25 * neglectMult;
+        roleNote = "leaks openings, enemies hit harder";
+        break;
+      case "Mage":
+        // Withholds counterspells, miscasts protections
+        enemyDamageBonus += w * 1.2;
+        out.questPerformanceMalus += w * 0.8;
+        if (severity >= 3) out.bonusDeathChance += 0.005 * neglectMult; // misdirected wards
+        roleNote = "miscasts wards, spells go awry";
+        break;
+      case "Healer":
+        // Crafts poison, "treats" with venom — wounds fester, poison risk
+        out.woundSeverityIncrease += severity * 0.4 * neglectMult;
+        if (severity >= 2) out.poisonChance += 0.04 * (severity - 1) * neglectMult;
+        if (severity === 4) out.poisonChance += 0.06 * neglectMult; // Nemesis healer is terrifying
+        roleNote = severity >= 2 ? "tainted poultices, venomous draughts" : "neglectful care";
+        break;
+      case "Crafter":
+        // Sabotages gear: weaker armor, lost gold, dulled blades
+        out.goldMalus += w * 1.8;
+        out.questPerformanceMalus += w * 0.5;
+        if (severity >= 2) out.woundSeverityIncrease += (severity - 1) * 0.35 * neglectMult;
+        roleNote = "sabotaged gear, brittle repairs";
+        break;
+      case "Cook":
+        // Taints meals: poison risk, morale drops, perf hit
+        if (severity >= 1) out.poisonChance += 0.03 * severity * neglectMult;
+        out.questPerformanceMalus += w * 0.6;
+        out.flatFameLoss += w * 4;          // gossip from kitchen is brutal
+        roleNote = "taints rations, sour stews";
+        break;
+      case "Support":
+        // Spreads dissent: fame and perf
+        out.questPerformanceMalus += w * 0.9;
+        out.flatFameLoss += w * 6;
+        roleNote = "spreads dissent and rumor";
+        break;
     }
 
     // DEATH-CHANCE contribution — only deep hostility, with NEMESIS scaling hard on neglect
@@ -244,6 +305,8 @@ export const calculatePartyBondMaluses = (companions: any[]): PartyBondMaluses =
       // NEMESIS: meaningful flat addition, full neglect scaling (up to 3x)
       // Base 2.5% per quest, up to ~7.5% if utterly ignored.
       deathContribution = 0.025 * neglectMult;
+      // Role-specific killer bias: Mage/Fighter Nemeses are extra lethal
+      if (role === "Mage" || role === "Fighter") deathContribution *= 1.15;
       if (deathContribution > topNemesisDeath) {
         topNemesisDeath = deathContribution;
         out.topNemesis = {
@@ -255,13 +318,16 @@ export const calculatePartyBondMaluses = (companions: any[]): PartyBondMaluses =
     out.bonusDeathChance += deathContribution;
 
     summary =
-      severity === 4 ? `NEMESIS — +${(deathContribution * 100).toFixed(1)}% death/quest${neglect > 0 ? ` (ignored ${neglect}q)` : ""}` :
-      severity === 3 ? `Deadly — +${(deathContribution * 100).toFixed(1)}% death/quest, sabotage` :
-      severity === 2 ? `Dangerous — gold/morale loss${neglect > 0 ? `, ignored` : ""}` :
-                       `Bitter — minor sabotage`;
+      severity === 4 ? `NEMESIS ${role} — +${(deathContribution * 100).toFixed(1)}% death/q • ${roleNote}${neglect > 0 ? ` (ignored ${neglect}q)` : ""}` :
+      severity === 3 ? `Deadly ${role} — ${roleNote}, +${(deathContribution * 100).toFixed(1)}% death/q` :
+      severity === 2 ? `Dangerous ${role} — ${roleNote}` :
+                       `Bitter ${role} — ${roleNote}`;
 
-    out.contributions.push({ name: c.name, bond, neglect, summary });
+    out.contributions.push({ name: c.name, role, bond, neglect, summary });
   }
+
+  // Convert accumulated enemy-damage bonus into a multiplier
+  out.enemyDamageMult = 1 + Math.min(0.5, enemyDamageBonus);
 
   // Caps to avoid runaway death spirals
   out.questPerformanceMalus  = Math.min(out.questPerformanceMalus, 0.5);
@@ -269,8 +335,224 @@ export const calculatePartyBondMaluses = (companions: any[]): PartyBondMaluses =
   out.goldMalus              = Math.min(out.goldMalus, 0.5);
   out.flatFameLoss           = Math.min(out.flatFameLoss, 3);
   out.bonusDeathChance       = Math.min(out.bonusDeathChance, 0.12);
+  out.poisonChance           = Math.min(out.poisonChance, 0.4);
 
   return out;
+};
+
+// ===========================================================================
+// SABOTAGE EVENTS — role-flavored counterpart to devotion events
+// ---------------------------------------------------------------------------
+// Per quest, each hostile companion (bond <= -3) has a chance to fire a
+// narrative sabotage event. Probability scales with hostility AND neglect.
+// ===========================================================================
+
+export type SabotageEventKind =
+  | "tainted_meal"      // Cook/Healer: poison or food sickness
+  | "sabotaged_gear"    // Crafter/Fighter: dulled blade, loose strap
+  | "leaked_opening"    // Fighter: failed parry, "missed" warning
+  | "miscast_ward"      // Mage: protection collapses mid-fight
+  | "venomous_care"     // Healer: poultice burns, "wrong" herb
+  | "spread_dissent"    // Support: morale tanking
+  | "stolen_purse";     // any: gold lifted in the night
+
+export interface SabotageEvent {
+  kind: SabotageEventKind;
+  companionName: string;
+  companionRace: string;
+  role: CompanionRole;
+  icon: string;
+  title: string;
+  narrative: string;
+  effect: {
+    fameLoss?: number;
+    goldLoss?: number;
+    addWoundSeverity?: number;  // adds to next wound roll
+    perfPenalty?: number;       // applied to this quest's grade
+    triggerPoison?: boolean;    // GameScreen should apply a poison status
+  };
+}
+
+const taintedMealNarratives = [
+  "stirred something gritty into your stew — your gut knots before the fight",
+  "served you 'aged' meat that smelled wrong. You ate it anyway",
+  "ladled a draught laced with crushed nightshade petals",
+  "served the hero last, after letting the broth sit on a suspicious shelf",
+];
+const sabotagedGearNarratives = [
+  "loosened a strap on your armor 'by accident'",
+  "left your blade dull — the edge folds on the first strike",
+  "swapped a quality whetstone for a cheap one and pocketed the difference",
+  "rewrapped your hilt with rotten leather",
+];
+const leakedOpeningNarratives = [
+  "stepped aside as a flanker came in — you took the hit meant for them",
+  "called out the wrong direction during an ambush",
+  "lowered their shield at exactly the wrong moment",
+  "let an enemy through the line and shrugged when asked why",
+];
+const miscastWardNarratives = [
+  "let your protective ward collapse mid-engagement",
+  "miscast a counterspell — the enemy hex landed full strength",
+  "'forgot' the incantation to your shield rune",
+  "channeled the wrong reagent and your armor flickered out",
+];
+const venomousCareNarratives = [
+  "applied a poultice that burned, not soothed — the wound festers",
+  "treated your cut with what looked like the wrong herb. It went black overnight",
+  "smiled too wide while bandaging you. The bandage smells of rot",
+  "ground a draught with mortar still stained from yesterday's poison",
+];
+const spreadDissentNarratives = [
+  "whispered to the others about your last 'mistake' until morale soured",
+  "mocked your last victory in front of villagers",
+  "told a tavern your secrets — fame slipped",
+  "convinced two companions to sit out the next watch",
+];
+const stolenPurseNarratives = [
+  "lifted a fistful of coin from your purse while you slept",
+  "pocketed the reward before it was counted",
+  "claimed the bandit loot was 'lost in the brush'",
+  "swapped a real gem in your pack for a cheap paste",
+];
+
+const pickN = <T>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
+
+/**
+ * Per-quest roll: each hostile companion has a chance to trigger a
+ * role-flavored sabotage event. Returns up to one per companion per quest.
+ */
+export const rollSabotageEvents = (companions: any[]): SabotageEvent[] => {
+  const events: SabotageEvent[] = [];
+
+  for (const c of companions || []) {
+    const bond = typeof c?.relationship === "number" ? c.relationship : 0;
+    if (bond > -3) continue;
+
+    const neglect = Math.max(0, (c?.questsSinceInteraction ?? 0) - 6);
+    const neglectMult = 1 + Math.min(2, neglect * 0.08);
+    const severity =
+      bond <= -10 ? 4 :
+      bond <= -8  ? 3 :
+      bond <= -5  ? 2 :
+                    1;
+
+    // Probability: 3% (Bitter) to 18% (Nemesis) baseline, up to ~3x with neglect
+    const baseChance = Math.min(0.45, (0.02 + severity * 0.025) * neglectMult);
+    if (Math.random() > baseChance) continue;
+
+    const role = inferCompanionRole(c);
+    const candidates: SabotageEventKind[] = [];
+
+    // Universal options (anyone can do these)
+    if (severity >= 2) candidates.push("stolen_purse");
+    candidates.push("spread_dissent");
+
+    // Role-specific options (heavily weighted by repeating)
+    switch (role) {
+      case "Cook":
+        candidates.push("tainted_meal", "tainted_meal");
+        if (severity >= 3) candidates.push("tainted_meal");
+        break;
+      case "Healer":
+        candidates.push("venomous_care", "venomous_care");
+        if (severity >= 3) candidates.push("tainted_meal"); // apothecary poison
+        break;
+      case "Fighter":
+        candidates.push("leaked_opening", "leaked_opening");
+        if (severity >= 2) candidates.push("sabotaged_gear");
+        break;
+      case "Mage":
+        candidates.push("miscast_ward", "miscast_ward");
+        if (severity >= 3) candidates.push("miscast_ward");
+        break;
+      case "Crafter":
+        candidates.push("sabotaged_gear", "sabotaged_gear");
+        if (severity >= 2) candidates.push("stolen_purse");
+        break;
+      case "Support":
+        candidates.push("spread_dissent", "spread_dissent");
+        break;
+    }
+
+    const kind = pickN(candidates);
+    let event: SabotageEvent;
+
+    switch (kind) {
+      case "tainted_meal":
+        event = {
+          kind, role, companionName: c.name, companionRace: c.race,
+          icon: "🍲", title: `${c.name} Tainted the Meal`,
+          narrative: pickN(taintedMealNarratives),
+          effect: {
+            triggerPoison: severity >= 2,
+            perfPenalty: 0.1 + severity * 0.05,
+            fameLoss: 1,
+          },
+        };
+        break;
+      case "sabotaged_gear":
+        event = {
+          kind, role, companionName: c.name, companionRace: c.race,
+          icon: "⚙️", title: `${c.name} Sabotaged Your Gear`,
+          narrative: pickN(sabotagedGearNarratives),
+          effect: {
+            addWoundSeverity: 1 + Math.floor(severity / 2),
+            perfPenalty: 0.15,
+            goldLoss: 5 + severity * 3,
+          },
+        };
+        break;
+      case "leaked_opening":
+        event = {
+          kind, role, companionName: c.name, companionRace: c.race,
+          icon: "🛡️", title: `${c.name} Left You Exposed`,
+          narrative: pickN(leakedOpeningNarratives),
+          effect: { addWoundSeverity: 1 + severity, perfPenalty: 0.1 },
+        };
+        break;
+      case "miscast_ward":
+        event = {
+          kind, role, companionName: c.name, companionRace: c.race,
+          icon: "✨", title: `${c.name}'s Ward Failed`,
+          narrative: pickN(miscastWardNarratives),
+          effect: { addWoundSeverity: 2 + Math.floor(severity / 2), perfPenalty: 0.12 },
+        };
+        break;
+      case "venomous_care":
+        event = {
+          kind, role, companionName: c.name, companionRace: c.race,
+          icon: "☠️", title: `${c.name}'s 'Care' Backfired`,
+          narrative: pickN(venomousCareNarratives),
+          effect: {
+            addWoundSeverity: 1 + severity,
+            triggerPoison: severity >= 3,
+            perfPenalty: 0.08,
+          },
+        };
+        break;
+      case "spread_dissent":
+        event = {
+          kind, role, companionName: c.name, companionRace: c.race,
+          icon: "🗣️", title: `${c.name} Spread Dissent`,
+          narrative: pickN(spreadDissentNarratives),
+          effect: { fameLoss: 1 + Math.floor(severity / 2), perfPenalty: 0.05 + severity * 0.03 },
+        };
+        break;
+      case "stolen_purse":
+        event = {
+          kind, role, companionName: c.name, companionRace: c.race,
+          icon: "💰", title: `${c.name} Lifted Your Coin`,
+          narrative: pickN(stolenPurseNarratives),
+          effect: { goldLoss: 8 + severity * 6 },
+        };
+        break;
+    }
+
+    events.push(event);
+  }
+
+  return events;
 };
 
 // ===========================================================================
