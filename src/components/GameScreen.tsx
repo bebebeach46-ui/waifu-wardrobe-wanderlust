@@ -755,7 +755,7 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
           const difficultyMultipliers = [0, 1.0, 1.2, 1.5, 2.0, 3.0]; // Index 0 unused, 1-5 for difficulties
           const difficultyBonus = difficultyMultipliers[gameDifficulty];
           const performanceMultiplier = boostedRewardMult;
-          const goldMult = 1 + partyBonuses.goldMult;
+          const goldMult = Math.max(0.1, 1 + partyBonuses.goldMult - partyMaluses.goldMalus);
           
           const treasureFound = Math.floor(((Math.random() * 50 + 10) * monster.rank.goldMultiplier * difficultyBonus * performanceMultiplier * goldMult) + devotionGold);
           const enemiesKilled = Math.floor(Math.random() * 5) + 1;
