@@ -466,8 +466,8 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
           );
           
           if (newWound) {
-            // Hostile companions can WORSEN wounds (sabotage, "missed" parry, tainted bandages)
-            const sabotage = Math.round(partyMaluses.woundSeverityIncrease);
+            // Hostile companions can WORSEN wounds (passive sabotage + this quest's sabotage events)
+            const sabotage = Math.round(partyMaluses.woundSeverityIncrease + sabotageAddSeverity);
             if (sabotage > 0 && newWound.severity < 10) {
               const worsened = Math.min(10, newWound.severity + sabotage) as typeof newWound.severity;
               if (worsened > newWound.severity) {
