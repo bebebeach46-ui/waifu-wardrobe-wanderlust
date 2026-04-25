@@ -796,7 +796,7 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
           const performanceMultiplier = boostedRewardMult;
           const goldMult = Math.max(0.1, 1 + partyBonuses.goldMult - partyMaluses.goldMalus);
           
-          const treasureFound = Math.floor(((Math.random() * 50 + 10) * monster.rank.goldMultiplier * difficultyBonus * performanceMultiplier * goldMult) + devotionGold);
+          const treasureFound = Math.max(0, Math.floor(((Math.random() * 50 + 10) * monster.rank.goldMultiplier * difficultyBonus * performanceMultiplier * goldMult) + devotionGold - sabotageGoldLoss));
           const enemiesKilled = Math.floor(Math.random() * 5) + 1;
           
           // Weather changes
