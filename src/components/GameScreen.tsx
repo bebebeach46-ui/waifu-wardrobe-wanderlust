@@ -689,19 +689,37 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
           }
           
           // === Apply party bond bonuses + devotion + rivalry boosts to performance ===
-          const totalPerfMult = 1 + partyBonuses.questPerformanceMult + devotionPerfBoost + rivalryPerfBoost;
+          // Hostile companions sabotage the run (questPerformanceMalus, flatFameLoss)
+          const totalPerfMult = Math.max(0.1,
+            1 + partyBonuses.questPerformanceMult + devotionPerfBoost + rivalryPerfBoost
+              - partyMaluses.questPerformanceMalus
+          );
           const boostedRewardMult = performance.rewardMultiplier * totalPerfMult;
-          const totalFlatFame = Math.round(performance.fameGain + partyBonuses.flatFameBonus + devotionFame + rivalryFame);
-          
+          const totalFlatFame = Math.round(
+            performance.fameGain + partyBonuses.flatFameBonus + devotionFame + rivalryFame
+              - partyMaluses.flatFameLoss
+          );
+
           // Surface the aggregated bonus when meaningful
           if ((partyBonuses.questPerformanceMult + devotionPerfBoost + rivalryPerfBoost) > 0.05 && performance.grade > 0) {
             const totalPct = Math.round((partyBonuses.questPerformanceMult + devotionPerfBoost + rivalryPerfBoost) * 100);
             setActivities(prev => trackActivity(prev, "relationship",
               `🤝 Companions boosted quest rewards by +${totalPct}%`));
           }
-          
+          // Surface sabotage when meaningful
+          if (partyMaluses.questPerformanceMalus > 0.05 && partyMaluses.contributions[0]) {
+            const lossPct = Math.round(partyMaluses.questPerformanceMalus * 100);
+            setActivities(prev => trackActivity(prev, "relationship",
+              `🗡️ Hostile companions sabotaged the quest (−${lossPct}% rewards)`));
+          }
+          // Nemesis-neglect warning: dangerous and getting worse
+          if (partyMaluses.topNemesis && partyMaluses.topNemesis.neglect >= 8) {
+            setActivities(prev => trackActivity(prev, "relationship",
+              `☠️ ${partyMaluses.topNemesis!.name} grows deadlier each quest you ignore them...`));
+          }
+
           setLastPerformance({ ...performance, rewardMultiplier: boostedRewardMult, fameGain: totalFlatFame });
-          
+
           // Apply (boosted) fame to the hero
           setFame(prev => Math.max(-100, prev + totalFlatFame));
           
