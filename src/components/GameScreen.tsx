@@ -1910,20 +1910,21 @@ Death occurred at: ${new Date().toLocaleString()}
     return () => clearInterval(autoSaveInterval);
   }, [isDead, performSave, toast]);
 
-  // Save on unmount (when leaving the game)
+  // Save on unmount (when leaving the game) — but never resurrect a dead-hero save.
   useEffect(() => {
     const handleBeforeUnload = () => {
+      if (isDead) return;
       performSave();
     };
-    
+
     window.addEventListener('beforeunload', handleBeforeUnload);
-    
+
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
-      // Also save when component unmounts (navigating away)
-      performSave();
+      // Also save when component unmounts (navigating away), unless the hero died.
+      if (!isDead) performSave();
     };
-  }, [performSave]);
+  }, [performSave, isDead]);
 
   const handleContinueAsOffspring = () => {
     if (!offspringData) return;
