@@ -418,11 +418,118 @@ const stolenPurseNarratives = [
 
 const pickN = <T>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
 
+export interface NeutralizedPlot {
+  saboteurName: string;
+  saboteurRace: string;
+  interceptorName: string;
+  interceptorRace: string;
+  interceptorRole: CompanionRole;
+  kind: SabotageEventKind;
+  icon: string;
+  title: string;
+  narrative: string;
+}
+
+const neutralizationNarratives: Record<SabotageEventKind, string[]> = {
+  tainted_meal: [
+    "smelled the nightshade and 'accidentally' overturned the pot",
+    "tasted the broth first and spat it out, eyes locking on the cook",
+    "swapped the tainted bowl for their own — silently",
+  ],
+  sabotaged_gear: [
+    "did a final inspection and quietly re-tightened every strap",
+    "spotted the dulled edge and replaced the blade from their own kit",
+    "rewrapped your hilt while you slept, finding the rotten leather",
+  ],
+  leaked_opening: [
+    "stepped into the gap their 'mistake' opened and took the blow instead",
+    "barked the correct flank just in time — the ambush failed",
+    "raised their shield over you when the other lowered theirs",
+  ],
+  miscast_ward: [
+    "overlapped a second ward the moment the first 'flickered'",
+    "caught the failing incantation and finished it themselves",
+    "burned a personal scroll to restore the collapsed shield",
+  ],
+  venomous_care: [
+    "intercepted the poultice and tossed it into the fire",
+    "smelled the wrong herb and treated your wound themselves",
+    "rebandaged you that night, burying the rotten cloth",
+  ],
+  spread_dissent: [
+    "shut down the whisper campaign with a single hard look",
+    "publicly defended your last call until the muttering died",
+    "took the gossiper aside — no one saw what was said, but it stopped",
+  ],
+  stolen_purse: [
+    "caught the hand in your purse and returned the coin without a word",
+    "had already moved your gold to their own pack 'just in case'",
+    "tracked the missing gem and put it back before dawn",
+  ],
+};
+
+/**
+ * Bond-10 loyalists occasionally intercept hostile plots. Each loyalist
+ * has a flat per-event chance to neutralize, with a small cap so they don't
+ * trivialize every sabotage. Returns surviving events plus narration.
+ */
+const applyLoyalistInterception = (
+  events: SabotageEvent[],
+  companions: any[],
+): { surviving: SabotageEvent[]; neutralized: NeutralizedPlot[] } => {
+  const loyalists = (companions || []).filter(
+    (c) => typeof c?.relationship === "number" && c.relationship >= 10,
+  );
+  if (loyalists.length === 0 || events.length === 0) {
+    return { surviving: events, neutralized: [] };
+  }
+
+  const neutralized: NeutralizedPlot[] = [];
+  const surviving: SabotageEvent[] = [];
+  // Each loyalist can intercept at most one plot per quest.
+  const usedLoyalists = new Set<string>();
+
+  for (const ev of events) {
+    // Per-loyalist independent chance — 35% baseline, harder to stop a Nemesis plot.
+    const isNemesisPlot =
+      ev.effect.addWoundSeverity && ev.effect.addWoundSeverity >= 3;
+    const perLoyalistChance = isNemesisPlot ? 0.22 : 0.35;
+
+    let intercepted = false;
+    for (const ly of loyalists) {
+      if (usedLoyalists.has(ly.name)) continue;
+      if (Math.random() < perLoyalistChance) {
+        const role = inferCompanionRole(ly);
+        neutralized.push({
+          saboteurName: ev.companionName,
+          saboteurRace: ev.companionRace,
+          interceptorName: ly.name,
+          interceptorRace: ly.race,
+          interceptorRole: role,
+          kind: ev.kind,
+          icon: "🛡️",
+          title: `${ly.name} Neutralized ${ev.companionName}'s Plot`,
+          narrative: pickN(neutralizationNarratives[ev.kind]),
+        });
+        usedLoyalists.add(ly.name);
+        intercepted = true;
+        break;
+      }
+    }
+    if (!intercepted) surviving.push(ev);
+  }
+
+  return { surviving, neutralized };
+};
+
 /**
  * Per-quest roll: each hostile companion has a chance to trigger a
  * role-flavored sabotage event. Returns up to one per companion per quest.
+ * Bond-10 companions may neutralize plots before they land.
  */
-export const rollSabotageEvents = (companions: any[]): SabotageEvent[] => {
+export const rollSabotageEvents = (
+  companions: any[],
+): { events: SabotageEvent[]; neutralized: NeutralizedPlot[] } => {
   const events: SabotageEvent[] = [];
 
   for (const c of companions || []) {
