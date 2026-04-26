@@ -632,16 +632,8 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
             });
           }
           
-          // Vision crystal drop from rank 2+
-          if (monster.rank.rank >= 2 && Math.random() < 0.15) { // 15% chance
-            toast({
-              title: "💎 Vision Crystal Dropped!",
-              description: "Use it to see detailed combat information",
-              duration: 3000
-            });
-            setStats(s => ({ ...s, gold: s.gold + 50 })); // Add gold equivalent
-          }
-          
+          // (Vision Crystal mechanic removed — combat is now fully transparent.)
+
           // === QUEST PERFORMANCE SYSTEM ===
           const woundsThisQuest = newWound ? 1 : 0;
           const totalActiveWounds = wounds.length + woundsThisQuest;
