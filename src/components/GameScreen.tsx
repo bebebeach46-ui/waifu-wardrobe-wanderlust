@@ -1564,6 +1564,13 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
     }
     
     setIsDead(true);
+    // Hero is dead — wipe the save file so this slot becomes free.
+    // (Saves persist across sessions until this point.)
+    try {
+      localStorage.removeItem(`quest-idle-slot-${saveSlot}`);
+    } catch (e) {
+      console.warn('Failed to clear save on death', e);
+    }
     const log = generateDeathLog();
     setDeathLog(log);
     
