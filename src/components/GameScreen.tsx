@@ -1544,7 +1544,7 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
       setDeathCause(cause);
     }
 
-    // Track difficulty completion and unlock grand vision crystal
+    // Track difficulty completion
     const currentDifficulty = worldData.difficulty || 2;
     const completions = localStorage.getItem('difficulty_completions');
     const completedDifficulties = completions ? JSON.parse(completions) : [];
