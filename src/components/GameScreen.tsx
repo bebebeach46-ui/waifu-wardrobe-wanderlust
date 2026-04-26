@@ -7,6 +7,7 @@ import { ChevronLeft, Save, Heart, Skull, Sparkles, Shield, Cloud, Hammer, Trend
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Shop } from "@/components/Shop";
+import AsciiMap from "@/components/AsciiMap";
 import { ShopItem } from "@/lib/shopGenerator";
 import { CodexComponent } from "@/components/Codex";
 import { createEmptyCodex, addDiscovery, Codex, generateLoreEntry } from "@/lib/codexSystem";
