@@ -659,7 +659,7 @@ export const rollSabotageEvents = (
     events.push(event);
   }
 
-  return events;
+  return applyLoyalistInterception(events, companions);
 };
 
 // ===========================================================================
