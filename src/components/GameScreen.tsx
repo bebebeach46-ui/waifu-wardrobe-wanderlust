@@ -2889,8 +2889,9 @@ Death occurred at: ${new Date().toLocaleString()}
 
           <Tabs defaultValue="combat" className="w-full">
             <TabsList className="w-full">
-              <TabsTrigger value="combat" className="flex-1 text-xs">⚔️ Combat Log</TabsTrigger>
-              <TabsTrigger value="events" className="flex-1 text-xs">📜 Event Log</TabsTrigger>
+              <TabsTrigger value="combat" className="flex-1 text-xs">⚔️ Combat</TabsTrigger>
+              <TabsTrigger value="events" className="flex-1 text-xs">📜 Events</TabsTrigger>
+              <TabsTrigger value="map" className="flex-1 text-xs">🗺️ Map</TabsTrigger>
             </TabsList>
             <TabsContent value="combat">
               <div className="bg-muted p-2 rounded space-y-1 max-h-48 overflow-y-auto">
@@ -2929,6 +2930,17 @@ Death occurred at: ${new Date().toLocaleString()}
                   ))
                 )}
               </div>
+            </TabsContent>
+            <TabsContent value="map">
+              <AsciiMap
+                travelState={travelState}
+                currentQuest={currentQuest}
+                questProgress={questProgress}
+                combatLog={combatLog}
+                companionsCount={companions.length}
+                isDead={isDead}
+                fame={fame}
+              />
             </TabsContent>
           </Tabs>
 
