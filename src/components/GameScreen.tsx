@@ -1564,6 +1564,13 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
     }
     
     setIsDead(true);
+    // Hero is dead — wipe the save file so this slot becomes free.
+    // (Saves persist across sessions until this point.)
+    try {
+      localStorage.removeItem(`quest-idle-slot-${saveSlot}`);
+    } catch (e) {
+      console.warn('Failed to clear save on death', e);
+    }
     const log = generateDeathLog();
     setDeathLog(log);
     
@@ -1903,20 +1910,21 @@ Death occurred at: ${new Date().toLocaleString()}
     return () => clearInterval(autoSaveInterval);
   }, [isDead, performSave, toast]);
 
-  // Save on unmount (when leaving the game)
+  // Save on unmount (when leaving the game) — but never resurrect a dead-hero save.
   useEffect(() => {
     const handleBeforeUnload = () => {
+      if (isDead) return;
       performSave();
     };
-    
+
     window.addEventListener('beforeunload', handleBeforeUnload);
-    
+
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
-      // Also save when component unmounts (navigating away)
-      performSave();
+      // Also save when component unmounts (navigating away), unless the hero died.
+      if (!isDead) performSave();
     };
-  }, [performSave]);
+  }, [performSave, isDead]);
 
   const handleContinueAsOffspring = () => {
     if (!offspringData) return;
