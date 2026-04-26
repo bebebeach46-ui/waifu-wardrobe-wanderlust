@@ -327,12 +327,24 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
 
           // === SABOTAGE EVENTS — role-flavored counterpart to devotion ===
           // Rolled EARLY so enemyDamageMult / addWoundSeverity can apply to this quest's wounds.
-          const sabotageEvents = rollSabotageEvents(companions);
+          const { events: sabotageEvents, neutralized: neutralizedPlots } = rollSabotageEvents(companions);
           let sabotagePerfPenalty = 0;
           let sabotageFameLoss = 0;
           let sabotageGoldLoss = 0;
           let sabotageAddSeverity = 0;
           let sabotagePoison = false;
+
+          // Bond-10 loyalists intercepted hostile plots — narrate the saves
+          for (const np of neutralizedPlots) {
+            toast({
+              title: `${np.icon} ${np.title}`,
+              description: <span className="text-stat-increase">{np.interceptorName} {np.narrative}</span>,
+              duration: 5000,
+            });
+            setActivities(prev => trackActivity(prev, "relationship",
+              `${np.icon} ${np.interceptorName} neutralized ${np.saboteurName}'s plot — ${np.narrative}`));
+          }
+
           for (const ev of sabotageEvents) {
             sabotagePerfPenalty += ev.effect.perfPenalty || 0;
             sabotageFameLoss   += ev.effect.fameLoss   || 0;
