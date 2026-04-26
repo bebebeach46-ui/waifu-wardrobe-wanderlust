@@ -659,7 +659,8 @@ export const rollSabotageEvents = (
     events.push(event);
   }
 
-  return applyLoyalistInterception(events, companions);
+  const result = applyLoyalistInterception(events, companions);
+  return { events: result.surviving, neutralized: result.neutralized };
 };
 
 // ===========================================================================
