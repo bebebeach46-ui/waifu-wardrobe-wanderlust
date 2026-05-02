@@ -1332,7 +1332,7 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
               return {
                 level: levelUp ? s.level + 1 : s.level,
                 exp: levelUp ? newExp - s.expToNext : newExp,
-                expToNext: levelUp ? s.expToNext + 50 : s.expToNext,
+                expToNext: levelUp ? Math.floor(s.expToNext * 1.6) : s.expToNext,
                 gold: s.gold + adjustedGold,
                 questsCompleted: s.questsCompleted + 1,
                 enemiesDefeated: s.enemiesDefeated + enemiesKilled,
