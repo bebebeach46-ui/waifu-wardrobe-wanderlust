@@ -852,18 +852,21 @@ const rivalryKey = (a: string, b: string) =>
   [a, b].sort().join("|");
 
 /**
- * Detect rival pairs amongst active companions. A pair qualifies when both
- * have bond >= 4 and their bond difference is <= 1.5 and neither has
- * already reached bond 10. Returns id strings only.
+ * Detect rival pairs amongst active companions. Rivalry is reserved for
+ * EXTREMELY devoted companions only — those who have already reached bond
+ * 9 or higher. Lesser-ranked companions (bond 5, 8, etc.) are not yet
+ * invested enough to compete for the hero's ultimate affection. A pair
+ * qualifies when both have bond >= 9, their bond difference is <= 1, and
+ * neither has already reached bond 10 (rivalries resolve at 10).
  */
 export const detectRivalPairs = (companions: any[]): Array<{ a: any; b: any }> => {
   const pairs: Array<{ a: any; b: any }> = [];
   const eligible = (companions || []).filter(c =>
-    typeof c?.relationship === "number" && c.relationship >= 4 && c.relationship < 10
+    typeof c?.relationship === "number" && c.relationship >= 9 && c.relationship < 10
   );
   for (let i = 0; i < eligible.length; i++) {
     for (let j = i + 1; j < eligible.length; j++) {
-      if (Math.abs(eligible[i].relationship - eligible[j].relationship) <= 1.5) {
+      if (Math.abs(eligible[i].relationship - eligible[j].relationship) <= 1) {
         pairs.push({ a: eligible[i], b: eligible[j] });
       }
     }
