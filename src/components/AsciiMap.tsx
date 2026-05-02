@@ -230,15 +230,7 @@ const AsciiMap = ({
       }
     }
 
-    // Companions follow the player
-    for (let i = 0; i < Math.min(companionsCount, 4); i++) {
-      const offset = -(i + 1);
-      const trailIdx = Math.max(0, progressIdx + offset);
-      const p = path[trailIdx];
-      if (p && (p.x !== playerPos.x || p.y !== playerPos.y)) {
-        grid[p.y][p.x] = { glyph: "c", cls: "text-blue-400 font-bold" };
-      }
-    }
+    // Companions are no longer rendered on the map (too cumbersome to track)
 
     // Detect recent combat from log
     const inCombat =
