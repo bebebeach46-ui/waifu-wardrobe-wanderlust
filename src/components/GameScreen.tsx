@@ -2225,7 +2225,7 @@ Death occurred at: ${new Date().toLocaleString()}
               ...s,
               level: s.level + 1,
               exp: 0,
-              expToNext: s.expToNext + 50
+              expToNext: Math.floor(s.expToNext * 1.6)
             }));
             toast({
               title: "Level Up!",
