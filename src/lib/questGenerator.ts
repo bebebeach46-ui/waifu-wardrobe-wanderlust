@@ -92,6 +92,23 @@ const questTemplates = {
     { name: "Accidentally Start a Revolution in", desc: "All you did was ask one question", subjects: ["the Theocracy", "the Empire", "the Underworld", "the Adventurer's Guild", "a Small Bakery"] },
     { name: "Win the Bet Against", desc: "Pride and coin hang in the balance", subjects: ["the Dragon", "the Trickster God", "Death Itself", "the Narrator", "Your Future Self"] },
     { name: "Investigate Why All the NPCs in", desc: "Something is very wrong with these people", subjects: ["this Town Say the Same Thing", "this Dungeon Are Smiling", "this Kingdom Speak in Riddles", "this Village Won't Stop Dancing"] }
+  ],
+  romance: [
+    { name: "Polish the Magic Staff of", desc: "She insists it needs a firm grip and steady rhythm", subjects: ["the Lonely Sorceress", "the Forbidden Librarian", "Madam Velvet", "the Tavern's Worst-Behaved Bard", "the Widow Three Towns Over"] },
+    { name: "Tame the Wild Mount of", desc: "Sit deep in the saddle—she bucks if you flinch", subjects: ["the Amazon Queen", "the Centaur Heiress", "the Valkyrie on Leave", "the Saddle-Sore Duchess"] },
+    { name: "Survey the Twin Peaks of", desc: "An expedition demanding stamina, dexterity, and very steady hands", subjects: ["Lady Bouncington", "the Bosom Mountains", "the Cleric of Cleavage", "Countess Heaving-Sigh"] },
+    { name: "Plumb the Forbidden Depths with", desc: "She warns you the entrance is tight—proceed slowly", subjects: ["the Dungeon Mistress", "the Mermaid in Heat", "the Slime Princess", "the Cave Witch with No Hobbies"] },
+    { name: "Service the Royal Carriage of", desc: "Her axles squeak—she requires a thorough oiling", subjects: ["the Bored Princess", "the Frustrated Empress", "the Runaway Bride", "the Queen Whose Husband Is 'Adventuring'"] },
+    { name: "Sheath the Legendary Blade of", desc: "It only fits in one very specific scabbard", subjects: ["the Lusty Paladin", "the Disgraced Saint", "Sister Sin", "the Holy Order's Worst-Kept Secret"] },
+    { name: "Massage the Tense Shoulders of", desc: "Lower. Lower. A little to the left—oh, right there", subjects: ["the Overworked Goddess", "the Battle-Weary Knightess", "the Demoness on Sabbatical", "the Receptionist of the Adventurer's Guild"] },
+    { name: "Untie the Stubborn Knot of", desc: "Your fingers are nimble—she's counting on it", subjects: ["the Captive Catgirl", "the Bound Sorceress", "the Roleplay Enthusiast", "the Knot Witch of Knotty Hollow"] },
+    { name: "Investigate the Strange Noises from", desc: "The sounds are rhythmic, breathy, and getting louder", subjects: ["the Inn's Top Floor", "the Hot Spring at Midnight", "the Princess's Bedchamber", "the Suspiciously Steamy Library"] },
+    { name: "Deliver a Very Personal Gift to", desc: "Hand-delivered. No substitutes. She'll know if you peeked", subjects: ["the Vampire Countess", "the Snake-Charmer Idol", "the Fox-Spirit Innkeeper", "the Demon Lord's Lonely Daughter"] },
+    { name: "Help with the Private Lessons of", desc: "She's a quick learner but insists on extra tutoring", subjects: ["the Naive Nun", "the Curious Elf", "the New Apprentice", "the Princess Who Skipped Health Class"] },
+    { name: "Resolve the Tension at", desc: "The air is thick—someone needs to break it. Loudly", subjects: ["the All-Girls Academy", "the Hot Spring Inn", "the Bridal Retreat", "the Convent of Questionable Vows"] },
+    { name: "Win the Affection of the Tsundere", desc: "I-it's not like she wants you to succeed or anything", subjects: ["Swordswoman", "Archmage", "Dragon Heiress", "Demon Princess", "Loan Shark"] },
+    { name: "Calm the Raging Hormones of", desc: "Spring is in the air and she is in your lap", subjects: ["the Werewolf Maiden", "the Awakened Succubus", "the Beastfolk Pride", "the Recently Single Goddess"] },
+    { name: "Demonstrate True Endurance to", desc: "She's seen 'heroes' come and go—mostly go, very quickly", subjects: ["the Marathon Mistress", "the Insatiable Inquisitor", "the Three-Round Champion", "the Tantric Cult Leader"] }
   ]
 };
 
