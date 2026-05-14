@@ -115,7 +115,14 @@ export const generateLoreEntry = (worldData: any): { id: string; name: string; d
     { prefix: "magical_phenomenon", name: "Magical Phenomenon", template: (w: any) => `The ${w.weather || 'strange'} weather patterns are caused by unstable magical ley lines.` },
     { prefix: "monster_origin", name: "Monster Origins", template: () => `Ancient texts describe how the first monsters came to be through failed experiments and dark rituals.` },
     { prefix: "forbidden_knowledge", name: "Forbidden Knowledge", template: () => `This knowledge was sealed away by the ancients, deemed too dangerous for mortal minds.` },
-    { prefix: "world_creation", name: "World Creation Myth", template: (w: any) => `In the beginning, ${w.deity?.name || 'the First One'} shaped reality from pure chaos.` }
+    { prefix: "world_creation", name: "World Creation Myth", template: (w: any) => `In the beginning, ${w.deity?.name || 'the First One'} shaped reality from pure chaos.` },
+    { prefix: "scandalous_affair", name: "Scandalous Affair", template: (w: any) => `Court records hint at a torrid liaison between ${w.deity?.name || 'a high priestess'} and a mortal hero. The chamber maids never recovered.` },
+    { prefix: "fertility_rite", name: "Forgotten Fertility Rite", template: () => `Once a year, the village abandons its clothes and inhibitions in honor of an old, very enthusiastic god.` },
+    { prefix: "love_curse", name: "Love-Curse Legend", template: () => `A spurned witch enchanted these lands so that any kiss lasts three days—willing or not.` },
+    { prefix: "thirsty_goddess", name: "Tale of the Thirsty Goddess", template: (w: any) => `${w.deity?.name || 'A certain goddess'} is said to descend each spring in search of "worthy companionship." Inns triple their rates.` },
+    { prefix: "harem_dynasty", name: "Harem Dynasty", template: () => `An empire once ruled by a single hero and forty consorts. The succession war involved a lot of pillows.` },
+    { prefix: "succubus_pact", name: "The Succubus Pact", template: () => `A whole bloodline traded their souls for charm, beauty, and stamina. Their descendants are still impossible to refuse.` },
+    { prefix: "honeymoon_ruins", name: "Honeymoon Ruins", template: () => `A castle built for one royal wedding night. They never came out. The masonry is suspiciously enthusiastic.` }
   ];
   
   const loreType = loreTypes[Math.floor(Math.random() * loreTypes.length)];
