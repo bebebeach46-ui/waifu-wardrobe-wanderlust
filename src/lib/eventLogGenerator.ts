@@ -86,7 +86,28 @@ const events: Event[] = [
   { text: "A wolf watched you from the treeline. It was standing upright. Wearing boots.", sentiment: 'neutral' },
   { text: "Found a wanted poster with your face. The crime listed is 'existing.'", sentiment: 'negative' },
   { text: "The sunset was beautiful. Then you realized suns don't set in the north.", sentiment: 'negative' },
-  { text: "Drank from a stream. Gained a memory that isn't yours. It's a good one, at least.", sentiment: 'positive' }
+  { text: "Drank from a stream. Gained a memory that isn't yours. It's a good one, at least.", sentiment: 'positive' },
+  // Spicy / innuendo events (Crush Crush flavor)
+  { text: "The barmaid asked if you wanted it 'long, hard, and on the rocks.' She meant the ale. Probably.", sentiment: 'positive' },
+  { text: "A succubus complimented your stamina stat. Blushed for three encounters straight.", sentiment: 'positive' },
+  { text: "The healer offered a 'full-body inspection.' She was very thorough.", sentiment: 'positive' },
+  { text: "Got a hobby unlocked: 'Polishing the Princess's Tiara.' It's not a metaphor. Mostly.", sentiment: 'positive' },
+  { text: "The dragon waifu purred and called you 'tiny adventurer.' Your ego: -3. Your everything else: +5.", sentiment: 'neutral' },
+  { text: "Tripped, fell, and somehow ended up in the elf queen's bath. Classic protagonist landing.", sentiment: 'positive' },
+  { text: "The blacksmith's daughter offered to 'work your shaft.' She meant the spear. You hope.", sentiment: 'neutral' },
+  { text: "Your tsundere companion left rations on your bedroll. With a love note. With teeth marks.", sentiment: 'positive' },
+  { text: "Accidentally walked in on the party's hot spring scene. Lost 5 sanity, gained 5 affection.", sentiment: 'positive' },
+  { text: "A nun whispered her confession. You're not allowed to repeat it but the diary self-censored.", sentiment: 'neutral' },
+  { text: "The mage offered to 'cast a spell on you.' She winked. The spell was definitely not in the books.", sentiment: 'positive' },
+  { text: "Your familiar got jealous when the catgirl sat on your lap. Now there are two on your lap.", sentiment: 'positive' },
+  { text: "The vampire countess bit your neck. Then your ear. Then asked if you were 'free Friday.'", sentiment: 'positive' },
+  { text: "Bought a cursed pendant. Side effect: every NPC of the preferred gender now winks at you.", sentiment: 'positive' },
+  { text: "Slime girl tried to 'absorb' you. The party intervened. You almost asked them not to.", sentiment: 'neutral' },
+  { text: "The merchant offered a discount for a kiss. You haggled her up to two.", sentiment: 'positive' },
+  { text: "Won a swimsuit contest you didn't enter. The trophy is a phone number.", sentiment: 'positive' },
+  { text: "The demon lord's daughter slipped you her tower address. 'Bring snacks.' Underlined twice.", sentiment: 'positive' },
+  { text: "Slept at the inn. Woke up with three companions in the bed and zero memory of how.", sentiment: 'neutral' },
+  { text: "The oracle foretold your destiny: 'Many lovers. Some survive.'", sentiment: 'neutral' }
 ];
 
 export type { Event };
