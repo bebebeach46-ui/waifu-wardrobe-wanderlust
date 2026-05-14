@@ -5,6 +5,7 @@ import WorldGenerator from "@/components/WorldGenerator";
 import GameScreen from "@/components/GameScreen";
 import SaveSlots from "@/components/SaveSlots";
 import { DifficultySelector } from "@/components/DifficultySelector";
+import Seo from "@/components/Seo";
 
 const Index = () => {
   const [screen, setScreen] = useState<"menu" | "slots" | "difficulty" | "world" | "game">("menu");
@@ -61,6 +62,11 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
+      <Seo
+        title="Quest Idle — Automated Text-Based Idle RPG"
+        description="Start a randomized idle RPG adventure. Permadeath, companions, and absurd quests across medieval to cyberpunk timelines."
+        path="/"
+      />
       <div className="w-full max-w-md">
         {screen === "menu" && (
           <Card className="p-8 space-y-6">
