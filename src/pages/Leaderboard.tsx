@@ -104,6 +104,11 @@ const Leaderboard = () => {
 
   return (
     <div className="min-h-screen bg-background p-4">
+      <Seo
+        title="Leaderboards — Quest Idle"
+        description="See Quest Idle's top heroes: most deaths, longest lives, and the most bizarre equipment hauls across all timelines."
+        path="/leaderboard"
+      />
       <div className="max-w-4xl mx-auto space-y-4">
         <div className="flex items-center justify-between">
           <Button variant="ghost" size="icon" onClick={() => navigate("/")}>
