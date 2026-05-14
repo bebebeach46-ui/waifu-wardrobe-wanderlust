@@ -1,0 +1,11 @@
+# Quest Idle
+
+> A hilarious automated text-based idle RPG with randomized adventures across timelines — from medieval to cyberpunk — with anime flair, permadeath, and absurd companions.
+
+Quest Idle plays itself: send a hero on procedurally generated quests, recruit companions, accumulate bonds, and immortalize their (often ridiculous) deaths in the morgue.
+
+## Pages
+
+- [Home](/): Start a new adventure or continue an existing save.
+- [Leaderboard](/leaderboard): Top deaths, longest lives, and most bizarre equipment.
+- [Sign In](/auth): Sign in or create an account to sync saves and post scores.

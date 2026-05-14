@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import Seo from "@/components/Seo";
 
 const Auth = () => {
   const [loading, setLoading] = useState(false);
@@ -107,6 +108,11 @@ const Auth = () => {
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
+      <Seo
+        title="Sign In or Sign Up — Quest Idle"
+        description="Sign in or create a Quest Idle account to sync saves, post leaderboard scores, and immortalize your hero's deaths."
+        path="/auth"
+      />
       <Card className="w-full max-w-md p-8 space-y-6">
         <div className="text-center space-y-2">
           <h1 className="text-3xl font-bold text-primary">Quest Idle</h1>
