@@ -74,90 +74,60 @@ const equipmentByTimeline: Record<string, {
   amulets: string[]; ammo: string[];
 }> = {
   Medieval: {
-    weapons: ["Iron Sword of Inadequacy", "War Axe of Mild Discomfort", "Longbow of Questionable Accuracy", "Staff of Tentacle Slapping"],
-    shields: ["Buckler of Blocking", "Tower Shield of Compensation", "Kite Shield of Disappointment"],
-    armors: ["Chainmail Bikini", "Full Plate of Virginity", "Leather Jerkin of Questionable Material"],
-    heads: ["Horned Helmet of Overcompensation", "Circlet of Anime Protagonist", "Hood of Edgelord"],
-    cloaks: ["Cape of Dramatic Billowing", "Cloak of Mysterious Backstory", "Mantle of Plot Armor"],
-    boots: ["Boots of Shounen Speed", "Greaves of Heavy Stomping", "Sandals of Overpowered Monk"],
-    gauntlets: ["Gauntlets of Fisting", "Gloves of Finger Blasting", "Mittens of Fumbling"],
-    rings: ["Ring of Waifu Summoning", "Band of Harem Expansion", "Cock Ring of Constitution"],
-    amulets: ["Amulet of Protagonist Energy", "Pendant of Tragic Backstory", "Necklace of Plot Convenience"],
-    ammo: ["Arrows of Phallic Trajectory", "Bolts of Penetration", "Blessed Ammunition"]
+    weapons: ["Iron Sword of Inadequacy", "War Axe of Mild Discomfort", "Longbow of Questionable Accuracy", "Staff of Tentacle Slapping", "Throbbing Greatsword of the Lonely Knight", "Quivering Dagger of the Maiden's Sigh", "Pulsing Mace of Maidenhead Cracking", "Sticky Morningstar of Dawn's Embrace", "Hot-Hilted Longsword of Wenches", "Trembling Spear of Premature Glory"],
+    shields: ["Buckler of Blocking", "Tower Shield of Compensation", "Kite Shield of Disappointment", "Heaving Bosom Plate of Defense", "Targe of the Teasing Maiden", "Quivering Roundshield of Restraint"],
+    armors: ["Chainmail Bikini", "Full Plate of Virginity", "Leather Jerkin of Questionable Material", "Crotchless Cuirass of the Brazen Knight", "Bodice Brigandine of Heaving Honor", "Lace-Up Plate of the Tavern Wench", "Slit-Skirt Scale of the Saucy Squire"],
+    heads: ["Horned Helmet of Overcompensation", "Circlet of Anime Protagonist", "Hood of Edgelord", "Throbbing Tiara of Temptation", "Helm of the Hungry Princess", "Crown of the Cuckolded King"],
+    cloaks: ["Cape of Dramatic Billowing", "Cloak of Mysterious Backstory", "Mantle of Plot Armor", "Cloak of Backless Dresses", "Mantle of the Heaving Bosom", "Wrap of the Wet Maiden"],
+    boots: ["Boots of Shounen Speed", "Greaves of Heavy Stomping", "Sandals of Overpowered Monk", "Thigh-High Boots of the Bored Baroness", "Stiletto Sabatons of Stomping Hearts", "Lace-Up Greaves of the Garter"],
+    gauntlets: ["Gauntlets of Fisting", "Gloves of Finger Blasting", "Mittens of Fumbling", "Gauntlets of Gentle Groping", "Gloves of the Wandering Hand", "Mitts of the Marquis' Mistress"],
+    rings: ["Ring of Waifu Summoning", "Band of Harem Expansion", "Cock Ring of Constitution", "Pearl Necklace Ring of Pleasure", "Throbbing Band of the Bedchamber", "Ring of the Reluctant Bride", "Promise Ring of the Pregnant Princess"],
+    amulets: ["Amulet of Protagonist Energy", "Pendant of Tragic Backstory", "Necklace of Plot Convenience", "Locket of the Lusty Lady-in-Waiting", "Pendant of Pierced Maidens", "Choker of the Captive Countess"],
+    ammo: ["Arrows of Phallic Trajectory", "Bolts of Penetration", "Blessed Ammunition", "Quivering Quarrels of the Quivering Quarry", "Throbbing Bodkins of Deep Penetration", "Sticky Bolts of the Bedded Beloved"]
   },
   Renaissance: {
-    weapons: ["Rapier of Thrust", "Flintlock of Premature Discharge", "Halberd of Reach", "Enchanted Grimoire of Lewdness"],
-    shields: ["Dueling Shield", "Pavise of Protection", "Buckler of Parry"],
-    armors: ["Half-Plate of Nobility", "Brigandine of Bondage", "Doublet of Dashing"],
-    heads: ["Tricorn of Swashbuckling", "Beret of Artist", "Helm of Conquistador"],
-    cloaks: ["Cape of Musketeer", "Cloak of Assassin", "Shawl of Seduction"],
-    boots: ["Boots of Renaissance Man", "Shoes of Court Dancing", "Sandals of Philosopher"],
-    gauntlets: ["Dueling Gloves", "Gauntlets of Gentleman", "Gloves of Clockwork"],
-    rings: ["Signet of Noble Birth", "Ring of Alchemy", "Band of Secret Society"],
-    amulets: ["Medallion of Patron", "Crucifix of Inquisition", "Locket of Lover"],
-    ammo: ["Musket Balls of Justice", "Crossbow Bolts of Precision", "Blessed Shot"]
+    weapons: ["Rapier of Thrust", "Flintlock of Premature Discharge", "Halberd of Reach", "Enchanted Grimoire of Lewdness", "Throbbing Estoc of Eager Entry", "Pulsing Pistol of Powder Burns", "Sticky Stiletto of the Seduced Signora", "Quivering Cutlass of the Captive Courtesan"],
+    shields: ["Dueling Shield", "Pavise of Protection", "Buckler of Parry", "Bodice Buckler of the Buxom Baroness", "Targe of the Tempting Tavern", "Pavise of Pierced Petticoats"],
+    armors: ["Half-Plate of Nobility", "Brigandine of Bondage", "Doublet of Dashing", "Corset of the Choking Countess", "Codpiece of Compensating Counts", "Lace-Up Cuirass of the Lusty Lady"],
+    heads: ["Tricorn of Swashbuckling", "Beret of Artist", "Helm of Conquistador", "Veil of the Vanished Virtue", "Mask of the Masked Mistress", "Crown of the Cuckolded Crown"],
+    cloaks: ["Cape of Musketeer", "Cloak of Assassin", "Shawl of Seduction", "Mantle of the Mistress' Window", "Wrap of the Wet Renaissance", "Cape of the Convent Escapee"],
+    boots: ["Boots of Renaissance Man", "Shoes of Court Dancing", "Sandals of Philosopher", "Heels of the Heaving Harlot", "Slippers of the Sneaking Suitor", "Boots of the Bedded Bride"],
+    gauntlets: ["Dueling Gloves", "Gauntlets of Gentleman", "Gloves of Clockwork", "Gloves of the Groping Gondolier", "Mitts of the Mounted Marchioness", "Gauntlets of the Greedy Groom"],
+    rings: ["Signet of Noble Birth", "Ring of Alchemy", "Band of Secret Society", "Garter Ring of the Gasping Geisha", "Pearl Band of the Pregnant Patrician", "Ring of the Ravished Renaissance"],
+    amulets: ["Medallion of Patron", "Crucifix of Inquisition", "Locket of Lover", "Locket of the Loosened Laces", "Pendant of the Pierced Petticoat", "Cameo of the Caressed Countess"],
+    ammo: ["Musket Balls of Justice", "Crossbow Bolts of Precision", "Blessed Shot", "Throbbing Bullets of the Bedchamber", "Sticky Shot of the Sated Suitor", "Pulsing Powder of Premature Climax"]
   },
   Industrial: {
-    weapons: ["Revolver of Quick Draw", "Steam Rifle of Overpressure", "Mechanized Fist of Punching", "Shock Rod of Stimulation"],
-    shields: ["Riot Shield", "Energy Barrier Mk I", "Steam-Powered Buckler"],
-    armors: ["Steam-Powered Exosuit", "Industrial Vest of Protection", "Leather Duster of Badass"],
-    heads: ["Top Hat of Industrialist", "Welding Mask of Blinding", "Bowler of Gentleman Thug"],
-    cloaks: ["Coat of Steam Punk", "Duster of Wanderer", "Cape of Mad Scientist"],
-    boots: ["Boots of Locomotive", "Shoes of Factory Worker", "Magnetic Boots"],
-    gauntlets: ["Steam Gauntlets", "Mechanical Hands", "Gloves of Grease"],
-    rings: ["Gear Ring of Engineering", "Band of Union", "Ring of Oil Baron"],
-    amulets: ["Pocket Watch of Time", "Medallion of Progress", "Amulet of Industry"],
-    ammo: ["Steam Cartridges", "Explosive Rounds", "Armor-Piercing Bullets"]
+    weapons: ["Revolver of Quick Draw", "Steam Rifle of Overpressure", "Mechanized Fist of Punching", "Shock Rod of Stimulation", "Throbbing Piston Hammer of Heaving Heat", "Pulsing Pneumatic Drill of the Lonely Locomotive", "Sticky Steam Lance of the Sweating Stoker", "Quivering Coil Whip of the Captive Countess"],
+    shields: ["Riot Shield", "Energy Barrier Mk I", "Steam-Powered Buckler", "Heaving Boiler Plate of the Buxom Baroness", "Pulsing Pressure Shield of Premature Release", "Throbbing Ironclad of Thrusting Pistons"],
+    armors: ["Steam-Powered Exosuit", "Industrial Vest of Protection", "Leather Duster of Badass", "Tightlaced Brass Corset of the Brazen Baroness", "Lace-Up Boiler Suit of the Lusty Locomotive", "Crotchless Coalstoker's Coveralls", "Garter-Belt Bandolier of the Saucy Sapper"],
+    heads: ["Top Hat of Industrialist", "Welding Mask of Blinding", "Bowler of Gentleman Thug", "Veiled Goggles of the Voyeuristic Viscount", "Bonnet of the Bedded Bride", "Helm of the Hungry Heiress"],
+    cloaks: ["Coat of Steam Punk", "Duster of Wanderer", "Cape of Mad Scientist", "Mantle of the Mounted Mistress", "Wrap of the Wet Workshop", "Bustle Cloak of the Bothered Baroness"],
+    boots: ["Boots of Locomotive", "Shoes of Factory Worker", "Magnetic Boots", "Thigh-High Riding Boots of the Restless Rail", "Stiletto Steamboots of the Stoked Suitor", "Lace-Up Greaves of the Gasping Governess"],
+    gauntlets: ["Steam Gauntlets", "Mechanical Hands", "Gloves of Grease", "Greasy Gloves of the Groping Greaser", "Pneumatic Mitts of the Mounted Marchioness", "Throbbing Pistons of the Pining Princess"],
+    rings: ["Gear Ring of Engineering", "Band of Union", "Ring of Oil Baron", "Choker Ring of the Coal-Stoked Courtesan", "Throbbing Brass Band of the Bedchamber", "Garter Ring of the Greedy Groom"],
+    amulets: ["Pocket Watch of Time", "Medallion of Progress", "Amulet of Industry", "Locket of the Loosened Laces", "Pendant of the Pierced Petticoat", "Choker of the Cuffed Countess"],
+    ammo: ["Steam Cartridges", "Explosive Rounds", "Armor-Piercing Bullets", "Throbbing Shells of the Throbbing Pistons", "Sticky Slugs of the Sated Suitor", "Pulsing Powder of Premature Discharge"]
   },
   Cyberpunk: {
-    weapons: ["Plasma Blade of Slicing", "Neural Whip of Dominance", "Smart Gun of Aimbot", "Nano Katana of Weeb"],
-    shields: ["Energy Shield Mk II", "Holographic Barrier", "Reactive Armor Plating"],
-    armors: ["Synth-Skin Bodysuit", "Corporate Power Armor", "Street Samurai Jacket"],
-    heads: ["Neural Interface Headset", "VR Visor of Hentai", "Cybernetic Skull Implant"],
-    cloaks: ["Holo-Cloak of Invisibility", "Digital Cape", "Neon Trenchcoat"],
-    boots: ["Mag-Boots", "Rocket Boots", "Stealth Sneakers"],
-    gauntlets: ["Cyber-Gauntlets", "Hacking Gloves", "Power Fists"],
-    rings: ["Data Ring", "Encryption Band", "Neural Link Ring"],
-    amulets: ["AI Companion Chip", "Biometric Scanner", "Corporate ID Badge"],
-    ammo: ["Plasma Cells", "EMP Rounds", "Smart Bullets"]
+    weapons: ["Plasma Blade of Slicing", "Neural Whip of Dominance", "Smart Gun of Aimbot", "Nano Katana of Weeb", "Throbbing Vibroblade of the Virgin Vanguard", "Pulsing Pleasure Pistol of the Pining Pilot", "Sticky Synth-Whip of the Sated Synthetic", "Quivering Quantum Quirt of the Captive Codeslinger"],
+    shields: ["Energy Shield Mk II", "Holographic Barrier", "Reactive Armor Plating", "Heaving Hardlight Bra of the Buxom Bot", "Throbbing Tactical Shield of the Tempted Tactician", "Pulsing Personal Plate of the Pining Pirate"],
+    armors: ["Synth-Skin Bodysuit", "Corporate Power Armor", "Street Samurai Jacket", "Crotchless Combat Bodyglove", "Lace-Up Latex of the Lusty Lurker", "Mesh Bikini of the Mounted Merc", "Garter-Holstered Trenchcoat of Temptation"],
+    heads: ["Neural Interface Headset", "VR Visor of Hentai", "Cybernetic Skull Implant", "Choker-Cam of the Choked Codeslinger", "Throbbing Tiara of the Tempted Techie", "Veil of the Voyeuristic Vlogger"],
+    cloaks: ["Holo-Cloak of Invisibility", "Digital Cape", "Neon Trenchcoat", "Mantle of the Mounted Merc", "Wrap of the Wet Wirehead", "Bustle Cloak of the Bothered Botgirl"],
+    boots: ["Mag-Boots", "Rocket Boots", "Stealth Sneakers", "Thigh-High Mag-Heels of the Mounted Merc", "Stiletto Stompers of the Sated Synth", "Lace-Up Latex Boots of the Lusty Lurker"],
+    gauntlets: ["Cyber-Gauntlets", "Hacking Gloves", "Power Fists", "Vibrating Gauntlets of the Voyeuristic Vlogger", "Throbbing Touchpads of the Tempted Techie", "Pulsing Power Fists of the Pining Pirate"],
+    rings: ["Data Ring", "Encryption Band", "Neural Link Ring", "Throbbing Bandwidth Band of the Bedchamber", "Choker-Ring of the Choked Codeslinger", "Garter Ring of the Greedy Gridrider"],
+    amulets: ["AI Companion Chip", "Biometric Scanner", "Corporate ID Badge", "Locket of the Lusty Loginscreen", "Pendant of the Pierced Pixel", "Choker of the Captive Cybernaut"],
+    ammo: ["Plasma Cells", "EMP Rounds", "Smart Bullets", "Throbbing Slugs of the Throbbing Servo", "Sticky Shells of the Sated Synth", "Pulsing Plasma of Premature Discharge"]
   },
   "Post-Apocalyptic": {
-    weapons: ["Makeshift Spear of Desperation", "Pipe Rifle of Rust", "Spiked Bat of Negan", "Bone Club of Caveman"],
-    shields: ["Car Door Shield", "Scrap Metal Barrier", "Tire Shield"],
-    armors: ["Raider Leather", "Wasteland Armor", "Mutant Hide Jacket"],
-    heads: ["Gas Mask of Survivor", "Motorcycle Helmet", "Skull Mask of Raider"],
-    cloaks: ["Tattered Cape", "Wasteland Duster", "Radiation Cloak"],
-    boots: ["Combat Boots", "Wasteland Wraps", "Spiked Boots"],
-    gauntlets: ["Scrap Gauntlets", "Raider Gloves", "Makeshift Claws"],
-    rings: ["Bottle Cap Ring", "Scrap Ring", "Radiation Ring"],
-    amulets: ["Geiger Counter", "Radiation Badge", "Lucky Rabbit Foot"],
-    ammo: ["Homemade Arrows", "Scrap Bolts", "Salvaged Bullets"]
-  },
-  Ancient: {
-    weapons: ["Bronze Sword of Heroism", "Stone Hammer of Bonking", "Ritual Dagger of Sacrifice", "Ancient Staff of Old Wizard"],
-    shields: ["Bronze Shield", "Wooden Shield", "Ceremonial Shield"],
-    armors: ["Bronze Cuirass", "Leather Skirt", "Toga of Senator"],
-    heads: ["Laurel Crown", "Bronze Helm", "Feathered Headdress"],
-    cloaks: ["Purple Toga", "Animal Pelt", "Ceremonial Robes"],
-    boots: ["Sandals of Sparta", "Leather Wraps", "Bronze Greaves"],
-    gauntlets: ["Bronze Bracers", "Leather Wraps", "Stone Gauntlets"],
-    rings: ["Golden Ring of Power", "Bronze Band", "Stone Ring"],
-    amulets: ["Scarab Amulet", "Eye of Horus", "Jade Pendant"],
-    ammo: ["Stone-Tipped Arrows", "Bronze-Tipped Bolts", "Flint Arrows"]
-  },
-  "Dark Ages": {
-    weapons: ["Cursed Blade of Edgelord", "Shadow Bow of Darkness", "Dark Scepter of Evil Overlord", "Bone Club of Necrophilia"],
-    shields: ["Skull Shield", "Shadow Barrier", "Cursed Shield"],
-    armors: ["Dark Plate Armor", "Shadow Robes", "Bone Armor"],
-    heads: ["Horned Helmet of Demon", "Hood of Assassin", "Crown of Bones"],
-    cloaks: ["Cloak of Shadows", "Cape of Darkness", "Shroud of Death"],
-    boots: ["Boots of Silent Death", "Shadow Walkers", "Bone Boots"],
-    gauntlets: ["Clawed Gauntlets", "Shadow Gloves", "Bone Hands"],
-    rings: ["Ring of Dark Pact", "Soul Ring", "Cursed Band"],
-    amulets: ["Amulet of Necromancy", "Pendant of Darkness", "Skull Necklace"],
-    ammo: ["Cursed Arrows", "Shadow Bolts", "Bone Arrows"]
-  }
-};
+    weapons: ["Makeshift Spear of Desperation", "Pipe Rifle of Rust", "Spiked Bat of Negan", "Bone Club of Caveman", "Throbbing Rebar of the Restless Raider", "Pulsing Pipe Wrench of the Pining Pillager", "Sticky Sledgehammer of the Sated Survivor", "Quivering Crossbow of the Captive Courier"],
+    shields: ["Car Door Shield", "Scrap Metal Barrier", "Tire Shield", "Heaving Hubcap of the Buxom Bandit", "Throbbing Tire-Shield of the Tempted Trader", "Pulsing Plate of the Pining Pioneer"],
+    armors: ["Raider Leather", "Wasteland Armor", "Mutant Hide Jacket", "Crotchless Combat Tarp of the Brazen Brawler", "Lace-Up Leather of the Lusty Looter", "Mesh Bikini of the Mutant Marauder", "Garter-Holstered Wasteland Wrap"],
+    heads: ["Gas Mask of Survivor", "Motorcycle Helmet", "Skull Mask of Raider", "Veiled Visor of the Voyeuristic Vagrant", "Bonnet of the Bedded Bandit", "Helm of the Hungry Heiress of Hollows"],
+    cloaks: ["Tattered Cape", "Wasteland Duster", "Radiation Cloak", "Mantle of the Mounted Marauder", "Wrap of the Wet Wasteland", "Bustle Cloak of the Bothered Bandit"],
+    boots: ["Comb
 
 const generateAge = (race: string, startingAge: number | null = null): number => {
   if (startingAge !== null) return startingAge;
