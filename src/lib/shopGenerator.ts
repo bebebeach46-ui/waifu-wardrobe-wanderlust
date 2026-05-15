@@ -402,7 +402,11 @@ const allItems = [
   ...equipmentUpgrades,
   ...consumables,
   ...companionGifts,
-  ...specialItems
+  ...specialItems,
+  ...spicyStatBoosts,
+  ...spicyEquipment,
+  ...spicyConsumables
+
 ];
 
 export const generateShopInventory = (playerLevel: number, count: number = 8): ShopItem[] => {
