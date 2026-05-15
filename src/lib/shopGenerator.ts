@@ -309,6 +309,35 @@ const companionGifts: Omit<ShopItem, 'id'>[] = [
   }
 ];
 
+// Spicy innuendo-laden items added to the database
+const spicyStatBoosts: Omit<ShopItem, 'id'>[] = [
+  { name: "Succubus's Stamina Tonic", description: "+3 Constitution. 'Last all night, they said.'", price: 700, type: 'stat_boost', effect: { stat: 'constitution', value: 3 }, rarity: 'rare' },
+  { name: "Catgirl's Purring Lessons", description: "+3 Charisma. Side effects include uncontrollable nya~", price: 700, type: 'stat_boost', effect: { stat: 'charisma', value: 3 }, rarity: 'rare' },
+  { name: "Tantric Yoga Manual", description: "+2 Dexterity, +2 Wisdom. Bend like a temple-maid.", price: 1200, type: 'stat_boost', effect: { stat: 'dexterity', value: 2 }, rarity: 'epic' },
+  { name: "Vampire Countess's Iron Diet", description: "+3 Strength. She insists you drink up.", price: 700, type: 'stat_boost', effect: { stat: 'strength', value: 3 }, rarity: 'rare' },
+  { name: "Aphrodite's Compact", description: "+2 to all stats. Smells like rose, regret, and rebound.", price: 4000, type: 'stat_boost', effect: { stat: 'all', value: 2 }, rarity: 'legendary' },
+];
+
+const spicyEquipment: Omit<ShopItem, 'id'>[] = [
+  { name: "Throbbing Hilt Polish", description: "Upgrade weapon. 'Buff that blade till it gleams.'", price: 350, type: 'equipment', effect: { slot: 'weapon' }, rarity: 'common' },
+  { name: "Crotchless Cuirass Kit", description: "Upgrade armor with daring new ventilation.", price: 400, type: 'equipment', effect: { slot: 'armor' }, rarity: 'uncommon' },
+  { name: "Lace-Up Greave Tightener", description: "Upgrade boots. Maiden assistance recommended.", price: 250, type: 'equipment', effect: { slot: 'boots' }, rarity: 'common' },
+  { name: "Garter-Belted Holster Mod", description: "Upgrade cloak with hidden compartments.", price: 300, type: 'equipment', effect: { slot: 'cloak' }, rarity: 'uncommon' },
+  { name: "Bodice-Pressed Pendant", description: "Upgrade amulet. Worn close to the heart and other places.", price: 500, type: 'equipment', effect: { slot: 'amulet' }, rarity: 'rare' },
+  { name: "Vibrating Gauntlet Servo", description: "Upgrade gauntlets. Three speed settings.", price: 350, type: 'equipment', effect: { slot: 'gauntlets' }, rarity: 'uncommon' },
+  { name: "Choker Ring Resizer", description: "Upgrade a ring. Snug, but never too snug.", price: 400, type: 'equipment', effect: { slot: 'ring' }, rarity: 'uncommon' },
+];
+
+const spicyConsumables: Omit<ShopItem, 'id'>[] = [
+  { name: "Succubus's Pick-Me-Up", description: "Heals fully. Tastes suspicious. You don't ask.", price: 600, type: 'consumable', effect: { type: 'full_heal' }, rarity: 'uncommon' },
+  { name: "Tsundere Tea (Hot & Cold)", description: "Cleanse debuffs. 'I-it's not for you, baka!'", price: 450, type: 'consumable', effect: { type: 'cleanse_debuffs' }, rarity: 'common' },
+  { name: "Bottle of Liquid Courage", description: "+50% damage for one fight. Hangover guaranteed.", price: 700, type: 'consumable', effect: { type: 'damage_boost', duration: 600000 }, rarity: 'uncommon' },
+  { name: "Honeymoon Suite Voucher", description: "Skip the next quest, return well-rested. (Quest reroll, +HP)", price: 800, type: 'consumable', effect: { type: 'reroll_quest' }, rarity: 'rare' },
+  { name: "Forbidden Love Potion", description: "Random companion bond +3. They'll be… clingy.", price: 1500, type: 'consumable', effect: { type: 'random_bond_boost', value: 3 }, rarity: 'rare' },
+  { name: "Aphrodisiac Stamina Draught", description: "Double EXP & gold for 30 minutes. Worth every gasp.", price: 1800, type: 'consumable', effect: { type: 'exp_boost', duration: 1800000 }, rarity: 'epic' },
+  { name: "Plot Armor Lingerie Set", description: "Prevent one death. Saves your life and turns heads.", price: 3500, type: 'consumable', effect: { type: 'death_save' }, rarity: 'epic' },
+];
+
 const specialItems: Omit<ShopItem, 'id'>[] = [
   {
     name: "Random Status Effect",
@@ -373,7 +402,11 @@ const allItems = [
   ...equipmentUpgrades,
   ...consumables,
   ...companionGifts,
-  ...specialItems
+  ...specialItems,
+  ...spicyStatBoosts,
+  ...spicyEquipment,
+  ...spicyConsumables
+
 ];
 
 export const generateShopInventory = (playerLevel: number, count: number = 8): ShopItem[] => {
