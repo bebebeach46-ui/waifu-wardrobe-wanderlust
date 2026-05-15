@@ -127,7 +127,37 @@ const equipmentByTimeline: Record<string, {
     armors: ["Raider Leather", "Wasteland Armor", "Mutant Hide Jacket", "Crotchless Combat Tarp of the Brazen Brawler", "Lace-Up Leather of the Lusty Looter", "Mesh Bikini of the Mutant Marauder", "Garter-Holstered Wasteland Wrap"],
     heads: ["Gas Mask of Survivor", "Motorcycle Helmet", "Skull Mask of Raider", "Veiled Visor of the Voyeuristic Vagrant", "Bonnet of the Bedded Bandit", "Helm of the Hungry Heiress of Hollows"],
     cloaks: ["Tattered Cape", "Wasteland Duster", "Radiation Cloak", "Mantle of the Mounted Marauder", "Wrap of the Wet Wasteland", "Bustle Cloak of the Bothered Bandit"],
-    boots: ["Comb
+    boots: ["Combat Boots", "Wasteland Wraps", "Spiked Boots", "Thigh-High Wasteland Wraps of the Wet Wanderer", "Stiletto Stompers of the Sated Scavenger", "Lace-Up Leather Boots of the Lusty Looter"],
+    gauntlets: ["Scrap Gauntlets", "Raider Gloves", "Makeshift Claws", "Greasy Gauntlets of the Groping Grease-Goblin", "Throbbing Pipe-Fists of the Pining Pillager", "Vibrating Vises of the Voyeuristic Vagrant"],
+    rings: ["Bottle Cap Ring", "Scrap Ring", "Radiation Ring", "Throbbing Bottle-Cap Band of the Bedchamber", "Choker-Ring of the Choked Chemkin", "Garter Ring of the Greedy Ghoul"],
+    amulets: ["Geiger Counter", "Radiation Badge", "Lucky Rabbit Foot", "Locket of the Lusty Lurker", "Pendant of the Pierced Pioneer", "Choker of the Captive Courier"],
+    ammo: ["Homemade Arrows", "Scrap Bolts", "Salvaged Bullets", "Throbbing Slugs of the Throbbing Survivor", "Sticky Shells of the Sated Scrounger", "Pulsing Powder of Premature Pillage"]
+  },
+  Ancient: {
+    weapons: ["Bronze Sword of Heroism", "Stone Hammer of Bonking", "Ritual Dagger of Sacrifice", "Ancient Staff of Old Wizard", "Throbbing Phallic Idol of the Pining Priestess", "Pulsing Obelisk Mace of Maidenhead", "Sticky Sacrificial Spear of the Sated Suitor", "Quivering Khopesh of the Captive Concubine"],
+    shields: ["Bronze Shield", "Wooden Shield", "Ceremonial Shield", "Heaving Hoplon of the Buxom Battlemaid", "Throbbing Aspis of the Tempted Temple-Maid", "Pulsing Pavise of the Pining Priestess"],
+    armors: ["Bronze Cuirass", "Leather Skirt", "Toga of Senator", "Crotchless Toga of the Tempted Tribune", "Bodice Cuirass of the Buxom Bacchante", "Slit-Skirt Linothorax of the Lusty Lyre-Maid", "Garter-Belted Greco of the Gasping Geometer"],
+    heads: ["Laurel Crown", "Bronze Helm", "Feathered Headdress", "Veil of the Vestal Virgin", "Tiara of the Tempted Temple-Maid", "Crown of the Cuckolded Caesar"],
+    cloaks: ["Purple Toga", "Animal Pelt", "Ceremonial Robes", "Mantle of the Mounted Maenad", "Wrap of the Wet Vestal", "Bustle Pelt of the Bothered Bacchante"],
+    boots: ["Sandals of Sparta", "Leather Wraps", "Bronze Greaves", "Thigh-High Sandals of the Sated Spartan", "Stiletto Strappy Sandals of the Saucy Sibyl", "Lace-Up Greaves of the Gasping Geisha-of-Antiquity"],
+    gauntlets: ["Bronze Bracers", "Leather Wraps", "Stone Gauntlets", "Throbbing Bracers of the Bedded Bacchante", "Vibrating Vambraces of the Voyeuristic Vestal", "Pulsing Palm-Wraps of the Pining Priestess"],
+    rings: ["Golden Ring of Power", "Bronze Band", "Stone Ring", "Throbbing Toe-Ring of the Tempted Temple-Maid", "Choker-Ring of the Choked Concubine", "Garter Ring of the Greedy Geisha"],
+    amulets: ["Scarab Amulet", "Eye of Horus", "Jade Pendant", "Locket of the Lusty Lyre-Maid", "Pendant of the Pierced Pharaoh-Bride", "Choker of the Captive Courtesan"],
+    ammo: ["Stone-Tipped Arrows", "Bronze-Tipped Bolts", "Flint Arrows", "Throbbing Bolts of the Throbbing Bacchante", "Sticky Shafts of the Sated Sibyl", "Pulsing Pebbles of Premature Prophecy"]
+  },
+  "Dark Ages": {
+    weapons: ["Cursed Blade of Edgelord", "Shadow Bow of Darkness", "Dark Scepter of Evil Overlord", "Bone Club of Necrophilia", "Throbbing Soulblade of the Lonely Lich-Queen", "Pulsing Phantom Lance of the Pining Phantom", "Sticky Shadow-Whip of the Sated Succubus", "Quivering Bonecleaver of the Captive Crypt-Bride"],
+    shields: ["Skull Shield", "Shadow Barrier", "Cursed Shield", "Heaving Bone-Bra of the Buxom Banshee", "Throbbing Skull-Pavise of the Tempted Templar", "Pulsing Plate of the Pining Phantom"],
+    armors: ["Dark Plate Armor", "Shadow Robes", "Bone Armor", "Crotchless Bone Bodice of the Brazen Banshee", "Lace-Up Shadow-Robes of the Lusty Lich", "Mesh Bone-Bikini of the Mounted Mortician", "Garter-Belted Shroud of the Sated Succubus"],
+    heads: ["Horned Helmet of Demon", "Hood of Assassin", "Crown of Bones", "Veil of the Vampire Bride", "Tiara of the Tempted Templar", "Crown of the Cuckolded Lich-King"],
+    cloaks: ["Cloak of Shadows", "Cape of Darkness", "Shroud of Death", "Mantle of the Mounted Mortician", "Wrap of the Wet Wraith", "Bustle Cloak of the Bothered Banshee"],
+    boots: ["Boots of Silent Death", "Shadow Walkers", "Bone Boots", "Thigh-High Bone-Boots of the Bedded Banshee", "Stiletto Skull-Stompers of the Sated Succubus", "Lace-Up Leather of the Lusty Lich"],
+    gauntlets: ["Clawed Gauntlets", "Shadow Gloves", "Bone Hands", "Vibrating Bone-Bracers of the Voyeuristic Vampire", "Throbbing Talon-Gloves of the Tempted Templar", "Pulsing Phantom-Fists of the Pining Phantom"],
+    rings: ["Ring of Dark Pact", "Soul Ring", "Cursed Band", "Throbbing Bone-Band of the Bedchamber", "Choker-Ring of the Choked Crypt-Bride", "Garter Ring of the Greedy Ghoul"],
+    amulets: ["Amulet of Necromancy", "Pendant of Darkness", "Skull Necklace", "Locket of the Lusty Lich-Queen", "Pendant of the Pierced Phantom", "Choker of the Captive Crypt-Bride"],
+    ammo: ["Cursed Arrows", "Shadow Bolts", "Bone Arrows", "Throbbing Bone-Bolts of the Bedded Banshee", "Sticky Shafts of the Sated Succubus", "Pulsing Phantom-Quarrels of Premature Possession"]
+  }
+};
 
 const generateAge = (race: string, startingAge: number | null = null): number => {
   if (startingAge !== null) return startingAge;
