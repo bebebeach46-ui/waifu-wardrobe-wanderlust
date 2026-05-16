@@ -1529,7 +1529,7 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
 
     // Event ticker mention
     setEventLog(prev => [
-      { id: `closecall-${Date.now()}`, message: `📜 ${character.name} survived: ${shortDesc}`, type: "legendary" as const, timestamp: Date.now() },
+      { text: `📜 ${character.name} survived: ${shortDesc}`, sentiment: 'positive' as const },
       ...prev,
     ].slice(0, 50));
 
