@@ -1528,7 +1528,7 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
     ].slice(0, 50));
 
     // Partial heal so the hero can keep going
-    setStats(s => ({ ...s, hp: Math.max(1, Math.floor(s.maxHp * 0.35)) }));
+    // (No HP system on the stats object — narrative survival only.)
 
     // Clear transient death state so future close-calls aren't tainted
     setDeathCause(null);
