@@ -256,18 +256,8 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
     const interval = setInterval(() => {
       setQuestProgress((prev) => {
         if (prev >= 100) {
-          // Check for special fates
-          const earlyDeath = checkEarlyDeath(stats.questsCompleted);
-          const richRetirement = checkRichRetirement(stats.gold, stats.questsCompleted);
-          const legendaryFate = checkLegendaryFate(stats.level, stats.questsCompleted);
-          const lineageFate = checkLineageLegendary(uniqueHeirMothers.length, favoriteCompanionName);
-          
-          if (earlyDeath || richRetirement || legendaryFate || lineageFate) {
-            const fate = lineageFate || earlyDeath || richRetirement || legendaryFate;
-            setFateOutcome(fate);
-            handleDeath();
-            return prev;
-          }
+          // Game-over fates removed — the hero's saga is a perpetual motion machine.
+          // Any dramatic "fate" rolls are logged as historical flavor instead of ending the run.
           
           // Get difficulty for this world
           const gameDifficulty = worldData.difficulty || 2;
@@ -1091,48 +1081,42 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
               });
             }
             
-            // Marriage and heir at max relationship (only if bond cap is 10).
-            // Each unique bond-10 partner can sire one heir (up to HEIR_SLOTS total).
+            // Soul-bond & heir at max relationship (only if bond cap is 10).
+            // PERPETUAL MOTION: any bond-10 partner — any gender, any species — bears an heir.
+            // No cap, no "mother" bias, no "already sired" gate. Interspecies fantasy romance forever.
             if (newRel >= 10 && bondCap === 10 && comp.relationship < 10) {
-              const alreadySired = uniqueHeirMothers.includes(comp.name);
-              
-              // Set married to first bond-10 partner; track favorite as highest-relationship
               if (!married) setMarried(comp);
               setFavoriteCompanionName(prev => prev || comp.name);
-              
+
               setLegendaryEvents(prev => [
-                createLegendaryEvent(`💍 MAX BOND 10: ${comp.name} and ${character.name} have soul-bonded!`),
+                createLegendaryEvent(`💍 MAX BOND 10: ${comp.name} (${comp.race}) and ${character.name} have soul-bonded!`),
                 ...prev
               ].slice(0, 5));
-              
+
               toast({
                 title: "💍 Soul Bond Achieved!",
                 description: `${comp.name} and ${character.name} are now bonded for life!`
               });
-              
-              if (!alreadySired && children.length < HEIR_SLOTS) {
-                const child = generateChild(character.name, character.race, comp.name, comp.race);
-                setOffspringData(child);
-                setChildren(prev => [...prev, child]);
-                setHasOffspring(true);
-                setUniqueHeirMothers(prev => [...prev, comp.name]);
-                
-                const newCount = uniqueHeirMothers.length + 1;
-                toast({
-                  title: `👶 Heir Born — ${newCount}/${HEIR_SLOTS} Lineages`,
-                  description: `${child.name} (${child.gender}) has been born to ${comp.name}! Traits: ${child.traits.join(", ")}`,
-                  duration: 8000
-                });
-                
-                if (newCount === HEIR_SLOTS) {
-                  setLegendaryEvents(prev => [
-                    createLegendaryEvent(`🌟 LEGENDARY: ${character.name} has sired 50 lineages — the world's future is restored!`),
-                    ...prev
-                  ].slice(0, 5));
-                }
-              }
+
+              const child = generateChild(character.name, character.race, comp.name, comp.race);
+              setOffspringData(child);
+              setChildren(prev => [...prev, child]);
+              setHasOffspring(true);
+              setUniqueHeirMothers(prev => prev.includes(comp.name) ? prev : [...prev, comp.name]);
+
+              const newCount = children.length + 1;
+              toast({
+                title: `👶 Heir Born — Lineage #${newCount}`,
+                description: `${child.name} (${child.gender}, ${character.race}/${comp.race}) is born of ${character.name} & ${comp.name}! Traits: ${child.traits.join(", ")}`,
+                duration: 8000
+              });
+
+              setLegendaryEvents(prev => [
+                createLegendaryEvent(`🌟 LINEAGE #${newCount}: ${child.name} — heir of ${character.name} & ${comp.name} (${character.race}×${comp.race}).`),
+                ...prev
+              ].slice(0, 5));
             }
-            
+
             return {
               ...comp,
               relationship: newRel,
@@ -1509,79 +1493,55 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
   }, [currentQuest, worldData, stats.level, treasure, companions, isDead, shopName, character.equipment, toast, married, statusEffects, activeEffects, travelState]);
 
   const handleDeath = () => {
-    // Check for death save (plot armor)
-    const hasDeathSave = activeEffects.some(e => e.type === 'death_save');
-    if (hasDeathSave) {
-      setActiveEffects(prev => prev.filter(e => e.type !== 'death_save'));
-      toast({
-        title: "💫 Plot Armor Activated!",
-        description: <span className="text-event-positive">You survived! The plot armor has been consumed.</span>,
-        duration: 5000
-      });
-      return;
-    }
+    // Death-as-game-over is removed. The hero is immortal-by-narrative;
+    // every "fatal" moment becomes a historical close-call entry in the log.
+    const activeStatus = statusEffects.length > 0 ? statusEffects[0].name : undefined;
+    const cause = deathCause || generateRandomDeathCause({
+      monsterName: lastEncounter?.monsterName,
+      monsterRank: lastEncounter?.monsterRank,
+      playerLevel: stats.level,
+      location: currentQuest.name,
+      activeStatus,
+      questName: currentQuest.name
+    });
 
-    // Generate death cause if not already set (for fate deaths)
-    if (!deathCause && fateOutcome) {
-      // Fate outcomes have their own descriptions
-      setDeathCause({
-        cause: fateOutcome.type,
-        shortDesc: fateOutcome.shortDesc || fateOutcome.type,
-        fullDesc: fateOutcome.description,
-        ironic: fateOutcome.type === "death" && stats.questsCompleted < 5
-      });
-    } else if (!deathCause) {
-      // Fallback death cause
-      const activeStatus = statusEffects.length > 0 ? statusEffects[0].name : undefined;
-      const cause = generateRandomDeathCause({
-        monsterName: lastEncounter?.monsterName,
-        monsterRank: lastEncounter?.monsterRank,
-        playerLevel: stats.level,
-        location: currentQuest.name,
-        activeStatus,
-        questName: currentQuest.name
-      });
-      setDeathCause(cause);
-    }
+    const shortDesc = cause?.shortDesc || fateOutcome?.shortDesc || "A brush with oblivion";
+    const fullDesc = cause?.fullDesc || fateOutcome?.description || "The hero should have died — yet the saga continues.";
 
-    // Track difficulty completion
-    const currentDifficulty = worldData.difficulty || 2;
-    const completions = localStorage.getItem('difficulty_completions');
-    const completedDifficulties = completions ? JSON.parse(completions) : [];
-    
-    if (!completedDifficulties.includes(currentDifficulty)) {
-      completedDifficulties.push(currentDifficulty);
-      localStorage.setItem('difficulty_completions', JSON.stringify(completedDifficulties));
-      
-    }
-    
-    setIsDead(true);
-    // Hero is dead — wipe the save file so this slot becomes free.
-    // (Saves persist across sessions until this point.)
-    try {
-      localStorage.removeItem(`quest-idle-slot-${saveSlot}`);
-    } catch (e) {
-      console.warn('Failed to clear save on death', e);
-    }
-    const log = generateDeathLog();
-    setDeathLog(log);
-    
-    // Download log file
-    const blob = new Blob([log], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${character.name}_death_log.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
-    
-    const causeShort = deathCause?.shortDesc || "Unknown causes";
+    // Push into legendary/historical event ribbon
+    setLegendaryEvents(prev => [
+      createLegendaryEvent(`📜 HISTORICAL CLOSE CALL: ${shortDesc} — ${character.name} survived against all odds.`),
+      ...prev,
+    ].slice(0, 5));
+
+    // Combat log entry for the morgue/codex of memorable moments
+    setCombatLog(prev => trackCombatLog(
+      prev,
+      `📜 HISTORICAL CLOSE CALL — ${shortDesc}. ${fullDesc} The hero endures and the saga continues.`,
+      0, 0, 0
+    ));
+
+    // Event ticker mention
+    setEventLog(prev => [
+      { text: `📜 ${character.name} survived: ${shortDesc}`, sentiment: 'positive' as const },
+      ...prev,
+    ].slice(0, 50));
+
+    // Partial heal so the hero can keep going
+    // (No HP system on the stats object — narrative survival only.)
+
+    // Clear transient death state so future close-calls aren't tainted
+    setDeathCause(null);
+    setFateOutcome(null);
+    setFatalWound(null);
+
     toast({
-      title: `💀 ${causeShort}`,
-      description: "Death log downloaded",
-      variant: "destructive"
+      title: `📜 ${shortDesc}`,
+      description: <span className="text-event-positive">A historical close call — the hero endures.</span>,
+      duration: 5000,
     });
   };
+
   
   const generateDeathLog = () => {
     const companionList = companions.length > 0 
@@ -2772,7 +2732,7 @@ Death occurred at: ${new Date().toLocaleString()}
       {!simplifiedMode && companions.length > 0 && (
         <div className="space-y-2">
           <div className="text-sm font-semibold flex items-center gap-1">
-            <Heart className="w-4 h-4" /> Active Companions ({companions.length}/{ACTIVE_COMPANION_SLOTS}) · Reserve {reserveCompanions.length}/{RESERVE_COMPANION_SLOTS} · Heirs {uniqueHeirMothers.length}/{HEIR_SLOTS}
+            <Heart className="w-4 h-4" /> Active Companions ({companions.length}/{ACTIVE_COMPANION_SLOTS}) · Reserve {reserveCompanions.length}/{RESERVE_COMPANION_SLOTS} · Lineages {children.length} ∞
           </div>
           <div className="space-y-2">
             {companions.map((comp, i) => {
