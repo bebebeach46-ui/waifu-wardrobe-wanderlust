@@ -256,18 +256,8 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
     const interval = setInterval(() => {
       setQuestProgress((prev) => {
         if (prev >= 100) {
-          // Check for special fates
-          const earlyDeath = checkEarlyDeath(stats.questsCompleted);
-          const richRetirement = checkRichRetirement(stats.gold, stats.questsCompleted);
-          const legendaryFate = checkLegendaryFate(stats.level, stats.questsCompleted);
-          const lineageFate = checkLineageLegendary(uniqueHeirMothers.length, favoriteCompanionName);
-          
-          if (earlyDeath || richRetirement || legendaryFate || lineageFate) {
-            const fate = lineageFate || earlyDeath || richRetirement || legendaryFate;
-            setFateOutcome(fate);
-            handleDeath();
-            return prev;
-          }
+          // Game-over fates removed — the hero's saga is a perpetual motion machine.
+          // Any dramatic "fate" rolls are logged as historical flavor instead of ending the run.
           
           // Get difficulty for this world
           const gameDifficulty = worldData.difficulty || 2;
