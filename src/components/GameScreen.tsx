@@ -1499,79 +1499,55 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
   }, [currentQuest, worldData, stats.level, treasure, companions, isDead, shopName, character.equipment, toast, married, statusEffects, activeEffects, travelState]);
 
   const handleDeath = () => {
-    // Check for death save (plot armor)
-    const hasDeathSave = activeEffects.some(e => e.type === 'death_save');
-    if (hasDeathSave) {
-      setActiveEffects(prev => prev.filter(e => e.type !== 'death_save'));
-      toast({
-        title: "💫 Plot Armor Activated!",
-        description: <span className="text-event-positive">You survived! The plot armor has been consumed.</span>,
-        duration: 5000
-      });
-      return;
-    }
+    // Death-as-game-over is removed. The hero is immortal-by-narrative;
+    // every "fatal" moment becomes a historical close-call entry in the log.
+    const activeStatus = statusEffects.length > 0 ? statusEffects[0].name : undefined;
+    const cause = deathCause || generateRandomDeathCause({
+      monsterName: lastEncounter?.monsterName,
+      monsterRank: lastEncounter?.monsterRank,
+      playerLevel: stats.level,
+      location: currentQuest.name,
+      activeStatus,
+      questName: currentQuest.name
+    });
 
-    // Generate death cause if not already set (for fate deaths)
-    if (!deathCause && fateOutcome) {
-      // Fate outcomes have their own descriptions
-      setDeathCause({
-        cause: fateOutcome.type,
-        shortDesc: fateOutcome.shortDesc || fateOutcome.type,
-        fullDesc: fateOutcome.description,
-        ironic: fateOutcome.type === "death" && stats.questsCompleted < 5
-      });
-    } else if (!deathCause) {
-      // Fallback death cause
-      const activeStatus = statusEffects.length > 0 ? statusEffects[0].name : undefined;
-      const cause = generateRandomDeathCause({
-        monsterName: lastEncounter?.monsterName,
-        monsterRank: lastEncounter?.monsterRank,
-        playerLevel: stats.level,
-        location: currentQuest.name,
-        activeStatus,
-        questName: currentQuest.name
-      });
-      setDeathCause(cause);
-    }
+    const shortDesc = cause?.shortDesc || fateOutcome?.shortDesc || "A brush with oblivion";
+    const fullDesc = cause?.fullDesc || fateOutcome?.description || "The hero should have died — yet the saga continues.";
 
-    // Track difficulty completion
-    const currentDifficulty = worldData.difficulty || 2;
-    const completions = localStorage.getItem('difficulty_completions');
-    const completedDifficulties = completions ? JSON.parse(completions) : [];
-    
-    if (!completedDifficulties.includes(currentDifficulty)) {
-      completedDifficulties.push(currentDifficulty);
-      localStorage.setItem('difficulty_completions', JSON.stringify(completedDifficulties));
-      
-    }
-    
-    setIsDead(true);
-    // Hero is dead — wipe the save file so this slot becomes free.
-    // (Saves persist across sessions until this point.)
-    try {
-      localStorage.removeItem(`quest-idle-slot-${saveSlot}`);
-    } catch (e) {
-      console.warn('Failed to clear save on death', e);
-    }
-    const log = generateDeathLog();
-    setDeathLog(log);
-    
-    // Download log file
-    const blob = new Blob([log], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${character.name}_death_log.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
-    
-    const causeShort = deathCause?.shortDesc || "Unknown causes";
+    // Push into legendary/historical event ribbon
+    setLegendaryEvents(prev => [
+      createLegendaryEvent(`📜 HISTORICAL CLOSE CALL: ${shortDesc} — ${character.name} survived against all odds.`),
+      ...prev,
+    ].slice(0, 5));
+
+    // Combat log entry for the morgue/codex of memorable moments
+    setCombatLog(prev => trackCombatLog(
+      prev,
+      `📜 HISTORICAL CLOSE CALL — ${shortDesc}. ${fullDesc} The hero endures and the saga continues.`,
+      0, 0, 0
+    ));
+
+    // Event ticker mention
+    setEventLog(prev => [
+      { id: `closecall-${Date.now()}`, message: `📜 ${character.name} survived: ${shortDesc}`, type: "legendary" as const, timestamp: Date.now() },
+      ...prev,
+    ].slice(0, 50));
+
+    // Partial heal so the hero can keep going
+    setStats(s => ({ ...s, hp: Math.max(1, Math.floor(s.maxHp * 0.35)) }));
+
+    // Clear transient death state so future close-calls aren't tainted
+    setDeathCause(null);
+    setFateOutcome(null);
+    setFatalWound(null);
+
     toast({
-      title: `💀 ${causeShort}`,
-      description: "Death log downloaded",
-      variant: "destructive"
+      title: `📜 ${shortDesc}`,
+      description: <span className="text-event-positive">A historical close call — the hero endures.</span>,
+      duration: 5000,
     });
   };
+
   
   const generateDeathLog = () => {
     const companionList = companions.length > 0 
