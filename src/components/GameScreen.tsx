@@ -2732,7 +2732,7 @@ Death occurred at: ${new Date().toLocaleString()}
       {!simplifiedMode && companions.length > 0 && (
         <div className="space-y-2">
           <div className="text-sm font-semibold flex items-center gap-1">
-            <Heart className="w-4 h-4" /> Active Companions ({companions.length}/{ACTIVE_COMPANION_SLOTS}) · Reserve {reserveCompanions.length}/{RESERVE_COMPANION_SLOTS} · Heirs {uniqueHeirMothers.length}/{HEIR_SLOTS}
+            <Heart className="w-4 h-4" /> Active Companions ({companions.length}/{ACTIVE_COMPANION_SLOTS}) · Reserve {reserveCompanions.length}/{RESERVE_COMPANION_SLOTS} · Lineages {children.length} ∞
           </div>
           <div className="space-y-2">
             {companions.map((comp, i) => {
