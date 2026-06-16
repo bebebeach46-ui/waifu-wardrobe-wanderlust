@@ -15,7 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { generateCharacter, rollForNewSkill, rollForNewSpell, rollForEquipmentUnlock, getClassConfig } from "@/lib/characterGenerator";
 import { generateQuest, Quest, rollQuestPerformance, QuestPerformanceGrade, getFameTitle, performanceGrades } from "@/lib/questGenerator";
 import { generateCompanion, getRelationshipName, calculateCompatibility, getBondLevelCap, generateMilestone, generateChild, RelationshipMilestone, ChildInfo, generateCompanionAge, calculateRelationshipDelta, isCompanionThreat, calculateGiftEffectiveness, giftPreferenceMap, rollForApologyEvent, rollForRepairQuest, calculateRepairQuestReward, RepairQuest, ACTIVE_COMPANION_SLOTS, RESERVE_COMPANION_SLOTS, HEIR_SLOTS, MAX_BOND_10_COMPANIONS, tickCompanionAge, applyMoodDrift } from "@/lib/companionGenerator";
-import { calculatePartyBondBonuses, calculatePartyBondMaluses, rollDevotionEvents, rollSabotageEvents, tickRivalries, inferCompanionRole, getRoleIcon, Rivalry } from "@/lib/companionBondBonuses";
+import { calculatePartyBondBonuses, calculatePartyBondMaluses, rollDevotionEvents, rollSabotageEvents, tickRivalries, inferCompanionRole, getRoleIcon, getRivalryRewardBonuses, Rivalry } from "@/lib/companionBondBonuses";
 import { CompanionEncounterState, initializeEncounterState, updateEncounterState, completeEncounter, getTopAffinities, EncounterPreference } from "@/lib/companionEncounterSystem";
 import { generateShopName } from "@/lib/skillGenerator";
 import { generateSummon } from "@/lib/summonGenerator";
@@ -368,7 +368,17 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
           }
 
           // === COMPANION BOND BONUSES (passive support from positive bonds) ===
-          const partyBonuses = calculatePartyBondBonuses(companions);
+          const baseBonuses = calculatePartyBondBonuses(companions);
+          // Layer in persistent rivalry-winner rewards (winner's class echoes forever)
+          const rivalryRewards = getRivalryRewardBonuses(rivalries);
+          const partyBonuses = {
+            ...baseBonuses,
+            questPerformanceMult: baseBonuses.questPerformanceMult + rivalryRewards.questPerformanceMult,
+            woundSeverityReduction: baseBonuses.woundSeverityReduction + rivalryRewards.woundSeverityReduction,
+            goldMult: baseBonuses.goldMult + rivalryRewards.goldMult,
+            flatFameBonus: baseBonuses.flatFameBonus + rivalryRewards.flatFameBonus,
+            critBonus: baseBonuses.critBonus + rivalryRewards.critBonus,
+          };
           
           // Generate monster with rank system (needed for death cause even if we die)
           const monster = getMonsterByRank(stats.level);
@@ -700,28 +710,36 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
           for (const re of rivalryTick.events) {
             rivalryPerfBoost += re.perfBoost;
             rivalryFame += re.fameBoost;
+            const reciprocationTag =
+              re.reciprocated === "A" ? ` — favored ${re.nameA}` :
+              re.reciprocated === "B" ? ` — favored ${re.nameB}` :
+              ` — neither chosen`;
             toast({
               title: `${re.icon} ${re.title}`,
-              description: <span className="text-stat-increase">{re.narrative} (+{Math.round(re.perfBoost * 100)}% quest perf)</span>,
+              description: <span className="text-stat-increase">{re.narrative}{reciprocationTag} (+{Math.round(re.perfBoost * 100)}% quest perf)</span>,
               duration: 4500,
             });
             setActivities(prev => trackActivity(prev, "relationship",
-              `${re.icon} ${re.narrative}`));
+              `${re.icon} ${re.narrative}${reciprocationTag}`));
           }
           for (const res of rivalryTick.resolutions) {
+            const winnerName = res.winner === "A" ? res.nameA : res.winner === "B" ? res.nameB : null;
             const title = res.winner === "tie"
               ? `💞 Rivalry Tied: ${res.nameA} & ${res.nameB}`
-              : `💍 Rivalry Won by ${res.winner === "A" ? res.nameA : res.nameB}`;
+              : `💍 Rivalry Won by ${winnerName}`;
+            const rewardLine = res.reward
+              ? ` ${res.reward.icon} ${res.reward.label} — ${res.reward.description}`
+              : "";
             toast({
               title,
-              description: <span className="text-stat-increase">{res.narrative}</span>,
-              duration: 7000,
+              description: <span className="text-stat-increase">{res.narrative}{rewardLine}</span>,
+              duration: 8000,
             });
             setLegendaryEvents(prev => [
-              createLegendaryEvent(`${res.winner === "tie" ? "💞" : "💍"} ${title} — ${res.narrative}`),
+              createLegendaryEvent(`${res.winner === "tie" ? "💞" : "💍"} ${title} — ${res.narrative}${rewardLine}`),
               ...prev,
             ].slice(0, 5));
-            setActivities(prev => trackActivity(prev, "relationship", `${title} — ${res.narrative}`));
+            setActivities(prev => trackActivity(prev, "relationship", `${title} — ${res.narrative}${rewardLine}`));
           }
           
           // === Apply party bond bonuses + devotion + rivalry boosts to performance ===

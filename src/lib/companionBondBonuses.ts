@@ -837,33 +837,49 @@ export const rollDevotionEvents = (
 // the rivalry ends as a draw — both are partners and both bear heirs.
 // ===========================================================================
 
+export interface RivalryReward {
+  winnerName: string;
+  winnerRole: CompanionRole;
+  kind: "heal" | "combat" | "magic" | "fortune" | "feast" | "morale";
+  icon: string;
+  label: string;
+  description: string;
+  bonus: Partial<Pick<PartyBondBonuses,
+    "questPerformanceMult" | "woundSeverityReduction" | "goldMult" | "flatFameBonus" | "critBonus"
+  >>;
+}
+
 export interface Rivalry {
-  id: string;                // stable id `${nameA}|${nameB}` (sorted)
+  id: string;
   nameA: string;
   nameB: string;
   raceA: string;
   raceB: string;
   startedAt: number;
-  rounds: number;            // # of rivalry events fired so far
+  rounds: number;
+  favorA: number;
+  favorB: number;
+  lastRankA: number;
+  lastRankB: number;
+  ascensions: number;
   resolution: null | "won_A" | "won_B" | "tie";
+  reward?: RivalryReward;
 }
 
-const rivalryKey = (a: string, b: string) =>
-  [a, b].sort().join("|");
+const rivalryKey = (a: string, b: string) => [a, b].sort().join("|");
 
 /**
- * Detect rival pairs amongst active companions. Rivalry is reserved for
- * companions CAPABLE of reaching the ultimate bond (bondCap >= 10) — those
- * with lower compatibility caps (5, 8, etc.) are not in the running for
- * the hero's ultimate affection. Rivalry kicks in only after major
- * friendship progress (bond > 5) and resolves once one reaches bond 10.
+ * Rivalry forms between TWO companions capable of reaching the ultimate
+ * bond (bondCap >= 10) — any sex, any species. It begins after major
+ * friendship progress (bond > 5) and continues escalating past bond 10.
+ * It resolves only after >=2 combined rank ascensions, when one rival
+ * holds a massive favor lead from the hero's reciprocations.
  */
 export const detectRivalPairs = (companions: any[]): Array<{ a: any; b: any }> => {
   const pairs: Array<{ a: any; b: any }> = [];
   const eligible = (companions || []).filter(c =>
     typeof c?.relationship === "number" &&
     c.relationship > 5 &&
-    c.relationship < 10 &&
     (typeof c?.bondCap !== "number" || c.bondCap >= 10)
   );
   for (let i = 0; i < eligible.length; i++) {
@@ -876,11 +892,6 @@ export const detectRivalPairs = (companions: any[]): Array<{ a: any; b: any }> =
   return pairs;
 };
 
-/**
- * Per-quest tick: returns an updated rivalries list and any new rivalry
- * events that should be displayed. Resolves rivalries when one or both
- * partners hit bond 10.
- */
 export interface RivalryTick {
   rivalries: Rivalry[];
   newPairs: Rivalry[];
@@ -891,8 +902,11 @@ export interface RivalryTick {
     icon: string;
     title: string;
     narrative: string;
-    perfBoost: number;       // hero benefits from the competition
+    perfBoost: number;
     fameBoost: number;
+    reciprocated: "A" | "B" | "none";
+    favorA: number;
+    favorB: number;
   }>;
   resolutions: Array<{
     rivalryId: string;
@@ -900,26 +914,43 @@ export interface RivalryTick {
     nameA: string;
     nameB: string;
     narrative: string;
+    reward?: RivalryReward;
   }>;
 }
 
-const rivalryEventNarratives = [
-  "{a} sparred harder than usual after seeing {b} draw your gaze",
-  "{b} cooked you a feast before {a} could offer their gift",
-  "{a} doubled their watch shift so {b} would not impress you alone",
-  "{b} polished your armor through the night — {a} noticed and matched the effort",
-  "{a} and {b} dueled for the honor of riding at your side",
+const rivalryGestures = [
+  { verb: "set down a steaming dish before you",                accept: "you devoured every bite",        reject: "you waved the plate aside" },
+  { verb: "pressed a hand-wrapped gift into your palms",        accept: "you wore it through the day",    reject: "you tucked it away unopened" },
+  { verb: "asked for a single moment of your time alone",       accept: "you granted it without question",reject: "you promised 'later' and walked on" },
+  { verb: "challenged the other to a duel for your honor",      accept: "you crowned the victor with your sash", reject: "you laughed and refused to judge" },
+  { verb: "performed a private song meant only for your ears",  accept: "you leaned in until the last note",     reject: "you applauded politely and left" },
+  { verb: "stood a midnight vigil over your tent",              accept: "you woke and shared the dawn",   reject: "you slept through it" },
 ];
 
 const tieResolutions = [
-  "Their rivalry ended as a tie — both have won your heart, and both will bear your line",
-  "Neither could best the other; the hero takes both as partners, and two heirs are promised",
+  "Their rivalry softened into shared devotion — both walk at your side as equals",
+  "Neither could outdo the other; the hero takes both as partners, and the line continues through both",
 ];
 const winResolutions = [
-  "{winner} finally claimed the hero's love — {loser} steps back with quiet grace",
-  "{winner} stood victorious in the contest of devotion; {loser} remains a treasured friend",
-  "{winner} won the soul-bond, leaving {loser} to seek their own path",
+  "{winner}'s favor towered over {loser}'s — the hero made their choice plain. {loser} steps back with quiet grace",
+  "After {ascensions} ascensions, {winner} held a commanding lead in the hero's heart. {loser} bows out as a treasured friend",
+  "{winner} won the contest of devotion; {loser} keeps the friendship, not the bond",
 ];
+
+const ROLE_REWARDS: Record<CompanionRole, Omit<RivalryReward, "winnerName" | "winnerRole">[]> = {
+  Healer:  [{ kind: "heal",    icon: "💚", label: "Soothing Bond",      description: "Their healing hand stays with you. −1 to all wound severity rolls.", bonus: { woundSeverityReduction: 1 } }],
+  Fighter: [{ kind: "combat",  icon: "⚔️", label: "Sword-Sworn",         description: "Their fighting stance shapes yours. +8% quest performance.",        bonus: { questPerformanceMult: 0.08 } }],
+  Mage:    [{ kind: "magic",   icon: "✨", label: "Arcane Communion",   description: "Their spellwork sharpens your strikes. +4% critical chance.",       bonus: { critBonus: 0.04 } }],
+  Crafter: [{ kind: "fortune", icon: "🔨", label: "Forged Fortune",     description: "Their craft enriches every haul. +15% gold gained.",                bonus: { goldMult: 0.15 } }],
+  Cook:    [{ kind: "feast",   icon: "🍳", label: "Hearth's Champion",  description: "Their feasts precede you. +1 fame per quest.",                      bonus: { flatFameBonus: 1 } }],
+  Support: [{ kind: "morale",  icon: "🎯", label: "Steady Heart",       description: "Their unwavering support lifts the party. +5% perf, +0.5 fame.",   bonus: { questPerformanceMult: 0.05, flatFameBonus: 0.5 } }],
+};
+
+const buildReward = (winner: any): RivalryReward => {
+  const role = inferCompanionRole(winner);
+  const template = pick(ROLE_REWARDS[role] || ROLE_REWARDS.Support);
+  return { ...template, winnerName: winner.name, winnerRole: role };
+};
 
 export const tickRivalries = (
   companions: any[],
@@ -932,7 +963,6 @@ export const tickRivalries = (
     resolutions: [],
   };
 
-  // Build a quick lookup of current bond per name
   const bondByName = new Map<string, number>();
   const compByName = new Map<string, any>();
   for (const c of companions || []) {
@@ -940,82 +970,112 @@ export const tickRivalries = (
     compByName.set(c.name, c);
   }
 
-  // Carry forward existing rivalries (resolve any that should end)
   for (const r of prior || []) {
     const ba = bondByName.get(r.nameA);
     const bb = bondByName.get(r.nameB);
-
-    // Drop if a participant is gone from active party
-    if (ba === undefined || bb === undefined) {
-      continue;
-    }
+    if (ba === undefined || bb === undefined) continue;
 
     if (r.resolution) {
-      // Already resolved, keep for record (UI shows fading)
       result.rivalries.push(r);
       continue;
     }
 
-    const aWon = ba >= 10;
-    const bWon = bb >= 10;
+    const curA = Math.floor(ba);
+    const curB = Math.floor(bb);
+    const newAscensions = Math.max(0, curA - r.lastRankA) + Math.max(0, curB - r.lastRankB);
+    let updated: Rivalry = {
+      ...r,
+      lastRankA: curA,
+      lastRankB: curB,
+      ascensions: r.ascensions + newAscensions,
+    };
 
-    if (aWon && bWon) {
+    // Intensity grows with each rank past 5
+    const intensity = Math.max(0, Math.min(ba, bb) - 5);
+    const eventChance = Math.min(0.7, 0.15 + intensity * 0.08);
+    const perfBoost = Math.min(0.18, 0.04 + intensity * 0.02 + updated.rounds * 0.01);
+
+    if (Math.random() < eventChance) {
+      const gesture = pick(rivalryGestures);
+      // Hero randomly decides whether (and whom) to reciprocate
+      const totalBond = Math.max(0.01, ba + bb);
+      const probA = ba / totalBond;
+      let reciprocated: "A" | "B" | "none" = Math.random() < probA ? "A" : "B";
+      if (Math.random() < 0.12) reciprocated = "none";
+
+      let favorA = updated.favorA;
+      let favorB = updated.favorB;
+      let narrative = "";
+      const bigSwing = intensity >= 3 ? 1 : 0;
+
+      if (reciprocated === "A") {
+        favorA += 1 + bigSwing;
+        favorB = Math.max(0, favorB - bigSwing);
+        narrative = `${r.nameA} ${gesture.verb} — ${gesture.accept}; ${r.nameB} watched, jaw set`;
+      } else if (reciprocated === "B") {
+        favorB += 1 + bigSwing;
+        favorA = Math.max(0, favorA - bigSwing);
+        narrative = `${r.nameB} ${gesture.verb} — ${gesture.accept}; ${r.nameA} forced a smile`;
+      } else {
+        narrative = `${r.nameA} and ${r.nameB} both pressed their suit — the hero refused to choose tonight`;
+      }
+
+      updated = { ...updated, rounds: updated.rounds + 1, favorA, favorB };
+
+      result.events.push({
+        rivalryId: r.id,
+        nameA: r.nameA, nameB: r.nameB,
+        icon: "⚡",
+        title: `Rivalry: ${r.nameA} (★${favorA}) vs. ${r.nameB} (★${favorB})`,
+        narrative,
+        perfBoost,
+        fameBoost: 1,
+        reciprocated,
+        favorA, favorB,
+      });
+    }
+
+    // Resolution: >=2 combined ascensions AND a massive favor lead (>=4)
+    const favorGap = Math.abs(updated.favorA - updated.favorB);
+    if (updated.ascensions >= 2 && favorGap >= 4) {
+      const aWins = updated.favorA > updated.favorB;
+      const winner = aWins ? compByName.get(updated.nameA) : compByName.get(updated.nameB);
+      const reward = winner ? buildReward(winner) : undefined;
+      const narrative = pick(winResolutions)
+        .replace("{winner}", aWins ? updated.nameA : updated.nameB)
+        .replace("{loser}",  aWins ? updated.nameB : updated.nameA)
+        .replace("{ascensions}", String(updated.ascensions));
+      const resolved: Rivalry = { ...updated, resolution: aWins ? "won_A" : "won_B", reward };
+      result.rivalries.push(resolved);
+      result.resolutions.push({
+        rivalryId: r.id,
+        winner: aWins ? "A" : "B",
+        nameA: r.nameA, nameB: r.nameB,
+        narrative, reward,
+      });
+      continue;
+    }
+
+    // Tie: both maxed (bond 10), enough ascensions in, favor essentially even
+    if (ba >= 10 && bb >= 10 && updated.ascensions >= 2 && favorGap <= 1) {
       const narrative = pick(tieResolutions);
-      const resolved: Rivalry = { ...r, resolution: "tie" };
+      const resolved: Rivalry = { ...updated, resolution: "tie" };
       result.rivalries.push(resolved);
       result.resolutions.push({
         rivalryId: r.id, winner: "tie", nameA: r.nameA, nameB: r.nameB, narrative,
       });
       continue;
     }
-    if (aWon) {
-      const narrative = pick(winResolutions)
-        .replace("{winner}", r.nameA).replace("{loser}", r.nameB);
-      result.rivalries.push({ ...r, resolution: "won_A" });
-      result.resolutions.push({
-        rivalryId: r.id, winner: "A", nameA: r.nameA, nameB: r.nameB, narrative,
-      });
-      continue;
-    }
-    if (bWon) {
-      const narrative = pick(winResolutions)
-        .replace("{winner}", r.nameB).replace("{loser}", r.nameA);
-      result.rivalries.push({ ...r, resolution: "won_B" });
-      result.resolutions.push({
-        rivalryId: r.id, winner: "B", nameA: r.nameA, nameB: r.nameB, narrative,
-      });
-      continue;
-    }
 
-    // Still active — chance to fire a competitive event
-    if (Math.random() < 0.18) {
-      const rounds = r.rounds + 1;
-      const perfBoost = Math.min(0.04 + rounds * 0.015, 0.15); // escalating
-      const fameBoost = 1;
-      const narrative = pick(rivalryEventNarratives)
-        .replace("{a}", r.nameA).replace("{b}", r.nameB);
-      result.events.push({
-        rivalryId: r.id,
-        nameA: r.nameA, nameB: r.nameB,
-        icon: "⚡",
-        title: `Rivalry: ${r.nameA} vs. ${r.nameB}`,
-        narrative,
-        perfBoost,
-        fameBoost,
-      });
-      result.rivalries.push({ ...r, rounds });
-    } else {
-      result.rivalries.push(r);
-    }
+    result.rivalries.push(updated);
   }
 
-  // Detect new pairs not already tracked
+  // Detect brand-new pairs
   const known = new Set(result.rivalries.map(r => r.id));
   const pairs = detectRivalPairs(companions);
   for (const { a, b } of pairs) {
     const id = rivalryKey(a.name, b.name);
     if (known.has(id)) continue;
-    // 35% chance per quest that a new eligible pair declares rivalry
     if (Math.random() < 0.35) {
       const fresh: Rivalry = {
         id,
@@ -1023,6 +1083,10 @@ export const tickRivalries = (
         raceA: a.race, raceB: b.race,
         startedAt: Date.now(),
         rounds: 0,
+        favorA: 0, favorB: 0,
+        lastRankA: Math.floor(a.relationship),
+        lastRankB: Math.floor(b.relationship),
+        ascensions: 0,
         resolution: null,
       };
       result.rivalries.push(fresh);
@@ -1032,4 +1096,37 @@ export const tickRivalries = (
   }
 
   return result;
+};
+
+/**
+ * Aggregate persistent bonuses from resolved rivalries — the winner's
+ * class ability echoes through the hero forever after.
+ */
+export const getRivalryRewardBonuses = (rivalries: Rivalry[]): {
+  questPerformanceMult: number;
+  woundSeverityReduction: number;
+  goldMult: number;
+  flatFameBonus: number;
+  critBonus: number;
+  rewards: RivalryReward[];
+} => {
+  const out = {
+    questPerformanceMult: 0,
+    woundSeverityReduction: 0,
+    goldMult: 0,
+    flatFameBonus: 0,
+    critBonus: 0,
+    rewards: [] as RivalryReward[],
+  };
+  for (const r of rivalries || []) {
+    if (!r.reward) continue;
+    const b = r.reward.bonus;
+    out.questPerformanceMult += b.questPerformanceMult || 0;
+    out.woundSeverityReduction += b.woundSeverityReduction || 0;
+    out.goldMult += b.goldMult || 0;
+    out.flatFameBonus += b.flatFameBonus || 0;
+    out.critBonus += b.critBonus || 0;
+    out.rewards.push(r.reward);
+  }
+  return out;
 };
