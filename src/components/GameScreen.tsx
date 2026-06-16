@@ -368,7 +368,17 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
           }
 
           // === COMPANION BOND BONUSES (passive support from positive bonds) ===
-          const partyBonuses = calculatePartyBondBonuses(companions);
+          const baseBonuses = calculatePartyBondBonuses(companions);
+          // Layer in persistent rivalry-winner rewards (winner's class echoes forever)
+          const rivalryRewards = getRivalryRewardBonuses(rivalries);
+          const partyBonuses = {
+            ...baseBonuses,
+            questPerformanceMult: baseBonuses.questPerformanceMult + rivalryRewards.questPerformanceMult,
+            woundSeverityReduction: baseBonuses.woundSeverityReduction + rivalryRewards.woundSeverityReduction,
+            goldMult: baseBonuses.goldMult + rivalryRewards.goldMult,
+            flatFameBonus: baseBonuses.flatFameBonus + rivalryRewards.flatFameBonus,
+            critBonus: baseBonuses.critBonus + rivalryRewards.critBonus,
+          };
           
           // Generate monster with rank system (needed for death cause even if we die)
           const monster = getMonsterByRank(stats.level);
