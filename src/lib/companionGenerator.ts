@@ -150,15 +150,84 @@ export const HEIR_SLOTS = 50;
 // Hard cap on simultaneous Bond Rank 10 companions
 export const MAX_BOND_10_COMPANIONS = 2;
 
-// Determine bond level cap based on compatibility, party composition, and fame
+// ===== HERO REPUTATION (recent quest performance) =====
+// Companions gossip. A hero on a losing streak attracts distrustful,
+// cap-locked recruits; a consistently brilliant hero attracts devotees.
+export interface RecruitContext {
+  recentGrades?: number[];   // last N quest grades (0-10)
+  level?: number;            // hero level at time of meeting
+  dangerLevel?: number;      // area danger at time of meeting
+}
+
+export interface HeroReputation {
+  average: number;           // avg grade of recent quests
+  tier: "disgraced" | "unreliable" | "steady" | "renowned" | "legendary";
+  label: string;
+  capShift: number;          // -2 .. +2 shift applied to bond cap roll
+}
+
+export const getHeroReputation = (recentGrades: number[] = []): HeroReputation => {
+  if (recentGrades.length === 0) {
+    return { average: 5, tier: "steady", label: "Untested", capShift: 0 };
+  }
+  const sample = recentGrades.slice(-6);
+  const average = sample.reduce((a, b) => a + b, 0) / sample.length;
+  // Consistency matters: repeated failures weigh heavier than a single flub
+  const failures = sample.filter(g => g <= 2).length;
+  const triumphs = sample.filter(g => g >= 8).length;
+  
+  if (average < 3 || failures >= 3) {
+    return { average, tier: "disgraced", label: "Disgraced", capShift: -2 };
+  }
+  if (average < 4.5 || failures >= 2) {
+    return { average, tier: "unreliable", label: "Unreliable", capShift: -1 };
+  }
+  if (average >= 8.5 && triumphs >= 4) {
+    return { average, tier: "legendary", label: "Legendary", capShift: 2 };
+  }
+  if (average >= 7 || triumphs >= 3) {
+    return { average, tier: "renowned", label: "Renowned", capShift: 1 };
+  }
+  return { average, tier: "steady", label: "Steady", capShift: 0 };
+};
+
+// Determine bond level cap based on compatibility, party composition, fame,
+// and the hero's recent record. Some caps are LOCKED at 1 — such companions can
+// never grow fond, and neglect turns them hostile fast.
 export const getBondLevelCap = (
   companionIndex: number,
   compatibility: number,
   existingCompanions: any[],
-  fame: number = 0
+  fame: number = 0,
+  context: RecruitContext = {}
 ): number => {
   // Count how many companions are already at max bond
   const maxBondCompanions = existingCompanions.filter(c => c.bondCap === 10).length;
+  const rep = getHeroReputation(context.recentGrades);
+  const danger = context.dangerLevel ?? 0;
+  const level = context.level ?? 1;
+  
+  // === LOCKED CAP ROLL ===
+  // Poor recent record + perilous ground breeds resentful, distrustful recruits.
+  // A locked cap of 1 means they can never like the hero — and sour easily.
+  let lockChance = 0;
+  if (rep.tier === "disgraced") lockChance = 0.35;
+  else if (rep.tier === "unreliable") lockChance = 0.18;
+  else if (rep.tier === "steady") lockChance = 0.06;
+  // Danger and low level make the hero look like a bad bet
+  lockChance += Math.min(danger * 0.015, 0.12);
+  lockChance += level < 5 ? 0.04 : 0;
+  // Renown reassures even cynics
+  if (rep.tier === "renowned") lockChance = Math.max(0, 0.03 - danger * 0.002);
+  if (rep.tier === "legendary") lockChance = 0;
+  lockChance = Math.max(0, Math.min(lockChance, 0.45));
+  
+  if (Math.random() < lockChance) {
+    return 1; // LOCKED — nothing more positive is possible
+  }
+  
+  // Reputation shifts effective compatibility (rumours colour first impressions)
+  const effectiveCompat = compatibility + rep.capShift + (danger > 12 && rep.capShift > 0 ? 1 : 0);
   
   // Fame bonus: every 10 fame lowers the compatibility threshold for bond 10
   // At 0 fame: need compatibility >= 5
@@ -168,9 +237,15 @@ export const getBondLevelCap = (
   const bond10Threshold = Math.max(2, 5 - Math.floor(fameBonus));
   
   // First MAX_BOND_10 high-compatibility companions can reach 10
-  if (compatibility >= bond10Threshold && maxBondCompanions < MAX_BOND_10_COMPANIONS) {
+  if (effectiveCompat >= bond10Threshold && maxBondCompanions < MAX_BOND_10_COMPANIONS) {
     return 10;
   }
+  
+  // Low reputation can also cap a recruit at 3 (wary, but not doomed)
+  if (rep.capShift < 0 && Math.random() < (rep.tier === "disgraced" ? 0.3 : 0.15)) {
+    return 3;
+  }
+
   
   // Fame can also promote medium-compatibility companions to bond 10
   if (compatibility >= 2 && maxBondCompanions < MAX_BOND_10_COMPANIONS) {
