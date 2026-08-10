@@ -2797,8 +2797,19 @@ Death occurred at: ${new Date().toLocaleString()}
                             ⚡ Rival
                           </span>
                         )}
+                        {comp.capLocked && (
+                          <span className="text-xs px-1.5 py-0.5 rounded bg-destructive/20 text-destructive" title="Locked cap — this bond can never exceed 1, and sours quickly if ignored">
+                            🔒 Locked
+                          </span>
+                        )}
                       </div>
                       <div className="text-xs text-muted-foreground">{comp.description}</div>
+                      {comp.metReputation && (
+                        <div className="text-xs text-muted-foreground">
+                          Met at Lv{comp.metAtLevel} · Danger {comp.metAtDanger} · Reputation: {comp.metReputation}
+                        </div>
+                      )}
+
                     </div>
                     <div className="text-right">
                       <span className="text-xs bg-primary/20 text-primary px-2 py-1 rounded block mb-1">
