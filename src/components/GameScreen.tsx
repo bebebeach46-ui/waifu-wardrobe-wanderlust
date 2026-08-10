@@ -65,7 +65,10 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
   const [travelState, setTravelState] = useState<TravelState>(() => savedData?.travelState || initializeTravelState(worldData, 1));
   const [currentQuest, setCurrentQuest] = useState<Quest>(() => savedData?.currentQuest || generateQuest(worldData, 1, savedData?.travelState, 0));
   const [fame, setFame] = useState<number>(() => savedData?.fame || 0);
+  // Rolling record of recent quest grades — shapes what kind of recruits the hero attracts
+  const [recentGrades, setRecentGrades] = useState<number[]>(() => savedData?.recentGrades || []);
   const [lastPerformance, setLastPerformance] = useState<QuestPerformanceGrade | null>(null);
+
   const [questProgress, setQuestProgress] = useState(0);
   const [showMap, setShowMap] = useState(false);
   const [simplifiedMode, setSimplifiedMode] = useState(() => savedData?.simplifiedMode || false);
@@ -805,6 +808,10 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
           
           setActivities(prev => trackActivity(prev, "quest", `${performance.icon} ${currentQuest.name}: ${performance.name} (Grade ${performance.grade}/10)`));
           
+          // Record the grade — the hero's recent record decides which recruits show up
+          setRecentGrades(prev => [...prev, performance.grade].slice(-10));
+
+          
           // Calculate rewards with rank multipliers, difficulty bonus, AND performance + bond bonuses
           const difficultyMultipliers = [0, 1.0, 1.2, 1.5, 2.0, 3.0]; // Index 0 unused, 1-5 for difficulties
           const difficultyBonus = difficultyMultipliers[gameDifficulty];
@@ -945,7 +952,7 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
                 } else {
                   // Generate companion with preference matching
                   const characterWithSkills = { ...character, skills: lifeSkills };
-                  const newCompanion = generateCompanion(worldData, characterWithSkills, companions, fame);
+                  const newCompanion = generateCompanion(worldData, characterWithSkills, companions, fame, { recentGrades, level: stats.level, dangerLevel: (travelState?.currentRegion?.dangerLevel ?? 0) + (travelState?.currentArea?.dangerModifier ?? 0) });
                   
                   // Override preferences to match the encounter preference
                   if (result.preference && !newCompanion.preferences.includes(result.preference)) {
@@ -973,7 +980,7 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
                   
                   toast({
                     title: goesToReserve ? `🛖 Reserve Companion: ${newCompanion.name}` : `💖 Companion Earned: ${newCompanion.name}`,
-                    description: <span className="text-stat-increase">{goesToReserve ? "Active party full — sent to reserve. " : ""}Met through "{encounterName}" ({compatibilityDesc}). Bond Cap: {newCompanion.bondCap}</span>,
+                    description: <span className="text-stat-increase">{goesToReserve ? "Active party full — sent to reserve. " : ""}Met through "{encounterName}" ({compatibilityDesc}). Bond Cap: {newCompanion.bondCap}{newCompanion.capLocked ? " 🔒 LOCKED — they will never warm to you" : ""}</span>,
                     duration: 8000
                   });
                   
@@ -1859,6 +1866,7 @@ Death occurred at: ${new Date().toLocaleString()}
       championsDefeated,
       simplifiedMode,
       fame,
+      recentGrades,
       reserveCompanions,
       uniqueHeirMothers,
       favoriteCompanionName,
@@ -1867,7 +1875,7 @@ Death occurred at: ${new Date().toLocaleString()}
       level: stats.level,
       timestamp: Date.now()
     };
-  }, [character, stats, worldData, companions, treasure, married, hasOffspring, offspringData, children, romanceDiary, statusEffects, summons, eventLog, deity, alignment, weather, materials, lifeSkills, activities, monstersKilled, currentQuest, shopName, activeEffects, codex, combatLog, wounds, travelState, encounterState, activeRepairQuest, championsDefeated, simplifiedMode, fame, reserveCompanions, uniqueHeirMothers, favoriteCompanionName, rivalries]);
+  }, [character, stats, worldData, companions, treasure, married, hasOffspring, offspringData, children, romanceDiary, statusEffects, summons, eventLog, deity, alignment, weather, materials, lifeSkills, activities, monstersKilled, currentQuest, shopName, activeEffects, codex, combatLog, wounds, travelState, encounterState, activeRepairQuest, championsDefeated, simplifiedMode, fame, reserveCompanions, uniqueHeirMothers, favoriteCompanionName, rivalries, recentGrades]);
 
   const performSave = useCallback(() => {
     if (!saveDataRef.current) return null;
@@ -2083,7 +2091,7 @@ Death occurred at: ${new Date().toLocaleString()}
               });
             } else {
               const characterWithSkills = { ...character, skills: lifeSkills };
-              const newCompanion = generateCompanion(worldData, characterWithSkills, companions, fame);
+              const newCompanion = generateCompanion(worldData, characterWithSkills, companions, fame, { recentGrades, level: stats.level, dangerLevel: (travelState?.currentRegion?.dangerLevel ?? 0) + (travelState?.currentArea?.dangerModifier ?? 0) });
               const goesToReserve = activeFull;
               if (goesToReserve) {
                 setReserveCompanions(r => [...r, newCompanion]);
@@ -2102,7 +2110,7 @@ Death occurred at: ${new Date().toLocaleString()}
               
               toast({
                 title: goesToReserve ? "🛖 Summoned to Reserve!" : "🌟 Companion Summoned!",
-                description: <span className="text-stat-increase">{newCompanion.name} ({compatibilityDesc}) {goesToReserve ? "joined the reserve" : "joined the party"}! Bond Cap: {newCompanion.bondCap}</span>,
+                description: <span className="text-stat-increase">{newCompanion.name} ({compatibilityDesc}) {goesToReserve ? "joined the reserve" : "joined the party"}! Bond Cap: {newCompanion.bondCap}{newCompanion.capLocked ? " 🔒 LOCKED — they will never warm to you" : ""}</span>,
                 duration: 5000
               });
               
@@ -2789,8 +2797,19 @@ Death occurred at: ${new Date().toLocaleString()}
                             ⚡ Rival
                           </span>
                         )}
+                        {comp.capLocked && (
+                          <span className="text-xs px-1.5 py-0.5 rounded bg-destructive/20 text-destructive" title="Locked cap — this bond can never exceed 1, and sours quickly if ignored">
+                            🔒 Locked
+                          </span>
+                        )}
                       </div>
                       <div className="text-xs text-muted-foreground">{comp.description}</div>
+                      {comp.metReputation && (
+                        <div className="text-xs text-muted-foreground">
+                          Met at Lv{comp.metAtLevel} · Danger {comp.metAtDanger} · Reputation: {comp.metReputation}
+                        </div>
+                      )}
+
                     </div>
                     <div className="text-right">
                       <span className="text-xs bg-primary/20 text-primary px-2 py-1 rounded block mb-1">
