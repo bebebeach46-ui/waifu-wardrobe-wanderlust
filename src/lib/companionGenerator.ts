@@ -173,9 +173,9 @@ export const getBondLevelCap = (
   }
   
   // Fame can also promote medium-compatibility companions to bond 10
-  // At 75+ fame, 20% chance for compatibility 3+ to get bond 10 (if slot available)
-  if (fame >= 75 && compatibility >= 3 && maxBondCompanions < MAX_BOND_10_COMPANIONS) {
-    const fameChance = Math.min((fame - 75) * 0.004, 0.3); // up to 30% at 150 fame
+  if (compatibility >= 2 && maxBondCompanions < MAX_BOND_10_COMPANIONS) {
+    // Base "soulmate" chance even for unremarkable pairings, scaling with fame
+    const fameChance = Math.min(0.18 + fame * 0.003, 0.5);
     if (Math.random() < fameChance) {
       return 10;
     }
@@ -189,6 +189,29 @@ export const getBondLevelCap = (
   // Low compatibility stops at 5
   return 5;
 };
+
+// A capped companion who has maxed their bond can, rarely, transcend their cap
+// (5 → 8 → 10) if a Bond-10 slot is open. Devotion beats destiny.
+export const tryBondCapBreakthrough = (
+  companion: any,
+  allCompanions: any[],
+  fame: number = 0
+): { bondCap: number; breakthrough: boolean } => {
+  const cap = companion.bondCap ?? 10;
+  if (cap >= 10) return { bondCap: cap, breakthrough: false };
+  // Must be pinned at their ceiling and not neglected
+  if (companion.relationship < cap - 0.05) return { bondCap: cap, breakthrough: false };
+  if ((companion.questsSinceInteraction ?? 0) > 10) return { bondCap: cap, breakthrough: false };
+  
+  const bond10Count = allCompanions.filter(c => (c.bondCap ?? 10) === 10).length;
+  if (cap === 8 && bond10Count >= MAX_BOND_10_COMPANIONS) return { bondCap: cap, breakthrough: false };
+  
+  const chance = 0.04 + Math.min(fame * 0.0006, 0.06); // 4%–10% per quest at ceiling
+  if (Math.random() < chance) {
+    return { bondCap: cap === 5 ? 8 : 10, breakthrough: true };
+  }
+  return { bondCap: cap, breakthrough: false };
+
 
 export const generateCompanion = (
   worldData: any,
