@@ -65,7 +65,10 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
   const [travelState, setTravelState] = useState<TravelState>(() => savedData?.travelState || initializeTravelState(worldData, 1));
   const [currentQuest, setCurrentQuest] = useState<Quest>(() => savedData?.currentQuest || generateQuest(worldData, 1, savedData?.travelState, 0));
   const [fame, setFame] = useState<number>(() => savedData?.fame || 0);
+  // Rolling record of recent quest grades — shapes what kind of recruits the hero attracts
+  const [recentGrades, setRecentGrades] = useState<number[]>(() => savedData?.recentGrades || []);
   const [lastPerformance, setLastPerformance] = useState<QuestPerformanceGrade | null>(null);
+
   const [questProgress, setQuestProgress] = useState(0);
   const [showMap, setShowMap] = useState(false);
   const [simplifiedMode, setSimplifiedMode] = useState(() => savedData?.simplifiedMode || false);
