@@ -113,8 +113,30 @@ export const calculateCompatibility = (
     }
   }
   
+  // Alignment affinity — close moral outlooks bond deeply
+  const alignmentOrder = [
+    "Utter Consumed Evil", "Very Evil", "Evil", "Slightly Evil",
+    "Absolute Neutral", "Slightly Good", "Good", "Very Good", "Paragon of Shining Virtue"
+  ];
+  const ai = alignmentOrder.indexOf(companion.alignment);
+  const pi = alignmentOrder.indexOf((playerSkills as any, arguments[4]) ?? "");
+  if (ai >= 0 && pi >= 0) {
+    const gap = Math.abs(ai - pi);
+    if (gap <= 1) compatibility += 2;
+    else if (gap <= 3) compatibility += 1;
+  }
+  
+  // Shared interests — each matching preference deepens attraction
+  const shared = (companion.preferences || []).filter((p: string) =>
+    (companion.playerPreferences || []).includes(p)).length;
+  compatibility += Math.min(shared, 2);
+  
+  // Destiny spark — fate sometimes simply decides two souls belong together
+  compatibility += Math.floor(Math.random() * 4); // 0-3
+  
   return compatibility;
 };
+
 
 // ===== POOL CAPS =====
 // Active slots: max companions that can travel with the hero at once
