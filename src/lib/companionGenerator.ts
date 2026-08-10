@@ -297,8 +297,10 @@ export const generateCompanion = (
   worldData: any,
   playerCharacter?: any,
   existingCompanions: any[] = [],
-  fame: number = 0
+  fame: number = 0,
+  context: RecruitContext = {}
 ) => {
+
   const name = companionNames[Math.floor(Math.random() * companionNames.length)];
   const race = companionRaces[Math.floor(Math.random() * companionRaces.length)];
   const companionClass = companionClasses[Math.floor(Math.random() * companionClasses.length)];
