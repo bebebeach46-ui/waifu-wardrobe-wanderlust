@@ -211,6 +211,9 @@ export const tryBondCapBreakthrough = (
     return { bondCap: cap === 5 ? 8 : 10, breakthrough: true };
   }
   return { bondCap: cap, breakthrough: false };
+};
+
+
 
 
 export const generateCompanion = (
