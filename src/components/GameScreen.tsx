@@ -991,7 +991,22 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
           const gameDifficultyForRel = worldData.difficulty || 2;
           const driftDanger = (travelState?.currentRegion?.dangerLevel ?? 0) + (travelState?.currentArea?.dangerModifier ?? 0);
           setCompanions(comps => comps.map(comp => {
+            // === BOND CAP BREAKTHROUGH === devotion can transcend destiny (5 → 8 → 10)
+            const bt = tryBondCapBreakthrough(comp, comps, fame);
+            if (bt.breakthrough) {
+              comp = { ...comp, bondCap: bt.bondCap };
+              toast({
+                title: `💖 ${comp.name} transcends their limits!`,
+                description: bt.bondCap === 10
+                  ? `Their devotion knows no ceiling — Bond Rank 10 is now possible`
+                  : `Bond ceiling raised to Rank 8`,
+                duration: 6000,
+              });
+              setActivities(prev => trackActivity(prev, "relationship",
+                `💖 ${comp.name}'s devotion breaks through — bond ceiling now Rank ${bt.bondCap}`));
+            }
             const bondCap = comp.bondCap || 10;
+
             
             // === PASSIVE MOOD DRIFT (calm areas stabilize, neglect decays) ===
             // Increment ignored counter; reset on gifts/apologies/repair quests elsewhere
