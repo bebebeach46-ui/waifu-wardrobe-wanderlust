@@ -808,6 +808,10 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
           
           setActivities(prev => trackActivity(prev, "quest", `${performance.icon} ${currentQuest.name}: ${performance.name} (Grade ${performance.grade}/10)`));
           
+          // Record the grade — the hero's recent record decides which recruits show up
+          setRecentGrades(prev => [...prev, performance.grade].slice(-10));
+
+          
           // Calculate rewards with rank multipliers, difficulty bonus, AND performance + bond bonuses
           const difficultyMultipliers = [0, 1.0, 1.2, 1.5, 2.0, 3.0]; // Index 0 unused, 1-5 for difficulties
           const difficultyBonus = difficultyMultipliers[gameDifficulty];
