@@ -930,11 +930,14 @@ export const applyMoodDrift = (
   }
 
   // Neglect decay (independent of area; ramps with ignored quests)
-  if (ignored >= 6) {
-    const overdue = ignored - 6;
+  // Locked-cap companions sour after only 3 ignored quests, and twice as fast
+  const patience = companion.capLocked ? 3 : 6;
+  if (ignored >= patience) {
+    const overdue = ignored - patience;
     let decay = 0.03 + Math.min(overdue, 20) * 0.012; // up to ~0.27 per quest
     if (bond < 0) decay *= 1.5;       // resentment compounds
     if (bond >= 8) decay *= 0.5;      // soul-bonded are patient
+    if (companion.capLocked) decay *= 2;  // cap-locked recruits curdle into threats
     decay *= 1 + dangerNorm * 0.6;    // danger amplifies neglect
 
     drift -= decay;
@@ -943,6 +946,7 @@ export const applyMoodDrift = (
     else if (overdue >= 12) driftTag = "ignored";
     else driftTag = "neglected";
   }
+
 
   const newRel = Math.max(-10, Math.min(bondCap, bond + drift));
   return { relationship: newRel, driftTag };
