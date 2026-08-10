@@ -84,8 +84,10 @@ export const calculateCompatibility = (
   companion: any,
   playerRace: string,
   playerClass: string,
-  playerSkills: any[]
+  playerSkills: any[],
+  playerAlignment?: string
 ): number => {
+
   let compatibility = 0;
   
   // Race compatibility (same race = high compatibility)
