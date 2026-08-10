@@ -980,7 +980,7 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
                   
                   toast({
                     title: goesToReserve ? `🛖 Reserve Companion: ${newCompanion.name}` : `💖 Companion Earned: ${newCompanion.name}`,
-                    description: <span className="text-stat-increase">{goesToReserve ? "Active party full — sent to reserve. " : ""}Met through "{encounterName}" ({compatibilityDesc}). Bond Cap: {newCompanion.bondCap}</span>,
+                    description: <span className="text-stat-increase">{goesToReserve ? "Active party full — sent to reserve. " : ""}Met through "{encounterName}" ({compatibilityDesc}). Bond Cap: {newCompanion.bondCap}{newCompanion.capLocked ? " 🔒 LOCKED — they will never warm to you" : ""}</span>,
                     duration: 8000
                   });
                   
@@ -2110,7 +2110,7 @@ Death occurred at: ${new Date().toLocaleString()}
               
               toast({
                 title: goesToReserve ? "🛖 Summoned to Reserve!" : "🌟 Companion Summoned!",
-                description: <span className="text-stat-increase">{newCompanion.name} ({compatibilityDesc}) {goesToReserve ? "joined the reserve" : "joined the party"}! Bond Cap: {newCompanion.bondCap}</span>,
+                description: <span className="text-stat-increase">{newCompanion.name} ({compatibilityDesc}) {goesToReserve ? "joined the reserve" : "joined the party"}! Bond Cap: {newCompanion.bondCap}{newCompanion.capLocked ? " 🔒 LOCKED — they will never warm to you" : ""}</span>,
                 duration: 5000
               });
               
