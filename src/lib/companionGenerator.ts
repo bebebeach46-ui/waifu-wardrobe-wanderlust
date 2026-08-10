@@ -121,7 +121,7 @@ export const calculateCompatibility = (
     "Absolute Neutral", "Slightly Good", "Good", "Very Good", "Paragon of Shining Virtue"
   ];
   const ai = alignmentOrder.indexOf(companion.alignment);
-  const pi = alignmentOrder.indexOf((playerSkills as any, arguments[4]) ?? "");
+  const pi = alignmentOrder.indexOf(playerAlignment ?? "");
   if (ai >= 0 && pi >= 0) {
     const gap = Math.abs(ai - pi);
     if (gap <= 1) compatibility += 2;
