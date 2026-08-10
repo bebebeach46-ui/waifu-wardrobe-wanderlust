@@ -952,7 +952,7 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
                 } else {
                   // Generate companion with preference matching
                   const characterWithSkills = { ...character, skills: lifeSkills };
-                  const newCompanion = generateCompanion(worldData, characterWithSkills, companions, fame);
+                  const newCompanion = generateCompanion(worldData, characterWithSkills, companions, fame, { recentGrades, level: stats.level, dangerLevel: (travelState?.currentRegion?.dangerLevel ?? 0) + (travelState?.currentArea?.dangerModifier ?? 0) });
                   
                   // Override preferences to match the encounter preference
                   if (result.preference && !newCompanion.preferences.includes(result.preference)) {
@@ -1866,6 +1866,7 @@ Death occurred at: ${new Date().toLocaleString()}
       championsDefeated,
       simplifiedMode,
       fame,
+      recentGrades,
       reserveCompanions,
       uniqueHeirMothers,
       favoriteCompanionName,
@@ -2090,7 +2091,7 @@ Death occurred at: ${new Date().toLocaleString()}
               });
             } else {
               const characterWithSkills = { ...character, skills: lifeSkills };
-              const newCompanion = generateCompanion(worldData, characterWithSkills, companions, fame);
+              const newCompanion = generateCompanion(worldData, characterWithSkills, companions, fame, { recentGrades, level: stats.level, dangerLevel: (travelState?.currentRegion?.dangerLevel ?? 0) + (travelState?.currentArea?.dangerModifier ?? 0) });
               const goesToReserve = activeFull;
               if (goesToReserve) {
                 setReserveCompanions(r => [...r, newCompanion]);
