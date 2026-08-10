@@ -267,11 +267,13 @@ export const generateCompanion = (
   // Calculate compatibility and bond cap if player character provided
   if (playerCharacter) {
     const compatibility = calculateCompatibility(
-      companion,
+      { ...companion, playerPreferences: playerCharacter.preferences || [] },
       playerCharacter.race,
       playerCharacter.class,
-      playerCharacter.skills || []
+      playerCharacter.skills || [],
+      playerCharacter.alignment
     );
+
     const bondCap = getBondLevelCap(existingCompanions.length, compatibility, existingCompanions, fame);
     
     return {
