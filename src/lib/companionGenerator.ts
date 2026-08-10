@@ -353,14 +353,26 @@ export const generateCompanion = (
       playerCharacter.alignment
     );
 
-    const bondCap = getBondLevelCap(existingCompanions.length, compatibility, existingCompanions, fame);
+    const bondCap = getBondLevelCap(existingCompanions.length, compatibility, existingCompanions, fame, context);
+    const rep = getHeroReputation(context.recentGrades);
     
     return {
       ...companion,
       compatibility,
-      bondCap
+      bondCap,
+      // Locked recruits can never grow fond — and sour into threats fast
+      capLocked: bondCap <= 1,
+      relationship: bondCap <= 1 ? Math.min(1, 1) : companion.relationship,
+      metAtLevel: context.level ?? 1,
+      metAtDanger: context.dangerLevel ?? 0,
+      metReputation: rep.label,
+      // Locked/wary companions decay quicker when ignored
+      progressionRate: bondCap <= 1
+        ? companion.progressionRate * 0.4
+        : companion.progressionRate * (1 + rep.capShift * 0.12)
     };
   }
+
   
   // Default for old saves
   return {
