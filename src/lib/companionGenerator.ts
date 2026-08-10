@@ -245,19 +245,18 @@ export const getBondLevelCap = (
   if (rep.capShift < 0 && Math.random() < (rep.tier === "disgraced" ? 0.3 : 0.15)) {
     return 3;
   }
-
   
   // Fame can also promote medium-compatibility companions to bond 10
-  if (compatibility >= 2 && maxBondCompanions < MAX_BOND_10_COMPANIONS) {
+  if (effectiveCompat >= 2 && maxBondCompanions < MAX_BOND_10_COMPANIONS) {
     // Base "soulmate" chance even for unremarkable pairings, scaling with fame
-    const fameChance = Math.min(0.18 + fame * 0.003, 0.5);
+    const fameChance = Math.min(0.18 + fame * 0.003 + rep.capShift * 0.05, 0.55);
     if (Math.random() < fameChance) {
       return 10;
     }
   }
   
   // Medium compatibility can reach 8
-  if (compatibility >= 3) {
+  if (effectiveCompat >= 3) {
     return 8;
   }
   
@@ -266,14 +265,15 @@ export const getBondLevelCap = (
 };
 
 // A capped companion who has maxed their bond can, rarely, transcend their cap
-// (5 → 8 → 10) if a Bond-10 slot is open. Devotion beats destiny.
+// (3 → 5 → 8 → 10) if a Bond-10 slot is open. Devotion beats destiny.
+// LOCKED companions (cap 1) can never transcend — that resentment is permanent.
 export const tryBondCapBreakthrough = (
   companion: any,
   allCompanions: any[],
   fame: number = 0
 ): { bondCap: number; breakthrough: boolean } => {
   const cap = companion.bondCap ?? 10;
-  if (cap >= 10) return { bondCap: cap, breakthrough: false };
+  if (cap >= 10 || cap <= 1) return { bondCap: cap, breakthrough: false };
   // Must be pinned at their ceiling and not neglected
   if (companion.relationship < cap - 0.05) return { bondCap: cap, breakthrough: false };
   if ((companion.questsSinceInteraction ?? 0) > 10) return { bondCap: cap, breakthrough: false };
@@ -283,10 +283,12 @@ export const tryBondCapBreakthrough = (
   
   const chance = 0.04 + Math.min(fame * 0.0006, 0.06); // 4%–10% per quest at ceiling
   if (Math.random() < chance) {
-    return { bondCap: cap === 5 ? 8 : 10, breakthrough: true };
+    const nextCap = cap === 3 ? 5 : cap === 5 ? 8 : 10;
+    return { bondCap: nextCap, breakthrough: true };
   }
   return { bondCap: cap, breakthrough: false };
 };
+
 
 
 
