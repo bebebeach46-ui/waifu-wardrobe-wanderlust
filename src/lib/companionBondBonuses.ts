@@ -9,6 +9,34 @@
 // mid-battle healing, romantic interludes, etc.
 // ----------------------------------------------------------------------------
 
+// ---- Bond-rank color spectrum ----
+// Both extremes (-10 Nemesis, +10 Soulmate) are equally vivid.
+// Negative side: crimson red, intensifying toward -10.
+// Positive side: magenta-pink (romance), intensifying toward +10.
+// Midpoint (~0): muted grey.
+export const getBondColor = (bond: number): { color: string; glow: string } => {
+  const b = Math.max(-10, Math.min(10, bond ?? 0));
+  if (b >= 0) {
+    const t = b / 10; // 0..1
+    const hue = 320; // magenta-pink (romance)
+    const sat = Math.round(t * 100);
+    const light = Math.round(58 - t * 10); // 58 -> 48
+    return {
+      color: `hsl(${hue}, ${sat}%, ${light}%)`,
+      glow: `hsla(${hue}, ${sat}%, ${light}%, 0.45)`,
+    };
+  } else {
+    const t = -b / 10; // 0..1
+    const hue = 0; // crimson red
+    const sat = Math.round(t * 100);
+    const light = Math.round(58 - t * 10); // 58 -> 48
+    return {
+      color: `hsl(${hue}, ${sat}%, ${light}%)`,
+      glow: `hsla(${hue}, ${sat}%, ${light}%, 0.45)`,
+    };
+  }
+};
+
 export type CompanionRole =
   | "Fighter"     // boosts player damage / quest combat performance
   | "Mage"        // boosts critical chance / magical performance
