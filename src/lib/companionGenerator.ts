@@ -299,7 +299,7 @@ export const generateCompanion = (
   existingCompanions: any[] = [],
   fame: number = 0,
   context: RecruitContext = {}
-) => {
+): any => {
 
   const name = companionNames[Math.floor(Math.random() * companionNames.length)];
   const race = companionRaces[Math.floor(Math.random() * companionRaces.length)];
