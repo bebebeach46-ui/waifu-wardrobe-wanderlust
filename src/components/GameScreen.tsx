@@ -35,6 +35,7 @@ import { generateDeathNarrative, formatLastBattleActions, generateFinalMomentsSe
 import { TravelState, initializeTravelState, shouldChangeArea, travelToNewArea, getDirectionIcon, getRegionDangerColor, generateMapOverlay, getMapTileIcon, getAreaEffects, getFeatureData, getFeatureEffectColor, getFeatureEffectBg } from "@/lib/locationSystem";
 import { EventTicker, TickerEvent, createLegendaryEvent } from "@/components/EventTicker";
 import { generateChampion, resolveChampionEncounter, getChampionSlayerTitle } from "@/lib/championSystem";
+import { getResolutionCapabilities, rollThreatResolutions, methodLabel } from "@/lib/threatResolutionSystem";
 
 interface GameScreenProps {
   worldData: any;
@@ -994,6 +995,47 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
             return updatedEncounter;
           });
           
+          // === THREAT RESOLUTION === skills let the hero act before the knife finds him
+          {
+            const resArea = travelState?.currentArea?.name || "the wilds";
+            const resDanger = (travelState?.currentRegion?.dangerLevel ?? 0) + (travelState?.currentArea?.dangerModifier ?? 0);
+            const caps = getResolutionCapabilities(character, lifeSkills, stats, stats.level);
+            const resolution = rollThreatResolutions(companions, caps, resArea, resDanger, alignment);
+            if (resolution) {
+              const label = methodLabel[resolution.method];
+              if (resolution.outcome === "removed") {
+                setCompanions(prev => prev.filter(c => c.name !== resolution.companionName));
+                toast({
+                  title: `${resolution.icon} ${label}: ${resolution.companionName} removed`,
+                  description: resolution.narrative,
+                  duration: 9000,
+                });
+                setActivities(prev => trackActivity(prev, "relationship", `${resolution.icon} ${label} — ${resolution.narrative}`));
+              } else if (resolution.outcome === "pacified") {
+                setCompanions(prev => prev.map(c => c.name === resolution.companionName
+                  ? { ...c, relationship: resolution.newRelationship ?? 0, questsSinceInteraction: 0, driftTag: undefined }
+                  : c));
+                toast({
+                  title: `${resolution.icon} ${label}: peace with ${resolution.companionName}`,
+                  description: resolution.narrative,
+                  duration: 9000,
+                });
+                setActivities(prev => trackActivity(prev, "relationship", `${resolution.icon} ${label} — ${resolution.narrative}`));
+              } else {
+                setCompanions(prev => prev.map(c => c.name === resolution.companionName
+                  ? { ...c, relationship: Math.max(-10, resolution.newRelationship ?? c.relationship) }
+                  : c));
+                toast({
+                  title: `⚠️ ${label} failed!`,
+                  description: resolution.narrative,
+                  variant: "destructive",
+                  duration: 9000,
+                });
+                setActivities(prev => trackActivity(prev, "relationship", `⚠️ Failed ${label} on ${resolution.companionName} — ${resolution.narrative}`));
+              }
+            }
+          }
+
           // Update companion relationships dynamically based on quest performance
           const gameDifficultyForRel = worldData.difficulty || 2;
           const driftDanger = (travelState?.currentRegion?.dangerLevel ?? 0) + (travelState?.currentArea?.dangerModifier ?? 0);
