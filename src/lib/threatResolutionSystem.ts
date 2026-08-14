@@ -202,14 +202,15 @@ export const rollThreatResolutions = (
   // Which paths are even available to this hero?
   const evil = (alignment || "").toLowerCase().includes("evil");
   const good = (alignment || "").toLowerCase().includes("good");
-  const options: { method: ResolutionMethod; score: number }[] = [
-    { method: "assassination", score: caps.assassination * (evil ? 1.25 : good ? 0.7 : 1) },
-    { method: "poison", score: caps.poison * (evil ? 1.2 : good ? 0.7 : 1) },
-    { method: "stealth_exile", score: caps.stealth },
-    { method: "diplomacy", score: caps.diplomacy * (good ? 1.3 : 1) },
-    { method: "plotting", score: caps.plotting * (1 + areaDanger * 0.06) },
-    { method: "accident", score: caps.traps },
-  ].filter(o => o.score >= MIN_CAPABILITY);
+  const allOptions: { method: ResolutionMethod; score: number }[] = [
+    { method: "assassination" as ResolutionMethod, score: caps.assassination * (evil ? 1.25 : good ? 0.7 : 1) },
+    { method: "poison" as ResolutionMethod, score: caps.poison * (evil ? 1.2 : good ? 0.7 : 1) },
+    { method: "stealth_exile" as ResolutionMethod, score: caps.stealth },
+    { method: "diplomacy" as ResolutionMethod, score: caps.diplomacy * (good ? 1.3 : 1) },
+    { method: "plotting" as ResolutionMethod, score: caps.plotting * (1 + areaDanger * 0.06) },
+    { method: "accident" as ResolutionMethod, score: caps.traps },
+  ];
+  const options = allOptions.filter(o => o.score >= MIN_CAPABILITY);
   if (options.length === 0) return null;
 
   // Weighted pick — the hero leans on what he's best at
