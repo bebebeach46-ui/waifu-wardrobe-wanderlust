@@ -35,6 +35,7 @@ import { generateDeathNarrative, formatLastBattleActions, generateFinalMomentsSe
 import { TravelState, initializeTravelState, shouldChangeArea, travelToNewArea, getDirectionIcon, getRegionDangerColor, generateMapOverlay, getMapTileIcon, getAreaEffects, getFeatureData, getFeatureEffectColor, getFeatureEffectBg } from "@/lib/locationSystem";
 import { EventTicker, TickerEvent, createLegendaryEvent } from "@/components/EventTicker";
 import { generateChampion, resolveChampionEncounter, getChampionSlayerTitle } from "@/lib/championSystem";
+import { getResolutionCapabilities, rollThreatResolutions, methodLabel } from "@/lib/threatResolutionSystem";
 
 interface GameScreenProps {
   worldData: any;
