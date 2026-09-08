@@ -2830,7 +2830,9 @@ Death occurred at: ${new Date().toLocaleString()}
                   <div className="flex justify-between items-start">
                     <div>
                       <div className="font-medium text-sm flex items-center gap-1">
-                        {comp.name}
+                        <span style={{ color: getBondColor(bond).color, textShadow: `0 0 8px ${getBondColor(bond).glow}` }}>
+                          {comp.name}
+                        </span>
                         <span className="text-xs px-1.5 py-0.5 rounded bg-accent/20 text-accent" title={`${role} role`}>
                           {roleIcon} {role}
                         </span>
