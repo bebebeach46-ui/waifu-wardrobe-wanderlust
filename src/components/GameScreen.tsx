@@ -2856,7 +2856,15 @@ Death occurred at: ${new Date().toLocaleString()}
 
                     </div>
                     <div className="text-right">
-                      <span className="text-xs bg-primary/20 text-primary px-2 py-1 rounded block mb-1">
+                      <span
+                        className="text-xs px-2 py-1 rounded block mb-1 font-semibold"
+                        style={{
+                          color: getBondColor(bond).color,
+                          backgroundColor: getBondColor(bond).glow,
+                          boxShadow: `inset 0 0 8px ${getBondColor(bond).glow}`,
+                          border: `1px solid ${getBondColor(bond).color}`,
+                        }}
+                      >
                         {comp.relationshipName} ({Math.floor(comp.relationship)}/{bondCap})
                       </span>
                       {compatibility !== 'N/A' && (
