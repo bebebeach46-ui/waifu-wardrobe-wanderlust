@@ -2790,8 +2790,16 @@ Death occurred at: ${new Date().toLocaleString()}
                 <div className="text-xs text-muted-foreground">{highestBonded.race} {highestBonded.class}</div>
               </div>
               <div className="text-right">
-                <span className="text-xs bg-primary/20 text-primary px-2 py-1 rounded">
-                  {highestBonded.relationshipName} ({Math.floor(highestBonded.relationship)}/{bondCap})
+                <span
+                  className="text-xs px-2 py-1 rounded font-semibold"
+                  style={{
+                    color: getBondColor(highestBonded.relationship || 0).color,
+                    backgroundColor: getBondColor(highestBonded.relationship || 0).glow,
+                    boxShadow: `inset 0 0 8px ${getBondColor(highestBonded.relationship || 0).glow}`,
+                    border: `1px solid ${getBondColor(highestBonded.relationship || 0).color}`,
+                  }}
+                >
+                  {highestBonded.relationshipName} ({Math.floor(highestBonded.relationship || 0)}/{bondCap})
                 </span>
               </div>
             </div>
