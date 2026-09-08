@@ -10,31 +10,37 @@
 // ----------------------------------------------------------------------------
 
 // ---- Bond-rank color spectrum ----
-// Both extremes (-10 Nemesis, +10 Soulmate) are equally vivid.
-// Negative side: crimson red, intensifying toward -10.
-// Positive side: magenta-pink (romance), intensifying toward +10.
-// Midpoint (~0): muted grey.
+// Every integer bond rank from -10 to +10 gets its own unique color.
+// Negative ranks run cold (deep blues/purples) for loathing;
+// positive ranks run warm (pinks/reds/oranges/golds) for love.
+// The two extremes are equally saturated and vivid.
+const BOND_COLORS: Record<number, { color: string; glow: string }> = {
+  [-10]: { color: "hsl(220, 100%, 50%)", glow: "hsla(220, 100%, 50%, 0.5)" },   // deep ice blue
+  [-9]: { color: "hsl(230, 95%, 53%)", glow: "hsla(230, 95%, 53%, 0.48)" },     // cold blue
+  [-8]: { color: "hsl(240, 92%, 56%)", glow: "hsla(240, 92%, 56%, 0.47)" },     // blue
+  [-7]: { color: "hsl(250, 88%, 58%)", glow: "hsla(250, 88%, 58%, 0.47)" },     // indigo
+  [-6]: { color: "hsl(260, 85%, 60%)", glow: "hsla(260, 85%, 60%, 0.46)" },     // violet
+  [-5]: { color: "hsl(270, 85%, 62%)", glow: "hsla(270, 85%, 62%, 0.46)" },     // purple
+  [-4]: { color: "hsl(280, 82%, 63%)", glow: "hsla(280, 82%, 63%, 0.45)" },     // magenta-purple
+  [-3]: { color: "hsl(290, 78%, 64%)", glow: "hsla(290, 78%, 64%, 0.45)" },     // magenta
+  [-2]: { color: "hsl(300, 82%, 65%)", glow: "hsla(300, 82%, 65%, 0.45)" },     // pink-magenta
+  [-1]: { color: "hsl(315, 88%, 66%)", glow: "hsla(315, 88%, 66%, 0.45)" },     // cool rose
+  [0]: { color: "hsl(0, 0%, 78%)", glow: "hsla(0, 0%, 78%, 0.35)" },             // neutral grey
+  [1]: { color: "hsl(330, 90%, 66%)", glow: "hsla(330, 90%, 66%, 0.45)" },     // warm rose
+  [2]: { color: "hsl(345, 92%, 64%)", glow: "hsla(345, 92%, 64%, 0.45)" },     // red-pink
+  [3]: { color: "hsl(0, 95%, 62%)", glow: "hsla(0, 95%, 62%, 0.46)" },          // red
+  [4]: { color: "hsl(12, 95%, 60%)", glow: "hsla(12, 95%, 60%, 0.46)" },        // red-orange
+  [5]: { color: "hsl(24, 95%, 58%)", glow: "hsla(24, 95%, 58%, 0.47)" },        // orange
+  [6]: { color: "hsl(36, 94%, 56%)", glow: "hsla(36, 94%, 56%, 0.47)" },        // amber
+  [7]: { color: "hsl(45, 95%, 55%)", glow: "hsla(45, 95%, 55%, 0.48)" },        // gold
+  [8]: { color: "hsl(55, 92%, 54%)", glow: "hsla(55, 92%, 54%, 0.48)" },        // yellow-gold
+  [9]: { color: "hsl(65, 88%, 55%)", glow: "hsla(65, 88%, 55%, 0.49)" },        // warm yellow
+  [10]: { color: "hsl(75, 85%, 56%)", glow: "hsla(75, 85%, 56%, 0.5)" },        // bright golden-lime
+};
+
 export const getBondColor = (bond: number): { color: string; glow: string } => {
-  const b = Math.max(-10, Math.min(10, bond ?? 0));
-  if (b >= 0) {
-    const t = b / 10; // 0..1
-    const hue = 320; // magenta-pink (romance)
-    const sat = Math.round(t * 100);
-    const light = Math.round(58 - t * 10); // 58 -> 48
-    return {
-      color: `hsl(${hue}, ${sat}%, ${light}%)`,
-      glow: `hsla(${hue}, ${sat}%, ${light}%, 0.45)`,
-    };
-  } else {
-    const t = -b / 10; // 0..1
-    const hue = 0; // crimson red
-    const sat = Math.round(t * 100);
-    const light = Math.round(58 - t * 10); // 58 -> 48
-    return {
-      color: `hsl(${hue}, ${sat}%, ${light}%)`,
-      glow: `hsla(${hue}, ${sat}%, ${light}%, 0.45)`,
-    };
-  }
+  const rounded = Math.round(Math.max(-10, Math.min(10, bond ?? 0)));
+  return BOND_COLORS[rounded] ?? BOND_COLORS[0];
 };
 
 export type CompanionRole =
