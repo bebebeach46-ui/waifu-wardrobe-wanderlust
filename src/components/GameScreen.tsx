@@ -15,7 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { generateCharacter, rollForNewSkill, rollForNewSpell, rollForEquipmentUnlock, getClassConfig } from "@/lib/characterGenerator";
 import { generateQuest, Quest, rollQuestPerformance, QuestPerformanceGrade, getFameTitle, performanceGrades } from "@/lib/questGenerator";
 import { generateCompanion, getRelationshipName, calculateCompatibility, getBondLevelCap, generateMilestone, generateChild, RelationshipMilestone, ChildInfo, generateCompanionAge, calculateRelationshipDelta, isCompanionThreat, calculateGiftEffectiveness, giftPreferenceMap, rollForApologyEvent, rollForRepairQuest, calculateRepairQuestReward, RepairQuest, ACTIVE_COMPANION_SLOTS, RESERVE_COMPANION_SLOTS, HEIR_SLOTS, MAX_BOND_10_COMPANIONS, tickCompanionAge, applyMoodDrift, tryBondCapBreakthrough } from "@/lib/companionGenerator";
-import { calculatePartyBondBonuses, calculatePartyBondMaluses, rollDevotionEvents, rollSabotageEvents, tickRivalries, inferCompanionRole, getRoleIcon, getRivalryRewardBonuses, Rivalry } from "@/lib/companionBondBonuses";
+import { calculatePartyBondBonuses, calculatePartyBondMaluses, rollDevotionEvents, rollSabotageEvents, tickRivalries, inferCompanionRole, getRoleIcon, getRivalryRewardBonuses, getBondColor, Rivalry } from "@/lib/companionBondBonuses";
 import { CompanionEncounterState, initializeEncounterState, updateEncounterState, completeEncounter, getTopAffinities, EncounterPreference } from "@/lib/companionEncounterSystem";
 import { generateShopName } from "@/lib/skillGenerator";
 import { generateSummon } from "@/lib/summonGenerator";
@@ -2786,12 +2786,22 @@ Death occurred at: ${new Date().toLocaleString()}
             </div>
             <div className="flex justify-between items-center">
               <div>
-                <div className="font-medium">{highestBonded.name}</div>
+                <div className="font-medium" style={{ color: getBondColor(highestBonded.relationship || 0).color, textShadow: `0 0 8px ${getBondColor(highestBonded.relationship || 0).glow}` }}>
+                  {highestBonded.name}
+                </div>
                 <div className="text-xs text-muted-foreground">{highestBonded.race} {highestBonded.class}</div>
               </div>
               <div className="text-right">
-                <span className="text-xs bg-primary/20 text-primary px-2 py-1 rounded">
-                  {highestBonded.relationshipName} ({Math.floor(highestBonded.relationship)}/{bondCap})
+                <span
+                  className="text-xs px-2 py-1 rounded font-semibold"
+                  style={{
+                    color: getBondColor(highestBonded.relationship || 0).color,
+                    backgroundColor: getBondColor(highestBonded.relationship || 0).glow,
+                    boxShadow: `inset 0 0 8px ${getBondColor(highestBonded.relationship || 0).glow}`,
+                    border: `1px solid ${getBondColor(highestBonded.relationship || 0).color}`,
+                  }}
+                >
+                  {highestBonded.relationshipName} ({Math.floor(highestBonded.relationship || 0)}/{bondCap})
                 </span>
               </div>
             </div>
@@ -2830,7 +2840,9 @@ Death occurred at: ${new Date().toLocaleString()}
                   <div className="flex justify-between items-start">
                     <div>
                       <div className="font-medium text-sm flex items-center gap-1">
-                        {comp.name}
+                        <span style={{ color: getBondColor(bond).color, textShadow: `0 0 8px ${getBondColor(bond).glow}` }}>
+                          {comp.name}
+                        </span>
                         <span className="text-xs px-1.5 py-0.5 rounded bg-accent/20 text-accent" title={`${role} role`}>
                           {roleIcon} {role}
                         </span>
@@ -2854,7 +2866,15 @@ Death occurred at: ${new Date().toLocaleString()}
 
                     </div>
                     <div className="text-right">
-                      <span className="text-xs bg-primary/20 text-primary px-2 py-1 rounded block mb-1">
+                      <span
+                        className="text-xs px-2 py-1 rounded block mb-1 font-semibold"
+                        style={{
+                          color: getBondColor(bond).color,
+                          backgroundColor: getBondColor(bond).glow,
+                          boxShadow: `inset 0 0 8px ${getBondColor(bond).glow}`,
+                          border: `1px solid ${getBondColor(bond).color}`,
+                        }}
+                      >
                         {comp.relationshipName} ({Math.floor(comp.relationship)}/{bondCap})
                       </span>
                       {compatibility !== 'N/A' && (
@@ -2872,7 +2892,10 @@ Death occurred at: ${new Date().toLocaleString()}
                     Likes: {comp.preferences.join(', ')}
                   </div>
                   {bond >= 3 && (
-                    <div className="text-xs text-stat-increase">
+                    <div
+                      className="text-xs font-semibold"
+                      style={{ color: getBondColor(bond).color, textShadow: `0 0 6px ${getBondColor(bond).glow}` }}
+                    >
                       {roleIcon} Bond Tier {bond >= 9 ? "V" : bond >= 7 ? "IV" : bond >= 5 ? "III" : "II"} — passive {role.toLowerCase()} bonus active
                     </div>
                   )}
