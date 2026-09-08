@@ -2786,7 +2786,9 @@ Death occurred at: ${new Date().toLocaleString()}
             </div>
             <div className="flex justify-between items-center">
               <div>
-                <div className="font-medium">{highestBonded.name}</div>
+                <div className="font-medium" style={{ color: getBondColor(highestBonded.relationship || 0).color, textShadow: `0 0 8px ${getBondColor(highestBonded.relationship || 0).glow}` }}>
+                  {highestBonded.name}
+                </div>
                 <div className="text-xs text-muted-foreground">{highestBonded.race} {highestBonded.class}</div>
               </div>
               <div className="text-right">
