@@ -2890,7 +2890,10 @@ Death occurred at: ${new Date().toLocaleString()}
                     Likes: {comp.preferences.join(', ')}
                   </div>
                   {bond >= 3 && (
-                    <div className="text-xs text-stat-increase">
+                    <div
+                      className="text-xs font-semibold"
+                      style={{ color: getBondColor(bond).color, textShadow: `0 0 6px ${getBondColor(bond).glow}` }}
+                    >
                       {roleIcon} Bond Tier {bond >= 9 ? "V" : bond >= 7 ? "IV" : bond >= 5 ? "III" : "II"} — passive {role.toLowerCase()} bonus active
                     </div>
                   )}
