@@ -36,6 +36,8 @@ import { TravelState, initializeTravelState, shouldChangeArea, travelToNewArea, 
 import { EventTicker, TickerEvent, createLegendaryEvent } from "@/components/EventTicker";
 import { generateChampion, resolveChampionEncounter, getChampionSlayerTitle } from "@/lib/championSystem";
 import { getResolutionCapabilities, rollThreatResolutions, methodLabel } from "@/lib/threatResolutionSystem";
+import { loadSettings } from "@/lib/gameSettings";
+
 
 interface GameScreenProps {
   worldData: any;
