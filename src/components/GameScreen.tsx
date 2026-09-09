@@ -44,7 +44,17 @@ interface GameScreenProps {
 }
 
 const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
-  const { toast } = useToast();
+  const { toast: rawToast } = useToast();
+  const [userSettings] = useState(() => loadSettings());
+  // Respect the player's pop-up preference without touching every call site.
+  const toast = useCallback(
+    (opts: Parameters<typeof rawToast>[0]) => {
+      if (!userSettings.showNotifications) return { id: "", dismiss: () => {}, update: () => {} } as any;
+      return rawToast(opts);
+    },
+    [rawToast, userSettings.showNotifications]
+  );
+
   
   // Load save data if it exists
   const loadSaveData = () => {
