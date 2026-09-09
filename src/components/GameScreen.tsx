@@ -36,6 +36,8 @@ import { TravelState, initializeTravelState, shouldChangeArea, travelToNewArea, 
 import { EventTicker, TickerEvent, createLegendaryEvent } from "@/components/EventTicker";
 import { generateChampion, resolveChampionEncounter, getChampionSlayerTitle } from "@/lib/championSystem";
 import { getResolutionCapabilities, rollThreatResolutions, methodLabel } from "@/lib/threatResolutionSystem";
+import { loadSettings } from "@/lib/gameSettings";
+
 
 interface GameScreenProps {
   worldData: any;
@@ -44,7 +46,17 @@ interface GameScreenProps {
 }
 
 const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
-  const { toast } = useToast();
+  const { toast: rawToast } = useToast();
+  const [userSettings] = useState(() => loadSettings());
+  // Respect the player's pop-up preference without touching every call site.
+  const toast = useCallback(
+    (opts: Parameters<typeof rawToast>[0]) => {
+      if (!userSettings.showNotifications) return { id: "", dismiss: () => {}, update: () => {} } as any;
+      return rawToast(opts);
+    },
+    [rawToast, userSettings.showNotifications]
+  );
+
   
   // Load save data if it exists
   const loadSaveData = () => {
@@ -72,7 +84,10 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
 
   const [questProgress, setQuestProgress] = useState(0);
   const [showMap, setShowMap] = useState(false);
-  const [simplifiedMode, setSimplifiedMode] = useState(() => savedData?.simplifiedMode || false);
+  const [simplifiedMode, setSimplifiedMode] = useState(() =>
+    savedData?.simplifiedMode ?? userSettings.simplifiedByDefault
+  );
+
   const [companions, setCompanions] = useState<any[]>(() => savedData?.companions || []);
   const [treasure, setTreasure] = useState(savedData?.treasure || 0);
   const [shopName] = useState(savedData?.shopName || generateShopName());
@@ -2365,12 +2380,15 @@ Death occurred at: ${new Date().toLocaleString()}
   return (
     <Card className="p-0 space-y-0 max-h-[90vh] overflow-y-auto">
       {/* Event Ticker - Godville style at top */}
-      <EventTicker 
-        weather={weather}
-        statusEffects={statusEffects}
-        eventLog={eventLog}
-        recentEvents={legendaryEvents}
-      />
+      {userSettings.showEventTicker && (
+        <EventTicker 
+          weather={weather}
+          statusEffects={statusEffects}
+          eventLog={eventLog}
+          recentEvents={legendaryEvents}
+        />
+      )}
+
       
       <div className="p-4 space-y-4">
       <div className="flex items-center justify-between">
