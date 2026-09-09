@@ -159,7 +159,9 @@ const Index = () => {
             onBack={handleBackToMenu}
           />
         )}
+        <SettingsDialog open={showSettings} onOpenChange={setShowSettings} />
       </div>
+
     </div>
   );
 };
