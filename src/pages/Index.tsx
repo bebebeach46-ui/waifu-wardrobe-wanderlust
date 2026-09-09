@@ -31,8 +31,7 @@ const Index = () => {
   }, []);
 
   const hasAnySave = () =>
-    [1, 2, 3, 4, 5].some((slot) => !!localStorage.getItem(`quest-idle-slot-${slot}`));
-
+    [1, 2, 3].some((slot) => !!localStorage.getItem(`quest-idle-slot-${slot}`));
 
   const handleNewGame = () => {
     setIsLoadingExisting(false);
@@ -40,9 +39,22 @@ const Index = () => {
   };
 
   const handleContinue = () => {
+    if (!hasAnySave()) {
+      toast({
+        title: "No adventures saved yet",
+        description: "Start a new adventure first — it saves itself as you play.",
+      });
+      return;
+    }
     setIsLoadingExisting(true);
     setScreen("slots");
   };
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    toast({ title: "Signed out" });
+  };
+
 
   const handleSlotSelect = (slot: number) => {
     setSelectedSlot(slot);
