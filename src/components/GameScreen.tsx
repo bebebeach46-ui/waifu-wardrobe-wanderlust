@@ -2380,12 +2380,15 @@ Death occurred at: ${new Date().toLocaleString()}
   return (
     <Card className="p-0 space-y-0 max-h-[90vh] overflow-y-auto">
       {/* Event Ticker - Godville style at top */}
-      <EventTicker 
-        weather={weather}
-        statusEffects={statusEffects}
-        eventLog={eventLog}
-        recentEvents={legendaryEvents}
-      />
+      {userSettings.showEventTicker && (
+        <EventTicker 
+          weather={weather}
+          statusEffects={statusEffects}
+          eventLog={eventLog}
+          recentEvents={legendaryEvents}
+        />
+      )}
+
       
       <div className="p-4 space-y-4">
       <div className="flex items-center justify-between">
