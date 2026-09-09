@@ -113,15 +113,22 @@ const Index = () => {
               <Button variant="secondary" className="w-full" size="lg" onClick={handleContinue}>
                 Continue
               </Button>
-              <Button variant="outline" className="w-full" size="lg" onClick={() => window.location.href = "/leaderboard"}>
+              <Button variant="outline" className="w-full" size="lg" onClick={() => navigate("/leaderboard")}>
                 Leaderboards
               </Button>
-              <Button variant="outline" className="w-full" size="lg" onClick={() => window.location.href = "/auth"}>
-                Sign In / Sign Up
-              </Button>
-              <Button variant="outline" className="w-full" size="lg">
+              {signedIn ? (
+                <Button variant="outline" className="w-full" size="lg" onClick={handleSignOut}>
+                  Sign Out
+                </Button>
+              ) : (
+                <Button variant="outline" className="w-full" size="lg" onClick={() => navigate("/auth")}>
+                  Sign In / Sign Up
+                </Button>
+              )}
+              <Button variant="outline" className="w-full" size="lg" onClick={() => setShowSettings(true)}>
                 Settings
               </Button>
+
             </div>
           </Card>
         )}
