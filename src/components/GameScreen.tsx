@@ -84,7 +84,10 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
 
   const [questProgress, setQuestProgress] = useState(0);
   const [showMap, setShowMap] = useState(false);
-  const [simplifiedMode, setSimplifiedMode] = useState(() => savedData?.simplifiedMode || false);
+  const [simplifiedMode, setSimplifiedMode] = useState(() =>
+    savedData?.simplifiedMode ?? userSettings.simplifiedByDefault
+  );
+
   const [companions, setCompanions] = useState<any[]>(() => savedData?.companions || []);
   const [treasure, setTreasure] = useState(savedData?.treasure || 0);
   const [shopName] = useState(savedData?.shopName || generateShopName());
