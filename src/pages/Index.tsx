@@ -1,18 +1,38 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import WorldGenerator from "@/components/WorldGenerator";
 import GameScreen from "@/components/GameScreen";
 import SaveSlots from "@/components/SaveSlots";
 import { DifficultySelector } from "@/components/DifficultySelector";
+import SettingsDialog from "@/components/SettingsDialog";
 import Seo from "@/components/Seo";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 const Index = () => {
+  const navigate = useNavigate();
+  const { toast } = useToast();
   const [screen, setScreen] = useState<"menu" | "slots" | "difficulty" | "world" | "game">("menu");
   const [selectedSlot, setSelectedSlot] = useState<number | null>(null);
   const [selectedDifficulty, setSelectedDifficulty] = useState<number>(2); // Default to Adventurer
   const [worldData, setWorldData] = useState<any>(null);
   const [isLoadingExisting, setIsLoadingExisting] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [signedIn, setSignedIn] = useState(false);
+
+  useEffect(() => {
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
+      setSignedIn(!!session);
+    });
+    supabase.auth.getSession().then(({ data }) => setSignedIn(!!data.session));
+    return () => sub.subscription.unsubscribe();
+  }, []);
+
+  const hasAnySave = () =>
+    [1, 2, 3, 4, 5].some((slot) => !!localStorage.getItem(`quest-idle-slot-${slot}`));
+
 
   const handleNewGame = () => {
     setIsLoadingExisting(false);
