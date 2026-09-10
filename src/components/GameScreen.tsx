@@ -3034,6 +3034,7 @@ Death occurred at: ${new Date().toLocaleString()}
               <TabsTrigger value="combat" className="flex-1 text-xs">⚔️ Combat</TabsTrigger>
               <TabsTrigger value="events" className="flex-1 text-xs">📜 Events</TabsTrigger>
               <TabsTrigger value="map" className="flex-1 text-xs">🗺️ Map</TabsTrigger>
+              <TabsTrigger value="bonds" className="flex-1 text-xs">💞 Bonds</TabsTrigger>
             </TabsList>
             <TabsContent value="combat">
               <div className="bg-muted p-2 rounded space-y-1 max-h-48 overflow-y-auto">
