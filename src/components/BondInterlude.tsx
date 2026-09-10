@@ -26,7 +26,7 @@ const BondInterludeOverlay = ({ scene, onDismiss }: BondInterludeOverlayProps) =
 
   if (!scene) return null;
 
-  const color = getBondColor(scene.rank);
+  const color = getBondColor(scene.rank).color;
   const romance = scene.tone === "romance";
 
   return (
