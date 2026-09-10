@@ -3190,6 +3190,11 @@ Death occurred at: ${new Date().toLocaleString()}
         </>
       )}
 
+      <BondInterludeOverlay
+        scene={interludeQueue[0] || null}
+        onDismiss={() => setInterludeQueue(prev => prev.slice(1))}
+      />
+
       <Shop
         isOpen={isShopOpen}
         onClose={() => setIsShopOpen(false)}
