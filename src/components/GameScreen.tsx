@@ -1131,6 +1131,28 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
                 setActivities(prev => trackActivity(prev, "relationship", `${milestone.name} with ${comp.name}: ${milestone.description}`));
               }
             }
+
+            // === BOND INTERLUDES — a scene for every rank climbed or lost ===
+            if (newLevel !== oldLevel) {
+              const climbing = newLevel > oldLevel;
+              const grade = performance.grade;
+              const hostileCause = !climbing
+                ? (grade === "Catastrophic" || grade === "Poor" || grade === "Mediocre"
+                    ? `Your "${currentQuest.name}" ended ${grade.toLowerCase()} — and she carried the cost of it.`
+                    : undefined)
+                : undefined;
+              const scene = generateBondInterlude(
+                comp,
+                newLevel,
+                climbing ? newName : getRelationshipName(newRel),
+                climbing ? "romance" : "hostile",
+                hostileCause
+              );
+              setInterludeQueue(prev => [...prev, scene]);
+              setActivities(prev => trackActivity(prev, "relationship",
+                `${scene.icon} ${scene.title} — ${comp.name} (Bond ${newLevel}): ${scene.quote}`));
+            }
+            
             
             // Relationship name change notifications
             if (oldName !== newName) {
