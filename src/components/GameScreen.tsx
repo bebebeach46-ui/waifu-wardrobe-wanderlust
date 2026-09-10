@@ -1135,11 +1135,9 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
             // === BOND INTERLUDES — a scene for every rank climbed or lost ===
             if (newLevel !== oldLevel) {
               const climbing = newLevel > oldLevel;
-              const grade = performance.grade;
-              const hostileCause = !climbing
-                ? (grade === "Catastrophic" || grade === "Poor" || grade === "Mediocre"
-                    ? `Your "${currentQuest.name}" ended ${grade.toLowerCase()} — and she carried the cost of it.`
-                    : undefined)
+              const gradeInfo = performanceGrades.find(g => g.grade === performance.grade);
+              const hostileCause = !climbing && performance.grade <= 3
+                ? `Your "${currentQuest.name}" ended ${(gradeInfo?.name || "badly").toLowerCase()} — and she carried the cost of it.`
                 : undefined;
               const scene = generateBondInterlude(
                 comp,
