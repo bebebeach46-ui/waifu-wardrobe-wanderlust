@@ -798,6 +798,28 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
 
           setLastPerformance({ ...performance, rewardMultiplier: boostedRewardMult, fameGain: totalFlatFame });
 
+          // === RELATIONSHIP PERFORMANCE SNAPSHOT (graphed in the Bonds tab) ===
+          setBondHistory(prev => {
+            const bonds = companions.map(c => c.relationship || 0);
+            const avg = bonds.length ? bonds.reduce((a, b) => a + b, 0) / bonds.length : 0;
+            const best = bonds.length ? Math.max(...bonds) : 0;
+            const worst = bonds.length ? Math.min(...bonds) : 0;
+            const bestComp = companions.find(c => (c.relationship || 0) === best);
+            const worstComp = companions.find(c => (c.relationship || 0) === worst);
+            const snapshot: BondSnapshot = {
+              quest: (prev[prev.length - 1]?.quest || 0) + 1,
+              avgBond: Math.round(avg * 10) / 10,
+              best,
+              worst,
+              bonuses: devotionEvents.length + rivalryTick.events.length,
+              maluses: sabotageEvents.length + (partyMaluses.questPerformanceMalus > 0.02 ? 1 : 0),
+              perfMult: Math.round(totalPerfMult * 100) / 100,
+              bestName: bestComp?.name,
+              worstName: worstComp?.name,
+            };
+            return [...prev, snapshot].slice(-60);
+          });
+
           // Apply (boosted) fame to the hero
           setFame(prev => Math.max(-100, prev + totalFlatFame));
           
