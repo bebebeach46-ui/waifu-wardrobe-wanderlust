@@ -1975,6 +1975,7 @@ Death occurred at: ${new Date().toLocaleString()}
       uniqueHeirMothers,
       favoriteCompanionName,
       rivalries,
+      bondHistory,
       characterName: character.name,
       level: stats.level,
       timestamp: Date.now()
