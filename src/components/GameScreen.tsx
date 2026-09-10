@@ -3085,6 +3085,9 @@ Death occurred at: ${new Date().toLocaleString()}
                 fame={fame}
               />
             </TabsContent>
+            <TabsContent value="bonds">
+              <RelationshipGraph history={bondHistory} />
+            </TabsContent>
           </Tabs>
 
           <div className="space-y-2">
