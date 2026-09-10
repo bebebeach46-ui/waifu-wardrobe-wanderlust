@@ -37,6 +37,8 @@ import { EventTicker, TickerEvent, createLegendaryEvent } from "@/components/Eve
 import { generateChampion, resolveChampionEncounter, getChampionSlayerTitle } from "@/lib/championSystem";
 import { getResolutionCapabilities, rollThreatResolutions, methodLabel } from "@/lib/threatResolutionSystem";
 import { loadSettings } from "@/lib/gameSettings";
+import BondInterludeOverlay from "@/components/BondInterlude";
+import { generateBondInterlude, BondInterlude as BondInterludeScene } from "@/lib/bondInterludeGenerator";
 
 
 interface GameScreenProps {
@@ -97,6 +99,7 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
   const [offspringData, setOffspringData] = useState<ChildInfo | null>(savedData?.offspringData || null);
   const [children, setChildren] = useState<ChildInfo[]>(() => savedData?.children || []);
   const [romanceDiary, setRomanceDiary] = useState<RelationshipMilestone[]>(() => savedData?.romanceDiary || []);
+  const [interludeQueue, setInterludeQueue] = useState<BondInterludeScene[]>([]);
   const [married, setMarried] = useState<any>(savedData?.married || null);
   const [statusEffects, setStatusEffects] = useState<StatusEffect[]>(() => savedData?.statusEffects || []);
   const [summons, setSummons] = useState<any[]>(() => savedData?.summons || []);
