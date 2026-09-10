@@ -17,6 +17,7 @@ import { generateQuest, Quest, rollQuestPerformance, QuestPerformanceGrade, getF
 import { generateCompanion, getRelationshipName, calculateCompatibility, getBondLevelCap, generateMilestone, generateChild, RelationshipMilestone, ChildInfo, generateCompanionAge, calculateRelationshipDelta, isCompanionThreat, calculateGiftEffectiveness, giftPreferenceMap, rollForApologyEvent, rollForRepairQuest, calculateRepairQuestReward, RepairQuest, ACTIVE_COMPANION_SLOTS, RESERVE_COMPANION_SLOTS, HEIR_SLOTS, MAX_BOND_10_COMPANIONS, tickCompanionAge, applyMoodDrift, tryBondCapBreakthrough } from "@/lib/companionGenerator";
 import { calculatePartyBondBonuses, calculatePartyBondMaluses, rollDevotionEvents, rollSabotageEvents, tickRivalries, inferCompanionRole, getRoleIcon, getRivalryRewardBonuses, getBondColor, Rivalry } from "@/lib/companionBondBonuses";
 import { CompanionEncounterState, initializeEncounterState, updateEncounterState, completeEncounter, getTopAffinities, EncounterPreference } from "@/lib/companionEncounterSystem";
+import RelationshipGraph, { BondSnapshot } from "@/components/RelationshipGraph";
 import { generateShopName } from "@/lib/skillGenerator";
 import { generateSummon } from "@/lib/summonGenerator";
 import { getRandomStatusEffect, StatusEffect, tickStatusEffects, createPermanentEffect, canCurePermanentEffect } from "@/lib/statusEffectGenerator";
@@ -129,6 +130,7 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
   const [uniqueHeirMothers, setUniqueHeirMothers] = useState<string[]>(() => savedData?.uniqueHeirMothers || []);
   const [favoriteCompanionName, setFavoriteCompanionName] = useState<string | null>(() => savedData?.favoriteCompanionName || null);
   const [rivalries, setRivalries] = useState<Rivalry[]>(() => savedData?.rivalries || []);
+  const [bondHistory, setBondHistory] = useState<BondSnapshot[]>(() => savedData?.bondHistory || []);
   const [stats, setStats] = useState(savedData?.stats || {
     level: 1,
     exp: 0,
@@ -795,6 +797,28 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
           }
 
           setLastPerformance({ ...performance, rewardMultiplier: boostedRewardMult, fameGain: totalFlatFame });
+
+          // === RELATIONSHIP PERFORMANCE SNAPSHOT (graphed in the Bonds tab) ===
+          setBondHistory(prev => {
+            const bonds = companions.map(c => c.relationship || 0);
+            const avg = bonds.length ? bonds.reduce((a, b) => a + b, 0) / bonds.length : 0;
+            const best = bonds.length ? Math.max(...bonds) : 0;
+            const worst = bonds.length ? Math.min(...bonds) : 0;
+            const bestComp = companions.find(c => (c.relationship || 0) === best);
+            const worstComp = companions.find(c => (c.relationship || 0) === worst);
+            const snapshot: BondSnapshot = {
+              quest: (prev[prev.length - 1]?.quest || 0) + 1,
+              avgBond: Math.round(avg * 10) / 10,
+              best,
+              worst,
+              bonuses: devotionEvents.length + rivalryTick.events.length,
+              maluses: sabotageEvents.length + (partyMaluses.questPerformanceMalus > 0.02 ? 1 : 0),
+              perfMult: Math.round(totalPerfMult * 100) / 100,
+              bestName: bestComp?.name,
+              worstName: worstComp?.name,
+            };
+            return [...prev, snapshot].slice(-60);
+          });
 
           // Apply (boosted) fame to the hero
           setFame(prev => Math.max(-100, prev + totalFlatFame));
@@ -1951,11 +1975,12 @@ Death occurred at: ${new Date().toLocaleString()}
       uniqueHeirMothers,
       favoriteCompanionName,
       rivalries,
+      bondHistory,
       characterName: character.name,
       level: stats.level,
       timestamp: Date.now()
     };
-  }, [character, stats, worldData, companions, treasure, married, hasOffspring, offspringData, children, romanceDiary, statusEffects, summons, eventLog, deity, alignment, weather, materials, lifeSkills, activities, monstersKilled, currentQuest, shopName, activeEffects, codex, combatLog, wounds, travelState, encounterState, activeRepairQuest, championsDefeated, simplifiedMode, fame, reserveCompanions, uniqueHeirMothers, favoriteCompanionName, rivalries, recentGrades]);
+  }, [character, stats, worldData, companions, treasure, married, hasOffspring, offspringData, children, romanceDiary, statusEffects, summons, eventLog, deity, alignment, weather, materials, lifeSkills, activities, monstersKilled, currentQuest, shopName, activeEffects, codex, combatLog, wounds, travelState, encounterState, activeRepairQuest, championsDefeated, simplifiedMode, fame, reserveCompanions, uniqueHeirMothers, favoriteCompanionName, rivalries, recentGrades, bondHistory]);
 
   const performSave = useCallback(() => {
     if (!saveDataRef.current) return null;
@@ -3010,6 +3035,7 @@ Death occurred at: ${new Date().toLocaleString()}
               <TabsTrigger value="combat" className="flex-1 text-xs">⚔️ Combat</TabsTrigger>
               <TabsTrigger value="events" className="flex-1 text-xs">📜 Events</TabsTrigger>
               <TabsTrigger value="map" className="flex-1 text-xs">🗺️ Map</TabsTrigger>
+              <TabsTrigger value="bonds" className="flex-1 text-xs">💞 Bonds</TabsTrigger>
             </TabsList>
             <TabsContent value="combat">
               <div className="bg-muted p-2 rounded space-y-1 max-h-48 overflow-y-auto">
@@ -3059,6 +3085,9 @@ Death occurred at: ${new Date().toLocaleString()}
                 isDead={isDead}
                 fame={fame}
               />
+            </TabsContent>
+            <TabsContent value="bonds">
+              <RelationshipGraph history={bondHistory} />
             </TabsContent>
           </Tabs>
 
