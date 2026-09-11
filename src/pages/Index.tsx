@@ -116,6 +116,9 @@ const Index = () => {
               <Button variant="outline" className="w-full" size="lg" onClick={() => navigate("/leaderboard")}>
                 Leaderboards
               </Button>
+              <Button variant="outline" className="w-full" size="lg" onClick={() => navigate("/journal")}>
+                Bond Journal
+              </Button>
               {signedIn ? (
                 <Button variant="outline" className="w-full" size="lg" onClick={handleSignOut}>
                   Sign Out
