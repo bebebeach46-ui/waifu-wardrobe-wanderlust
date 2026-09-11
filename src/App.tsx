@@ -7,6 +7,7 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Leaderboard from "./pages/Leaderboard";
+import Journal from "./pages/Journal";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
