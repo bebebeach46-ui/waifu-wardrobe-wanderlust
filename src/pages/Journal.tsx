@@ -221,17 +221,26 @@ const Journal = () => {
                 className="text-sm"
               />
               <div className="flex flex-wrap gap-1">
-                {TAGS.map((t) => (
-                  <button
-                    key={t}
-                    onClick={() => setDraftTag(t)}
-                    className={`text-[10px] px-2 py-1 rounded border transition-colors ${
-                      draftTag === t ? "border-primary bg-primary/10 text-primary" : "border-border hover:bg-muted"
-                    }`}
-                  >
-                    {t}
-                  </button>
-                ))}
+                {TAGS.map((t) => {
+                  const tc = getTagColor(t);
+                  const selected = draftTag === t;
+                  return (
+                    <button
+                      key={t}
+                      onClick={() => setDraftTag(t)}
+                      className={`text-[10px] px-2 py-1 rounded border transition-colors ${
+                        selected ? "bg-opacity-10" : "hover:bg-muted/50"
+                      }`}
+                      style={{
+                        color: tc,
+                        borderColor: tc,
+                        backgroundColor: selected ? `${tc.replace("var(", "").replace(")", "")} / 0.12` : undefined,
+                      }}
+                    >
+                      {t}
+                    </button>
+                  );
+                })}
               </div>
               <Textarea
                 value={draftBody}
