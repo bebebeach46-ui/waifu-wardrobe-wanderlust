@@ -39,7 +39,7 @@ const TAG_VARS: Record<string, string> = {
   Goal: "--tag-goal",
 };
 
-const getTagColor = (tag: string) => `hsl(${TAG_VARS[tag] || "var(--muted-foreground)"})`;
+const getTagColor = (tag: string) => `hsl(var(${TAG_VARS[tag] || "--muted-foreground"}))`;
 
 const loadSlots = (): Slot[] => {
   const out: Slot[] = [];
