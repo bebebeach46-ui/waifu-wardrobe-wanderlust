@@ -28,6 +28,19 @@ type Entry = {
 
 const TAGS = ["General", "Quest", "Companion", "Enemy", "Place", "Item", "Theory", "Goal"];
 
+const TAG_VARS: Record<string, string> = {
+  General: "var(--tag-general)",
+  Quest: "var(--tag-quest)",
+  Companion: "var(--tag-companion)",
+  Enemy: "var(--tag-enemy)",
+  Place: "var(--tag-place)",
+  Item: "var(--tag-item)",
+  Theory: "var(--tag-theory)",
+  Goal: "var(--tag-goal)",
+};
+
+const getTagColor = (tag: string) => TAG_VARS[tag] || "hsl(var(--muted-foreground))";
+
 const loadSlots = (): Slot[] => {
   const out: Slot[] = [];
   for (const slot of [1, 2, 3]) {
