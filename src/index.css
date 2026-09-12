@@ -106,6 +106,15 @@ All colors MUST be HSL.
     --event-negative: 0 84% 60%;
     --event-neutral: 142 76% 45%;
     --event-positive: 217 91% 60%;
+
+    --tag-general: 210 30% 60%;
+    --tag-quest: 35 90% 60%;
+    --tag-companion: 340 80% 65%;
+    --tag-enemy: 0 75% 60%;
+    --tag-place: 180 65% 50%;
+    --tag-item: 45 95% 55%;
+    --tag-theory: 270 65% 70%;
+    --tag-goal: 142 76% 45%;
     
     --sidebar-background: 240 5.9% 10%;
     --sidebar-foreground: 240 4.8% 95.9%;
