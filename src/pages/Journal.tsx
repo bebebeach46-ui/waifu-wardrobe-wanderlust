@@ -232,9 +232,9 @@ const Journal = () => {
                         selected ? "bg-opacity-10" : "hover:bg-muted/50"
                       }`}
                       style={{
-                        color: "red",
-                        borderColor: "red",
-                        backgroundColor: selected ? "rgba(255,0,0,0.12)" : undefined,
+                        color: tc,
+                        borderColor: tc,
+                        backgroundColor: selected ? tc.replace(")", " / 0.12)") : undefined,
                       }}
                     >
                       {t}
