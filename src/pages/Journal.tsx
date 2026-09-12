@@ -28,6 +28,19 @@ type Entry = {
 
 const TAGS = ["General", "Quest", "Companion", "Enemy", "Place", "Item", "Theory", "Goal"];
 
+const TAG_VARS: Record<string, string> = {
+  General: "--tag-general",
+  Quest: "--tag-quest",
+  Companion: "--tag-companion",
+  Enemy: "--tag-enemy",
+  Place: "--tag-place",
+  Item: "--tag-item",
+  Theory: "--tag-theory",
+  Goal: "--tag-goal",
+};
+
+const getTagColor = (tag: string) => `hsl(var(${TAG_VARS[tag] || "--muted-foreground"}))`;
+
 const loadSlots = (): Slot[] => {
   const out: Slot[] = [];
   for (const slot of [1, 2, 3]) {
@@ -208,17 +221,26 @@ const Journal = () => {
                 className="text-sm"
               />
               <div className="flex flex-wrap gap-1">
-                {TAGS.map((t) => (
-                  <button
-                    key={t}
-                    onClick={() => setDraftTag(t)}
-                    className={`text-[10px] px-2 py-1 rounded border transition-colors ${
-                      draftTag === t ? "border-primary bg-primary/10 text-primary" : "border-border hover:bg-muted"
-                    }`}
-                  >
-                    {t}
-                  </button>
-                ))}
+                {TAGS.map((t) => {
+                  const tc = getTagColor(t);
+                  const selected = draftTag === t;
+                  return (
+                    <button
+                      key={t}
+                      onClick={() => setDraftTag(t)}
+                      className={`text-[10px] px-2 py-1 rounded border transition-colors ${
+                        selected ? "bg-opacity-10" : "hover:bg-muted/50"
+                      }`}
+                      style={{
+                        color: tc,
+                        borderColor: tc,
+                        backgroundColor: selected ? tc.replace(")", " / 0.12)") : undefined,
+                      }}
+                    >
+                      {t}
+                    </button>
+                  );
+                })}
               </div>
               <Textarea
                 value={draftBody}
@@ -267,7 +289,11 @@ const Journal = () => {
                       </Button>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="text-[10px]">
+                      <Badge
+                        variant="outline"
+                        className="text-[10px]"
+                        style={{ color: getTagColor(e.tag), borderColor: getTagColor(e.tag) }}
+                      >
                         {e.tag}
                       </Badge>
                       <span className="text-[10px] text-muted-foreground">
