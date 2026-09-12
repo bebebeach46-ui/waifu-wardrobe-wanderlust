@@ -234,7 +234,7 @@ const Journal = () => {
                       style={{
                         color: tc,
                         borderColor: tc,
-                        backgroundColor: selected ? `${tc.replace("var(", "").replace(")", "")} / 0.12` : undefined,
+                        backgroundColor: selected ? tc.replace(")", " / 0.12)") : undefined,
                       }}
                     >
                       {t}
