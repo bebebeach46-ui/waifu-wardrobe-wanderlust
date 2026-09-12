@@ -289,7 +289,11 @@ const Journal = () => {
                       </Button>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="text-[10px]">
+                      <Badge
+                        variant="outline"
+                        className="text-[10px]"
+                        style={{ color: getTagColor(e.tag), borderColor: getTagColor(e.tag) }}
+                      >
                         {e.tag}
                       </Badge>
                       <span className="text-[10px] text-muted-foreground">
