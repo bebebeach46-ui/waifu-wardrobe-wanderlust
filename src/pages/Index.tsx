@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -11,27 +11,40 @@ import Seo from "@/components/Seo";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
+type Screen = "menu" | "slots" | "difficulty" | "world" | "game";
+
+type WorldData = {
+  seed: string;
+  timeline: string;
+  difficulty: number;
+  hero?: any;
+  [key: string]: any;
+};
+
 const Index = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [screen, setScreen] = useState<"menu" | "slots" | "difficulty" | "world" | "game">("menu");
+  const [screen, setScreen] = useState<Screen>("menu");
   const [selectedSlot, setSelectedSlot] = useState<number | null>(null);
   const [selectedDifficulty, setSelectedDifficulty] = useState<number>(2); // Default to Adventurer
-  const [worldData, setWorldData] = useState<any>(null);
+  const [worldData, setWorldData] = useState<WorldData | null>(null);
   const [isLoadingExisting, setIsLoadingExisting] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [signedIn, setSignedIn] = useState(false);
+
+  const hasSave = useMemo(() => {
+    return [1, 2, 3].some((slot) => !!localStorage.getItem(`quest-idle-slot-${slot}`));
+  }, []);
 
   useEffect(() => {
     const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
       setSignedIn(!!session);
     });
     supabase.auth.getSession().then(({ data }) => setSignedIn(!!data.session));
-    return () => sub.subscription.unsubscribe();
+    return () => {
+      sub.subscription.unsubscribe();
+    };
   }, []);
-
-  const hasAnySave = () =>
-    [1, 2, 3].some((slot) => !!localStorage.getItem(`quest-idle-slot-${slot}`));
 
   const handleNewGame = () => {
     setIsLoadingExisting(false);
@@ -39,7 +52,7 @@ const Index = () => {
   };
 
   const handleContinue = () => {
-    if (!hasAnySave()) {
+    if (!hasSave) {
       toast({
         title: "No adventures saved yet",
         description: "Start a new adventure first — it saves itself as you play.",
@@ -55,17 +68,32 @@ const Index = () => {
     toast({ title: "Signed out" });
   };
 
+  const handleBackToMenu = () => {
+    setScreen("menu");
+    setSelectedSlot(null);
+    setWorldData(null);
+  };
 
   const handleSlotSelect = (slot: number) => {
     setSelectedSlot(slot);
-    
+
     // If loading existing save, skip world generation and difficulty
     if (isLoadingExisting) {
       const saveData = localStorage.getItem(`quest-idle-slot-${slot}`);
       if (saveData) {
-        const data = JSON.parse(saveData);
-        setWorldData(data.worldData);
-        setScreen("game");
+        try {
+          const data = JSON.parse(saveData);
+          setWorldData(data.worldData);
+          setScreen("game");
+        } catch {
+          localStorage.removeItem(`quest-idle-slot-${slot}`);
+          toast({
+            title: "Save corrupted — removed",
+            description: `Slot ${slot} was unreadable and has been cleared. Start a new adventure.`,
+          });
+          setIsLoadingExisting(false);
+          setScreen("difficulty");
+        }
       } else {
         // No save in this slot, treat as new game
         setIsLoadingExisting(false);
@@ -86,17 +114,11 @@ const Index = () => {
     setScreen("game");
   };
 
-  const handleBackToMenu = () => {
-    setScreen("menu");
-    setSelectedSlot(null);
-    setWorldData(null);
-  };
-
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <Seo
         title="Quest Idle — Automated Text-Based Idle RPG"
-        description="Start a randomized idle RPG adventure. Permadeath, companions, and absurd quests across medieval to cyberpunk timelines."
+        description="Start a randomized idle RPG adventure. Companions, romance, rivalry, and absurd quests across medieval to cyberpunk timelines."
         path="/"
       />
       <div className="w-full max-w-md">
@@ -107,10 +129,21 @@ const Index = () => {
               <p className="text-muted-foreground">An Automated Adventure</p>
             </div>
             <div className="space-y-3">
-              <Button onClick={handleNewGame} className="w-full" size="lg">
+              <Button
+                onClick={handleNewGame}
+                className="w-full"
+                size="lg"
+                disabled={isLoadingExisting}
+              >
                 New Adventure
               </Button>
-              <Button variant="secondary" className="w-full" size="lg" onClick={handleContinue}>
+              <Button
+                variant="secondary"
+                className="w-full"
+                size="lg"
+                onClick={handleContinue}
+                disabled={isLoadingExisting}
+              >
                 Continue
               </Button>
               <Button variant="outline" className="w-full" size="lg" onClick={() => navigate("/leaderboard")}>
@@ -131,14 +164,13 @@ const Index = () => {
               <Button variant="outline" className="w-full" size="lg" onClick={() => setShowSettings(true)}>
                 Settings
               </Button>
-
             </div>
           </Card>
         )}
 
         {screen === "slots" && (
-          <SaveSlots 
-            onSlotSelect={handleSlotSelect} 
+          <SaveSlots
+            onSlotSelect={handleSlotSelect}
             onBack={handleBackToMenu}
             isLoadingExisting={isLoadingExisting}
           />
@@ -156,15 +188,14 @@ const Index = () => {
         )}
 
         {screen === "game" && worldData && selectedSlot !== null && (
-          <GameScreen 
-            worldData={worldData} 
+          <GameScreen
+            worldData={worldData}
             saveSlot={selectedSlot}
             onBack={handleBackToMenu}
           />
         )}
         <SettingsDialog open={showSettings} onOpenChange={setShowSettings} />
       </div>
-
     </div>
   );
 };
