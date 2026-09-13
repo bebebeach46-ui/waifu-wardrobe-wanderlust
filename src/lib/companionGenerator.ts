@@ -1230,3 +1230,20 @@ export const calculateRepairQuestReward = (
     narrative: `Masterfully completed "${repairQuest.name}"! ${repairQuest.companionName} was deeply moved.`
   };
 };
+
+/**
+ * A companion as it actually lives in game state: the generated shape plus the
+ * mutable bond fields the adventure loop writes back (relationship drift,
+ * neglect counters, aging, cap breakthroughs).
+ */
+export type Companion = ReturnType<typeof generateCompanion> & {
+  relationshipName?: string;
+  questsSinceInteraction?: number;
+  driftTag?: string;
+  age?: number;
+  bondCap?: number;
+  compatibility?: number;
+  capLocked?: boolean;
+  /** Older saves may carry fields no longer generated. */
+  [key: string]: any;
+};
