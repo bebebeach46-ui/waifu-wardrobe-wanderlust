@@ -1,14 +1,20 @@
 // Shared runtime types for the adventure screen.
 // These replace the `any[]` state buckets that used to live inside GameScreen.
 import { generateSummon } from "@/lib/summonGenerator";
-import { generateWorld } from "@/lib/worldGenerator";
 
 /** The generated world the run takes place in (difficulty is chosen separately). */
-export type WorldData = ReturnType<typeof generateWorld> & {
+export interface WorldData {
+  timeline: string;
+  seed?: string | number;
+  name?: string;
+  terrain?: string;
+  mainFaction?: string;
+  dangerLevel?: number;
+  /** 1 (Basic) … 5 (Impossible) — chosen on the difficulty screen. */
   difficulty?: number;
-  // Older saves carried extra ad-hoc world fields.
+  // Older saves and the world generator screen carry extra ad-hoc fields.
   [key: string]: any;
-};
+}
 
 /** A summoned ally earned from shard collection. */
 export type Summon = ReturnType<typeof generateSummon>;

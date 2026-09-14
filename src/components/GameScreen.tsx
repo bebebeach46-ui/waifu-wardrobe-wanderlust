@@ -40,25 +40,23 @@ import { getResolutionCapabilities, rollThreatResolutions, methodLabel } from "@
 import { loadSettings } from "@/lib/gameSettings";
 import BondInterludeOverlay from "@/components/BondInterlude";
 import { generateBondInterlude, BondInterlude as BondInterludeScene } from "@/lib/bondInterludeGenerator";
+import { Companion } from "@/lib/companionGenerator";
+import { WorldData, Summon, ActiveEffect } from "@/lib/gameTypes";
+import { useThrottledToast } from "@/hooks/useThrottledToast";
+import { useGameSave } from "@/hooks/useGameSave";
+import { computeOfflineProgress } from "@/lib/offlineProgress";
 
 
 interface GameScreenProps {
-  worldData: any;
+  worldData: WorldData;
   saveSlot: number;
   onBack: () => void;
 }
 
 const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
-  const { toast: rawToast } = useToast();
   const [userSettings] = useState(() => loadSettings());
-  // Respect the player's pop-up preference without touching every call site.
-  const toast = useCallback(
-    (opts: Parameters<typeof rawToast>[0]) => {
-      if (!userSettings.showNotifications) return { id: "", dismiss: () => {}, update: () => {} } as any;
-      return rawToast(opts);
-    },
-    [rawToast, userSettings.showNotifications]
-  );
+  // Respects the pop-up preference AND throttles routine chatter (see hook).
+  const toast = useThrottledToast(userSettings.showNotifications);
 
   
   // Load save data if it exists
@@ -91,7 +89,7 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
     savedData?.simplifiedMode ?? userSettings.simplifiedByDefault
   );
 
-  const [companions, setCompanions] = useState<any[]>(() => savedData?.companions || []);
+  const [companions, setCompanions] = useState<Companion[]>(() => savedData?.companions || []);
   const [treasure, setTreasure] = useState(savedData?.treasure || 0);
   const [shopName] = useState(savedData?.shopName || generateShopName());
   const [isDead, setIsDead] = useState(false);
@@ -103,7 +101,7 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
   const [interludeQueue, setInterludeQueue] = useState<BondInterludeScene[]>([]);
   const [married, setMarried] = useState<any>(savedData?.married || null);
   const [statusEffects, setStatusEffects] = useState<StatusEffect[]>(() => savedData?.statusEffects || []);
-  const [summons, setSummons] = useState<any[]>(() => savedData?.summons || []);
+  const [summons, setSummons] = useState<Summon[]>(() => savedData?.summons || []);
   const [eventLog, setEventLog] = useState<Event[]>(() => savedData?.eventLog || []);
   const [deity, setDeity] = useState(() => savedData?.deity || generateDeity());
   const [alignment, setAlignment] = useState<Alignment>(() => savedData?.alignment || getRandomAlignment());
@@ -120,13 +118,13 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
   const [fatalWound, setFatalWound] = useState<Wound | null>(null);
   const [isShopOpen, setIsShopOpen] = useState(false);
   const [isCodexOpen, setIsCodexOpen] = useState(false);
-  const [activeEffects, setActiveEffects] = useState<any[]>(() => savedData?.activeEffects || []);
+  const [activeEffects, setActiveEffects] = useState<ActiveEffect[]>(() => savedData?.activeEffects || []);
   const [codex, setCodex] = useState<Codex>(() => savedData?.codex || createEmptyCodex());
   const [encounterState, setEncounterState] = useState<CompanionEncounterState>(() => savedData?.encounterState || initializeEncounterState());
   const [legendaryEvents, setLegendaryEvents] = useState<TickerEvent[]>([]);
   const [activeRepairQuest, setActiveRepairQuest] = useState<RepairQuest | null>(() => savedData?.activeRepairQuest || null);
   const [championsDefeated, setChampionsDefeated] = useState<number>(() => savedData?.championsDefeated || 0);
-  const [reserveCompanions, setReserveCompanions] = useState<any[]>(() => savedData?.reserveCompanions || []);
+  const [reserveCompanions, setReserveCompanions] = useState<Companion[]>(() => savedData?.reserveCompanions || []);
   const [uniqueHeirMothers, setUniqueHeirMothers] = useState<string[]>(() => savedData?.uniqueHeirMothers || []);
   const [favoriteCompanionName, setFavoriteCompanionName] = useState<string | null>(() => savedData?.favoriteCompanionName || null);
   const [rivalries, setRivalries] = useState<Rivalry[]>(() => savedData?.rivalries || []);
