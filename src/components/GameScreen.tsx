@@ -40,25 +40,23 @@ import { getResolutionCapabilities, rollThreatResolutions, methodLabel } from "@
 import { loadSettings } from "@/lib/gameSettings";
 import BondInterludeOverlay from "@/components/BondInterlude";
 import { generateBondInterlude, BondInterlude as BondInterludeScene } from "@/lib/bondInterludeGenerator";
+import { Companion } from "@/lib/companionGenerator";
+import { WorldData, Summon, ActiveEffect } from "@/lib/gameTypes";
+import { useThrottledToast } from "@/hooks/useThrottledToast";
+import { useGameSave } from "@/hooks/useGameSave";
+import { computeOfflineProgress } from "@/lib/offlineProgress";
 
 
 interface GameScreenProps {
-  worldData: any;
+  worldData: WorldData;
   saveSlot: number;
   onBack: () => void;
 }
 
 const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
-  const { toast: rawToast } = useToast();
   const [userSettings] = useState(() => loadSettings());
-  // Respect the player's pop-up preference without touching every call site.
-  const toast = useCallback(
-    (opts: Parameters<typeof rawToast>[0]) => {
-      if (!userSettings.showNotifications) return { id: "", dismiss: () => {}, update: () => {} } as any;
-      return rawToast(opts);
-    },
-    [rawToast, userSettings.showNotifications]
-  );
+  // Respects the pop-up preference AND throttles routine chatter (see hook).
+  const toast = useThrottledToast(userSettings.showNotifications);
 
   
   // Load save data if it exists
