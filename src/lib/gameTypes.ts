@@ -4,9 +4,10 @@ import { generateSummon } from "@/lib/summonGenerator";
 import { generateWorld } from "@/lib/worldGenerator";
 
 /** The generated world the run takes place in (difficulty is chosen separately). */
-export type WorldData = ReturnType<typeof generateWorld> & {
+export type WorldData = Partial<ReturnType<typeof generateWorld>> & {
+  timeline: string;
   difficulty?: number;
-  // Older saves carried extra ad-hoc world fields.
+  // Older saves and the world generator screen carry extra ad-hoc fields.
   [key: string]: any;
 };
 
