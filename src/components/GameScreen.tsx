@@ -1647,9 +1647,10 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
           return 0;
         }
         // Apply terrain quest speed modifier
-        const areaSpeedEffects = getAreaEffects(travelState.currentArea.features);
+        const live = tickStateRef.current;
+        const areaSpeedEffects = getAreaEffects(live.travelState.currentArea.features);
         const speedMod = 1 + areaSpeedEffects.questSpeedMod; // negative questSpeedMod = faster
-        return prev + ((100 / currentQuest.duration) * 0.4) / Math.max(0.3, speedMod);
+        return prev + ((100 / live.currentQuest.duration) * 0.4) / Math.max(0.3, speedMod);
       });
     }, 100);
 
