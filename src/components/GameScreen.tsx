@@ -272,12 +272,21 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
     return () => clearInterval(effectCleanup);
   }, [isDead, toast]);
 
+  // Latest-state bundle for the quest tick. The interval below is created once
+  // per run, so it must read state from here instead of its closure — this
+  // fixes the stale-closure bug where quests resolved with outdated companions,
+  // stats or wounds and the interval was torn down/recreated on every change.
+  const tickStateRef = useRef({ stats, companions, treasure, married, statusEffects, activeEffects, travelState, character, currentQuest, wounds, fame, rivalries, reserveCompanions, recentGrades, lifeSkills, alignment, championsDefeated, children, activeRepairQuest, deity, uniqueHeirMothers, encounterState, favoriteCompanionName, codex, handleDeath: () => {} });
+  tickStateRef.current = { stats, companions, treasure, married, statusEffects, activeEffects, travelState, character, currentQuest, wounds, fame, rivalries, reserveCompanions, recentGrades, lifeSkills, alignment, championsDefeated, children, activeRepairQuest, deity, uniqueHeirMothers, encounterState, favoriteCompanionName, codex, handleDeath: () => handleDeathRef.current() };
+  const handleDeathRef = useRef<() => void>(() => {});
+
   useEffect(() => {
     if (isDead) return;
     
     const interval = setInterval(() => {
       setQuestProgress((prev) => {
         if (prev >= 100) {
+          const { stats, companions, treasure, married, statusEffects, activeEffects, travelState, character, currentQuest, wounds, fame, rivalries, reserveCompanions, recentGrades, lifeSkills, alignment, championsDefeated, children, activeRepairQuest, deity, uniqueHeirMothers, encounterState, favoriteCompanionName, codex, handleDeath } = tickStateRef.current;
           // Game-over fates removed — the hero's saga is a perpetual motion machine.
           // Any dramatic "fate" rolls are logged as historical flavor instead of ending the run.
           
@@ -1631,7 +1640,7 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
     }, 100);
 
     return () => clearInterval(interval);
-  }, [currentQuest, worldData, stats.level, treasure, companions, isDead, shopName, character.equipment, toast, married, statusEffects, activeEffects, travelState]);
+  }, [worldData, isDead, shopName, toast]);
 
   const handleDeath = () => {
     // Death-as-game-over is removed. The hero is immortal-by-narrative;
