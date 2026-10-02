@@ -142,6 +142,20 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
     totalDeaths: 0
   });
   
+  // Offline progress: fast-forward the quests completed while the tab was closed.
+  useEffect(() => {
+    const offline = computeOfflineProgress(savedData);
+    if (!offline) return;
+    setStats((s: typeof stats) => {
+      let { level, exp, expToNext } = s;
+      exp += offline.exp;
+      while (exp >= expToNext) { exp -= expToNext; level += 1; expToNext = Math.floor(expToNext * 1.6); }
+      return { ...s, level, exp, expToNext, gold: s.gold + offline.gold, questsCompleted: s.questsCompleted + offline.quests };
+    });
+    toast({ title: "Welcome back!", description: offline.summary, important: true, duration: 8000 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Migrate old companions to have bondCap and compatibility
   useEffect(() => {
     const needsMigration = companions.some(c => c.bondCap === undefined || c.compatibility === undefined);
@@ -1691,6 +1705,7 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
       duration: 5000,
     });
   };
+  handleDeathRef.current = handleDeath;
 
   
   const generateDeathLog = () => {
