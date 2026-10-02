@@ -44,6 +44,8 @@ import { Companion } from "@/lib/companionGenerator";
 import { WorldData, Summon, ActiveEffect } from "@/lib/gameTypes";
 import { useThrottledToast } from "@/hooks/useThrottledToast";
 import { useGameSave } from "@/hooks/useGameSave";
+import { useWorldTimers } from "@/hooks/useWorldTimers";
+import { useCompanionRoster } from "@/hooks/useCompanionRoster";
 import { computeOfflineProgress } from "@/lib/offlineProgress";
 
 
@@ -156,45 +158,8 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Migrate old companions to have bondCap and compatibility
-  useEffect(() => {
-    const needsMigration = companions.some(c => c.bondCap === undefined || c.compatibility === undefined);
-    if (needsMigration) {
-      setCompanions(companions.map((comp, index) => {
-        if (comp.bondCap === undefined || comp.compatibility === undefined) {
-          const compatibility = comp.compatibility !== undefined ? comp.compatibility : 
-            calculateCompatibility(comp, character.race, character.class, lifeSkills);
-          const bondCap = comp.bondCap !== undefined ? comp.bondCap : 
-            getBondLevelCap(index, compatibility, companions, fame);
-          
-          return {
-            ...comp,
-            compatibility,
-            bondCap
-          };
-        }
-        return comp;
-      }));
-    }
-  }, []);
-
-  // Promote reserve → active whenever a slot opens (deaths, etc.)
-  useEffect(() => {
-    if (companions.length < ACTIVE_COMPANION_SLOTS && reserveCompanions.length > 0) {
-      const slotsOpen = ACTIVE_COMPANION_SLOTS - companions.length;
-      const promoting = reserveCompanions.slice(-slotsOpen); // newest reserve first (LIFO)
-      const remaining = reserveCompanions.slice(0, -slotsOpen);
-      setCompanions(c => [...c, ...promoting]);
-      setReserveCompanions(remaining);
-      promoting.forEach(p => {
-        toast({
-          title: `🔄 ${p.name} joined the active party`,
-          description: `Promoted from reserve to fill an empty slot`,
-          duration: 5000
-        });
-      });
-    }
-  }, [companions.length, reserveCompanions]);
+  // Companion migration + reserve → active promotion.
+  useCompanionRoster({ companions, reserveCompanions, setCompanions, setReserveCompanions, character, lifeSkills, fame, toast });
 
   // Migrate old quests to have rank property
   useEffect(() => {
@@ -240,51 +205,8 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
     }
   }, []); // Only run once on mount
 
-  // Event log generator (every 2 minutes for deep immersion)
-  useEffect(() => {
-    if (isDead) return;
-    
-    const eventInterval = setInterval(() => {
-      const newEvent = generateEventLog();
-      setEventLog(prev => [newEvent, ...prev].slice(0, 10)); // Keep last 10 events
-      
-      // Track event in codex
-      setCodex(prev => addDiscovery(prev, 'event', `event_${Date.now()}`, 
-        "World Event", 
-        newEvent.text,
-        { sentiment: newEvent.sentiment }
-      ));
-      
-      // 30% chance to discover lore
-      if (Math.random() < 0.3) {
-        const loreEntry = generateLoreEntry(worldData);
-        setCodex(prev => addDiscovery(prev, 'lore', loreEntry.id, loreEntry.name, loreEntry.description));
-      }
-    }, 120000); // 2 minutes
-    
-    return () => clearInterval(eventInterval);
-  }, [isDead, worldData]);
-
-  // Clean up expired consumable effects
-  useEffect(() => {
-    if (isDead) return;
-    
-    const effectCleanup = setInterval(() => {
-      const now = Date.now();
-      setActiveEffects(prev => {
-        const remaining = prev.filter(effect => !effect.endTime || effect.endTime > now);
-        if (remaining.length < prev.length) {
-          toast({
-            title: "Buff Expired",
-            description: "Some effects have worn off"
-          });
-        }
-        return remaining;
-      });
-    }, 1000);
-    
-    return () => clearInterval(effectCleanup);
-  }, [isDead, toast]);
+  // World events + buff expiry timers.
+  useWorldTimers({ isDead, worldData, setEventLog, setCodex, setActiveEffects, toast });
 
   // Latest-state bundle for the quest tick. The interval below is created once
   // per run, so it must read state from here instead of its closure — this
