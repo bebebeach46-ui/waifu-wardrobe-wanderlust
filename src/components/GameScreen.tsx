@@ -142,6 +142,20 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
     totalDeaths: 0
   });
   
+  // Offline progress: fast-forward the quests completed while the tab was closed.
+  useEffect(() => {
+    const offline = computeOfflineProgress(savedData);
+    if (!offline) return;
+    setStats((s: typeof stats) => {
+      let { level, exp, expToNext } = s;
+      exp += offline.exp;
+      while (exp >= expToNext) { exp -= expToNext; level += 1; expToNext = Math.floor(expToNext * 1.6); }
+      return { ...s, level, exp, expToNext, gold: s.gold + offline.gold, questsCompleted: s.questsCompleted + offline.quests };
+    });
+    toast({ title: "Welcome back!", description: offline.summary, important: true, duration: 8000 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Migrate old companions to have bondCap and compatibility
   useEffect(() => {
     const needsMigration = companions.some(c => c.bondCap === undefined || c.compatibility === undefined);
@@ -272,12 +286,21 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
     return () => clearInterval(effectCleanup);
   }, [isDead, toast]);
 
+  // Latest-state bundle for the quest tick. The interval below is created once
+  // per run, so it must read state from here instead of its closure — this
+  // fixes the stale-closure bug where quests resolved with outdated companions,
+  // stats or wounds and the interval was torn down/recreated on every change.
+  const tickStateRef = useRef({ stats, companions, treasure, married, statusEffects, activeEffects, travelState, character, currentQuest, wounds, fame, rivalries, reserveCompanions, recentGrades, lifeSkills, alignment, championsDefeated, children, activeRepairQuest, deity, uniqueHeirMothers, encounterState, favoriteCompanionName, codex, handleDeath: () => {} });
+  tickStateRef.current = { stats, companions, treasure, married, statusEffects, activeEffects, travelState, character, currentQuest, wounds, fame, rivalries, reserveCompanions, recentGrades, lifeSkills, alignment, championsDefeated, children, activeRepairQuest, deity, uniqueHeirMothers, encounterState, favoriteCompanionName, codex, handleDeath: () => handleDeathRef.current() };
+  const handleDeathRef = useRef<() => void>(() => {});
+
   useEffect(() => {
     if (isDead) return;
     
     const interval = setInterval(() => {
       setQuestProgress((prev) => {
         if (prev >= 100) {
+          const { stats, companions, treasure, married, statusEffects, activeEffects, travelState, character, currentQuest, wounds, fame, rivalries, reserveCompanions, recentGrades, lifeSkills, alignment, championsDefeated, children, activeRepairQuest, deity, uniqueHeirMothers, encounterState, favoriteCompanionName, codex, handleDeath } = tickStateRef.current;
           // Game-over fates removed — the hero's saga is a perpetual motion machine.
           // Any dramatic "fate" rolls are logged as historical flavor instead of ending the run.
           
@@ -654,7 +677,6 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
             });
           }
           
-          // (Vision Crystal mechanic removed — combat is now fully transparent.)
 
           // === QUEST PERFORMANCE SYSTEM ===
           const woundsThisQuest = newWound ? 1 : 0;
@@ -1625,14 +1647,15 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
           return 0;
         }
         // Apply terrain quest speed modifier
-        const areaSpeedEffects = getAreaEffects(travelState.currentArea.features);
+        const live = tickStateRef.current;
+        const areaSpeedEffects = getAreaEffects(live.travelState.currentArea.features);
         const speedMod = 1 + areaSpeedEffects.questSpeedMod; // negative questSpeedMod = faster
-        return prev + ((100 / currentQuest.duration) * 0.4) / Math.max(0.3, speedMod);
+        return prev + ((100 / live.currentQuest.duration) * 0.4) / Math.max(0.3, speedMod);
       });
     }, 100);
 
     return () => clearInterval(interval);
-  }, [currentQuest, worldData, stats.level, treasure, companions, isDead, shopName, character.equipment, toast, married, statusEffects, activeEffects, travelState]);
+  }, [worldData, isDead, shopName, toast]);
 
   const handleDeath = () => {
     // Death-as-game-over is removed. The hero is immortal-by-narrative;
@@ -1683,6 +1706,7 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
       duration: 5000,
     });
   };
+  handleDeathRef.current = handleDeath;
 
   
   const generateDeathLog = () => {
@@ -1930,97 +1954,26 @@ Death occurred at: ${new Date().toLocaleString()}
 ═══════════════════════════════════════════════════════════`;
   };
 
-  // Use ref to always have access to latest state in save function
-  const saveDataRef = useRef<any>(null);
-  
-  // Keep ref updated with latest state
-  useEffect(() => {
-    saveDataRef.current = {
-      character,
-      stats,
-      worldData,
-      companions,
-      treasure,
-      married,
-      hasOffspring,
-      offspringData,
-      children,
-      romanceDiary,
-      statusEffects,
-      summons,
-      eventLog,
-      deity,
-      alignment,
-      weather,
-      materials,
-      lifeSkills,
-      activities,
-      monstersKilled,
-      currentQuest,
-      shopName,
-      activeEffects,
-      codex,
-      combatLog,
-      wounds,
-      travelState,
-      encounterState,
-      activeRepairQuest,
-      championsDefeated,
-      simplifiedMode,
-      fame,
-      recentGrades,
-      reserveCompanions,
-      uniqueHeirMothers,
-      favoriteCompanionName,
-      rivalries,
-      bondHistory,
-      characterName: character.name,
-      level: stats.level,
-      timestamp: Date.now()
-    };
-  }, [character, stats, worldData, companions, treasure, married, hasOffspring, offspringData, children, romanceDiary, statusEffects, summons, eventLog, deity, alignment, weather, materials, lifeSkills, activities, monstersKilled, currentQuest, shopName, activeEffects, codex, combatLog, wounds, travelState, encounterState, activeRepairQuest, championsDefeated, simplifiedMode, fame, reserveCompanions, uniqueHeirMothers, favoriteCompanionName, rivalries, recentGrades, bondHistory]);
-
-  const performSave = useCallback(() => {
-    if (!saveDataRef.current) return null;
-    const saveData = { ...saveDataRef.current, timestamp: Date.now() };
-    localStorage.setItem(`quest-idle-slot-${saveSlot}`, JSON.stringify(saveData));
-    return saveData;
-  }, [saveSlot]);
+  // Everything persisted to the save slot. The hook keeps it in a ref so
+  // saves always write the latest state (no stale closures).
+  const saveSnapshot = {
+    character, stats, worldData, companions, treasure, married, hasOffspring, offspringData,
+    children, romanceDiary, statusEffects, summons, eventLog, deity, alignment, weather,
+    materials, lifeSkills, activities, monstersKilled, currentQuest, shopName, activeEffects,
+    codex, combatLog, wounds, travelState, encounterState, activeRepairQuest, championsDefeated,
+    simplifiedMode, fame, recentGrades, reserveCompanions, uniqueHeirMothers,
+    favoriteCompanionName, rivalries, bondHistory,
+    characterName: character.name,
+    level: stats.level,
+  };
+  // Debounced (1s) save whenever meaningful progress changes.
+  const saveKey = `${stats.questsCompleted}|${stats.level}|${stats.gold}|${companions.length}|${currentQuest?.name}|${fame}`;
+  const performSave = useGameSave(saveSlot, saveSnapshot, isDead, saveKey);
 
   const handleSave = () => {
     performSave();
-    toast({
-      title: "Game Saved",
-      description: `Saved to slot ${saveSlot}`
-    });
+    toast({ title: "Game Saved", description: `Saved to slot ${saveSlot}`, important: true });
   };
-  
-  // Auto-save every 60 seconds
-  useEffect(() => {
-    if (isDead) return;
-    
-    const autoSaveInterval = setInterval(() => {
-      performSave();
-    }, 60000); // Every 60 seconds
-    
-    return () => clearInterval(autoSaveInterval);
-  }, [isDead, performSave, toast]);
-
-  // Save on unmount (when leaving the game) — but never resurrect a dead-hero save.
-  useEffect(() => {
-    const handleBeforeUnload = () => {
-      if (isDead) return;
-      performSave();
-    };
-
-    window.addEventListener('beforeunload', handleBeforeUnload);
-
-    return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-      // Also save when component unmounts (navigating away), unless the hero died.
-      if (!isDead) performSave();
-    };
-  }, [performSave, isDead]);
 
   const handleContinueAsOffspring = () => {
     if (!offspringData) return;
