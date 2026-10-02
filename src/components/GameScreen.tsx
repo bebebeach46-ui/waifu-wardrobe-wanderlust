@@ -654,7 +654,6 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
             });
           }
           
-          // (Vision Crystal mechanic removed — combat is now fully transparent.)
 
           // === QUEST PERFORMANCE SYSTEM ===
           const woundsThisQuest = newWound ? 1 : 0;
@@ -1930,97 +1929,26 @@ Death occurred at: ${new Date().toLocaleString()}
 ═══════════════════════════════════════════════════════════`;
   };
 
-  // Use ref to always have access to latest state in save function
-  const saveDataRef = useRef<any>(null);
-  
-  // Keep ref updated with latest state
-  useEffect(() => {
-    saveDataRef.current = {
-      character,
-      stats,
-      worldData,
-      companions,
-      treasure,
-      married,
-      hasOffspring,
-      offspringData,
-      children,
-      romanceDiary,
-      statusEffects,
-      summons,
-      eventLog,
-      deity,
-      alignment,
-      weather,
-      materials,
-      lifeSkills,
-      activities,
-      monstersKilled,
-      currentQuest,
-      shopName,
-      activeEffects,
-      codex,
-      combatLog,
-      wounds,
-      travelState,
-      encounterState,
-      activeRepairQuest,
-      championsDefeated,
-      simplifiedMode,
-      fame,
-      recentGrades,
-      reserveCompanions,
-      uniqueHeirMothers,
-      favoriteCompanionName,
-      rivalries,
-      bondHistory,
-      characterName: character.name,
-      level: stats.level,
-      timestamp: Date.now()
-    };
-  }, [character, stats, worldData, companions, treasure, married, hasOffspring, offspringData, children, romanceDiary, statusEffects, summons, eventLog, deity, alignment, weather, materials, lifeSkills, activities, monstersKilled, currentQuest, shopName, activeEffects, codex, combatLog, wounds, travelState, encounterState, activeRepairQuest, championsDefeated, simplifiedMode, fame, reserveCompanions, uniqueHeirMothers, favoriteCompanionName, rivalries, recentGrades, bondHistory]);
-
-  const performSave = useCallback(() => {
-    if (!saveDataRef.current) return null;
-    const saveData = { ...saveDataRef.current, timestamp: Date.now() };
-    localStorage.setItem(`quest-idle-slot-${saveSlot}`, JSON.stringify(saveData));
-    return saveData;
-  }, [saveSlot]);
+  // Everything persisted to the save slot. The hook keeps it in a ref so
+  // saves always write the latest state (no stale closures).
+  const saveSnapshot = {
+    character, stats, worldData, companions, treasure, married, hasOffspring, offspringData,
+    children, romanceDiary, statusEffects, summons, eventLog, deity, alignment, weather,
+    materials, lifeSkills, activities, monstersKilled, currentQuest, shopName, activeEffects,
+    codex, combatLog, wounds, travelState, encounterState, activeRepairQuest, championsDefeated,
+    simplifiedMode, fame, recentGrades, reserveCompanions, uniqueHeirMothers,
+    favoriteCompanionName, rivalries, bondHistory,
+    characterName: character.name,
+    level: stats.level,
+  };
+  // Debounced (1s) save whenever meaningful progress changes.
+  const saveKey = `${stats.questsCompleted}|${stats.level}|${stats.gold}|${companions.length}|${currentQuest?.name}|${fame}`;
+  const performSave = useGameSave(saveSlot, saveSnapshot, isDead, saveKey);
 
   const handleSave = () => {
     performSave();
-    toast({
-      title: "Game Saved",
-      description: `Saved to slot ${saveSlot}`
-    });
+    toast({ title: "Game Saved", description: `Saved to slot ${saveSlot}`, important: true });
   };
-  
-  // Auto-save every 60 seconds
-  useEffect(() => {
-    if (isDead) return;
-    
-    const autoSaveInterval = setInterval(() => {
-      performSave();
-    }, 60000); // Every 60 seconds
-    
-    return () => clearInterval(autoSaveInterval);
-  }, [isDead, performSave, toast]);
-
-  // Save on unmount (when leaving the game) — but never resurrect a dead-hero save.
-  useEffect(() => {
-    const handleBeforeUnload = () => {
-      if (isDead) return;
-      performSave();
-    };
-
-    window.addEventListener('beforeunload', handleBeforeUnload);
-
-    return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-      // Also save when component unmounts (navigating away), unless the hero died.
-      if (!isDead) performSave();
-    };
-  }, [performSave, isDead]);
 
   const handleContinueAsOffspring = () => {
     if (!offspringData) return;
