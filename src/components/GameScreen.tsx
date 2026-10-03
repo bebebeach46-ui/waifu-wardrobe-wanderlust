@@ -44,6 +44,7 @@ import { Companion } from "@/lib/companionGenerator";
 import { WorldData, Summon, ActiveEffect } from "@/lib/gameTypes";
 import { useThrottledToast } from "@/hooks/useThrottledToast";
 import { useGameSave } from "@/hooks/useGameSave";
+import { applyPartyWoundModifiers } from "@/lib/woundModifiers";
 import { useWorldTimers } from "@/hooks/useWorldTimers";
 import { useCompanionRoster } from "@/hooks/useCompanionRoster";
 import { computeOfflineProgress } from "@/lib/offlineProgress";
