@@ -45,6 +45,7 @@ import { WorldData, Summon, ActiveEffect } from "@/lib/gameTypes";
 import { useThrottledToast } from "@/hooks/useThrottledToast";
 import { useGameSave } from "@/hooks/useGameSave";
 import { applyPartyWoundModifiers } from "@/lib/woundModifiers";
+import { computeQuestRisk } from "@/lib/questRisk";
 import { useWorldTimers } from "@/hooks/useWorldTimers";
 import { useCompanionRoster } from "@/hooks/useCompanionRoster";
 import { computeOfflineProgress } from "@/lib/offlineProgress";
@@ -227,56 +228,18 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
           // Game-over fates removed — the hero's saga is a perpetual motion machine.
           // Any dramatic "fate" rolls are logged as historical flavor instead of ending the run.
           
-          // Get difficulty for this world
           const gameDifficulty = worldData.difficulty || 2;
-          
-          // Calculate dynamic death chance based on difficulty and level
-          // This prevents instant deaths at low levels while maintaining challenge
-          // 
-          // Examples:
-          // - Level 1, Difficulty 1 (Basic), 0 quests: ~0.03% per quest
-          // - Level 1, Difficulty 5 (Impossible), 0 quests: ~1.33% per quest
-          // - Level 10, Difficulty 2 (Adventurer), 50 quests: ~0.6% per quest
-          // - Level 20+, Difficulty 3 (Hero), 100 quests: ~1.8% per quest
-          //
-          // Base death chance by difficulty (scaled per 100 quests for balance)
-          const baseDifficultyRates = [0, 0.001, 0.005, 0.01, 0.02, 0.04]; // Index 0 unused, 1-5 for difficulties
-          const baseRate = baseDifficultyRates[gameDifficulty];
-          
-          // Level protection: reduce death chance significantly at low levels
-          // At level 1: 33% of base rate
-          // At level 10: 67% of base rate  
-          // At level 20+: 100% of base rate
-          const levelProtection = Math.min(1, (stats.level + 10) / 30);
-          
-          // Quest scaling: increases risk over time
-          // Every 50 quests adds 20% more risk
-          const questScaling = 1 + (stats.questsCompleted / 50) * 0.2;
-          
-          // Final death chance calculation
-          let deathChance = baseRate * levelProtection * questScaling;
-          
-          // === HOSTILE COMPANION × AREA DANGER RISK ===
-          // Hostile companions in dangerous areas can kill, betray, or ambush the player
-          const currentAreaDanger = (travelState?.currentRegion?.dangerLevel ?? 0) + (travelState?.currentArea?.dangerModifier ?? 0);
-          const dangerNorm = Math.min(1, Math.max(0, currentAreaDanger / 13));
-          let hostilityWeight = 0;
-          let topThreat: any = null;
-          let topThreatBonus = 0;
-          for (const c of companions) {
-            const bond = typeof c.relationship === "number" ? c.relationship : 1;
-            if (bond <= -5) {
-              const threat = isCompanionThreat(bond);
-              hostilityWeight += threat.combatBonus / 100; // 0.15 / 0.30 / 0.50
-              if (threat.combatBonus > topThreatBonus) {
-                topThreatBonus = threat.combatBonus;
-                topThreat = c;
-              }
-            }
-          }
-          // Up to ~6% extra death chance per quest in max-danger areas with a Nemesis at your back
-          const companionPlot = hostilityWeight * dangerNorm * 0.12;
-          deathChance += companionPlot;
+
+          // Death chance from difficulty/level/quest count + hostile companions in dangerous areas
+          const risk = computeQuestRisk({
+            difficulty: gameDifficulty,
+            level: stats.level,
+            questsCompleted: stats.questsCompleted,
+            areaDanger: (travelState?.currentRegion?.dangerLevel ?? 0) + (travelState?.currentArea?.dangerModifier ?? 0),
+            companions,
+          });
+          const { companionPlot, topThreat, topThreatBonus } = risk;
+          let deathChance = risk.deathChance;
 
           // === BOND MALUSES (passive sabotage from negative bonds) ===
           // Nemesis (bond -10) companions add a FLAT death-chance contribution
