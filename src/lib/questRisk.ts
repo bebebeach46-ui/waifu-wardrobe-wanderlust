@@ -17,10 +17,9 @@ export interface QuestRisk {
  * How likely the hero is to die on this quest (before nemesis maluses).
  *
  * Examples:
- *  - Level 1, Basic, 0 quests: ~0.03%
- *  - Level 1, Impossible, 0 quests: ~1.33%
- *  - Level 10, Adventurer, 50 quests: ~0.6%
- *  - Level 20+, Hero, 100 quests: ~1.8%
+ *  - Level 1, Basic, 0 quests: ~0.04%
+ *  - Level 1, Impossible, 0 quests: ~1.47%
+ *  - Level 10, Adventurer, 50 quests: ~0.4%
  * Hostile companions (bond ≤ -5) add up to ~6% in max-danger areas.
  */
 export const computeQuestRisk = (opts: {
