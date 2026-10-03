@@ -44,6 +44,7 @@ import { Companion } from "@/lib/companionGenerator";
 import { WorldData, Summon, ActiveEffect } from "@/lib/gameTypes";
 import { useThrottledToast } from "@/hooks/useThrottledToast";
 import { useGameSave } from "@/hooks/useGameSave";
+import { applyPartyWoundModifiers } from "@/lib/woundModifiers";
 import { useWorldTimers } from "@/hooks/useWorldTimers";
 import { useCompanionRoster } from "@/hooks/useCompanionRoster";
 import { computeOfflineProgress } from "@/lib/offlineProgress";
@@ -433,8 +434,8 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
           const monsterCrit = checkCriticalHit(10 + monster.rank.rank * 2); // Monster dex scales with rank
           const damageType = getDamageTypeFromMonster(monsterName);
           
-          // Roll for wound from monster attack
-          const newWound = rollForWound(
+          // Roll for wound from monster attack, then let the party worsen/soften it
+          const rolledWound = rollForWound(
             monsterDamage,
             monsterCrit,
             false, // monsters don't backstab (usually)
@@ -444,50 +445,35 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
             monsterName,
             damageType
           );
-          
-          if (newWound) {
-            // Hostile companions can WORSEN wounds (passive sabotage + this quest's sabotage events)
-            const sabotage = Math.round(partyMaluses.woundSeverityIncrease + sabotageAddSeverity);
-            if (sabotage > 0 && newWound.severity < 10) {
-              const worsened = Math.min(10, newWound.severity + sabotage) as typeof newWound.severity;
-              if (worsened > newWound.severity) {
-                const saboteur = partyMaluses.contributions[0]?.name;
-                newWound.severity = worsened;
-                newWound.bleedingRate = worsened >= 4 ? Math.floor(worsened / 2) : 0;
-                newWound.painLevel = worsened;
-                newWound.healingTime = worsened * 10;
-                if (saboteur) {
-                  toast({
-                    title: `🩸 ${saboteur} let the wound fester`,
-                    description: <span className="text-stat-decrease">Severity worsened by {sabotage}</span>,
-                    variant: "destructive",
-                    duration: 3500,
-                  });
-                }
-              }
+          const woundResult = rolledWound
+            ? applyPartyWoundModifiers(
+                rolledWound,
+                Math.round(partyMaluses.woundSeverityIncrease + sabotageAddSeverity),
+                partyMaluses.contributions[0]?.name,
+                Math.round(partyBonuses.woundSeverityReduction),
+                partyBonuses.contributions.find(c => c.role === "Healer")?.name
+              )
+            : null;
+          const newWound = woundResult?.wound ?? null;
+
+          if (newWound && woundResult) {
+            const { worsened, mitigated } = woundResult;
+            if (worsened?.saboteur) {
+              toast({
+                title: `🩸 ${worsened.saboteur} let the wound fester`,
+                description: <span className="text-stat-decrease">Severity worsened by {worsened.by}</span>,
+                variant: "destructive",
+                duration: 3500,
+              });
             }
-            // Apply healer/companion wound severity reduction (capped at +3 across party)
-            const reduction = Math.round(partyBonuses.woundSeverityReduction);
-            if (reduction > 0 && newWound.severity > 1) {
-              const newSeverity = Math.max(1, newWound.severity - reduction) as typeof newWound.severity;
-              if (newSeverity < newWound.severity) {
-                const healerName = partyBonuses.contributions.find(c => c.role === "Healer")?.name;
-                newWound.severity = newSeverity;
-                newWound.bleedingRate = newSeverity >= 4 ? Math.floor(newSeverity / 2) : 0;
-                newWound.painLevel = newSeverity;
-                newWound.healingTime = newSeverity * 10;
-                // Recompute isFatal — only severity 10 on vital parts is fatal
-                newWound.isFatal = false;
-                if (healerName) {
-                  toast({
-                    title: `💚 ${healerName} mitigated the wound!`,
-                    description: <span className="text-stat-increase">Severity reduced by {reduction}</span>,
-                    duration: 3500,
-                  });
-                  setActivities(prev => trackActivity(prev, "relationship",
-                    `💚 ${healerName} mitigated a wound (severity −${reduction})`));
-                }
-              }
+            if (mitigated?.healer) {
+              toast({
+                title: `💚 ${mitigated.healer} mitigated the wound!`,
+                description: <span className="text-stat-increase">Severity reduced by {mitigated.by}</span>,
+                duration: 3500,
+              });
+              setActivities(prev => trackActivity(prev, "relationship",
+                `💚 ${mitigated.healer} mitigated a wound (severity −${mitigated.by})`));
             }
             setWounds(prev => [...prev, newWound]);
             
