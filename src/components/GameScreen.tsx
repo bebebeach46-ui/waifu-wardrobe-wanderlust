@@ -16,6 +16,7 @@ import { generateCharacter, rollForNewSkill, rollForNewSpell, rollForEquipmentUn
 import { generateQuest, Quest, rollQuestPerformance, QuestPerformanceGrade, getFameTitle, performanceGrades } from "@/lib/questGenerator";
 import { generateCompanion, getRelationshipName, calculateCompatibility, getBondLevelCap, generateMilestone, generateChild, RelationshipMilestone, ChildInfo, generateCompanionAge, calculateRelationshipDelta, isCompanionThreat, calculateGiftEffectiveness, giftPreferenceMap, rollForApologyEvent, rollForRepairQuest, calculateRepairQuestReward, RepairQuest, ACTIVE_COMPANION_SLOTS, RESERVE_COMPANION_SLOTS, HEIR_SLOTS, MAX_BOND_10_COMPANIONS, tickCompanionAge, applyMoodDrift, tryBondCapBreakthrough } from "@/lib/companionGenerator";
 import { calculatePartyBondBonuses, calculatePartyBondMaluses, rollDevotionEvents, rollSabotageEvents, tickRivalries, inferCompanionRole, getRoleIcon, getRivalryRewardBonuses, getBondColor, Rivalry } from "@/lib/companionBondBonuses";
+import { sumDevotion, sumRivalry, healWorstWound } from "@/lib/devotionTotals";
 import { sumSabotage } from "@/lib/sabotageTotals";
 import { CompanionEncounterState, initializeEncounterState, updateEncounterState, completeEncounter, getTopAffinities, EncounterPreference } from "@/lib/companionEncounterSystem";
 import RelationshipGraph, { BondSnapshot } from "@/components/RelationshipGraph";
@@ -558,20 +559,14 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
           
           // === DEVOTION EVENTS — bond-rank-driven companion actions ===
           const devotionEvents = rollDevotionEvents(companions, totalActiveWounds > 0);
-          let devotionPerfBoost = 0;
-          let devotionFame = 0;
-          let devotionGold = 0;
-          let devotionHealSeverity = 0;
-          const bondReciprocals: Record<string, number> = {};
+          const devotion = sumDevotion(devotionEvents);
+          const devotionPerfBoost = devotion.perfBoost;
+          const devotionFame = devotion.fame;
+          const devotionGold = devotion.gold;
+          const devotionHealSeverity = devotion.healSeverity;
+          const bondReciprocals = devotion.bondReciprocals;
           
           for (const ev of devotionEvents) {
-            devotionPerfBoost += ev.effect.perfBoost || 0;
-            devotionFame += ev.effect.fame || 0;
-            devotionGold += ev.effect.gold || 0;
-            devotionHealSeverity += ev.effect.healWoundSeverity || 0;
-            if (ev.effect.bondBoost) {
-              bondReciprocals[ev.companionName] = (bondReciprocals[ev.companionName] || 0) + ev.effect.bondBoost;
-            }
             // Visual indicator: toast + activity log + ticker for romantic interludes
             toast({
               title: `${ev.icon} ${ev.title}`,
@@ -590,25 +585,15 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
           
           // Mid-battle healing from devotion: remove that much severity from worst wound
           if (devotionHealSeverity > 0) {
-            setWounds(prev => {
-              if (prev.length === 0) return prev;
-              const sorted = [...prev].sort((a, b) => b.severity - a.severity);
-              const worst = sorted[0];
-              const newSev = Math.max(0, worst.severity - devotionHealSeverity);
-              if (newSev <= 0) {
-                return prev.filter(w => w.id !== worst.id);
-              }
-              return prev.map(w => w.id === worst.id
-                ? { ...w, severity: newSev as typeof w.severity, painLevel: newSev, bleedingRate: newSev >= 4 ? Math.floor(newSev / 2) : 0 }
-                : w);
-            });
+            setWounds(prev => healWorstWound(prev as any[], devotionHealSeverity) as typeof prev);
           }
 
           // === RIVALRY TICK — escalating bonuses from competitive companions ===
           const rivalryTick = tickRivalries(companions, rivalries);
           setRivalries(rivalryTick.rivalries);
-          let rivalryPerfBoost = 0;
-          let rivalryFame = 0;
+          const rivalryTotals = sumRivalry(rivalryTick.events);
+          const rivalryPerfBoost = rivalryTotals.perfBoost;
+          const rivalryFame = rivalryTotals.fame;
           for (const np of rivalryTick.newPairs) {
             toast({
               title: `⚡ Rivalry Declared: ${np.nameA} vs. ${np.nameB}`,
@@ -619,8 +604,6 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
               `⚡ ${np.nameA} and ${np.nameB} declared a rivalry for ${character.name}'s heart`));
           }
           for (const re of rivalryTick.events) {
-            rivalryPerfBoost += re.perfBoost;
-            rivalryFame += re.fameBoost;
             const reciprocationTag =
               re.reciprocated === "A" ? ` — favored ${re.nameA}` :
               re.reciprocated === "B" ? ` — favored ${re.nameB}` :
