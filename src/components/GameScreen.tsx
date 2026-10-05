@@ -270,8 +270,6 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
           }
 
           for (const ev of sabotageEvents) {
-
-
             toast({
               title: `${ev.icon} ${ev.title}`,
               description: <span className="text-stat-decrease">{ev.companionName} {ev.narrative}</span>,
