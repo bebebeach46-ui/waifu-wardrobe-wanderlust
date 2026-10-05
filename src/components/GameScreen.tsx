@@ -153,9 +153,7 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
     const offline = computeOfflineProgress(savedData);
     if (!offline) return;
     setStats((s: typeof stats) => {
-      let { level, exp, expToNext } = s;
-      exp += offline.exp;
-      while (exp >= expToNext) { exp -= expToNext; level += 1; expToNext = Math.floor(expToNext * 1.6); }
+      const { level, exp, expToNext } = applyBulkExp(s.level, s.exp + offline.exp, s.expToNext);
       return { ...s, level, exp, expToNext, gold: s.gold + offline.gold, questsCompleted: s.questsCompleted + offline.quests };
     });
     toast({ title: "Welcome back!", description: offline.summary, important: true, duration: 8000 });
@@ -1277,7 +1275,8 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
             const areaEffects = getAreaEffects(travelState.currentArea.features);
             
             const newExp = s.exp + Math.floor(currentQuest.expReward * monster.rank.expMultiplier * expMultiplier * difficultyBonus * performanceMultiplier * areaEffects.expMultiplier);
-            const levelUp = newExp >= s.expToNext;
+            const expResult = applyQuestExp(s, newExp);
+            const levelUp = expResult.leveledUp;
             const adjustedShardDrop = Math.floor(shardDropped * shardMultiplier);
             const newShards = s.shards + adjustedShardDrop;
             const adjustedGold = Math.floor(goldGained * goldMultiplier * difficultyBonus * performanceMultiplier * areaEffects.goldMultiplier);
@@ -1328,9 +1327,9 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
                 duration: 10000
               });
               return {
-                level: levelUp ? s.level + 1 : s.level,
-                exp: levelUp ? newExp - s.expToNext : newExp,
-                expToNext: levelUp ? Math.floor(s.expToNext * 1.6) : s.expToNext,
+                level: expResult.level,
+                exp: expResult.exp,
+                expToNext: expResult.expToNext,
                 gold: s.gold + adjustedGold,
                 questsCompleted: s.questsCompleted + 1,
                 enemiesDefeated: s.enemiesDefeated + enemiesKilled,
@@ -1483,8 +1482,8 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
             
             return {
               level: newLevel,
-              exp: levelUp ? newExp - s.expToNext : newExp,
-              expToNext: levelUp ? Math.floor(s.expToNext * 1.6) : s.expToNext,
+              exp: expResult.exp,
+              expToNext: expResult.expToNext,
               gold: s.gold + adjustedGold,
               questsCompleted: s.questsCompleted + 1,
               enemiesDefeated: s.enemiesDefeated + enemiesKilled,
