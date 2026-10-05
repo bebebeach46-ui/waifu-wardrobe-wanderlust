@@ -16,6 +16,7 @@ import { generateCharacter, rollForNewSkill, rollForNewSpell, rollForEquipmentUn
 import { generateQuest, Quest, rollQuestPerformance, QuestPerformanceGrade, getFameTitle, performanceGrades } from "@/lib/questGenerator";
 import { generateCompanion, getRelationshipName, calculateCompatibility, getBondLevelCap, generateMilestone, generateChild, RelationshipMilestone, ChildInfo, generateCompanionAge, calculateRelationshipDelta, isCompanionThreat, calculateGiftEffectiveness, giftPreferenceMap, rollForApologyEvent, rollForRepairQuest, calculateRepairQuestReward, RepairQuest, ACTIVE_COMPANION_SLOTS, RESERVE_COMPANION_SLOTS, HEIR_SLOTS, MAX_BOND_10_COMPANIONS, tickCompanionAge, applyMoodDrift, tryBondCapBreakthrough } from "@/lib/companionGenerator";
 import { calculatePartyBondBonuses, calculatePartyBondMaluses, rollDevotionEvents, rollSabotageEvents, tickRivalries, inferCompanionRole, getRoleIcon, getRivalryRewardBonuses, getBondColor, Rivalry } from "@/lib/companionBondBonuses";
+import { sumSabotage } from "@/lib/sabotageTotals";
 import { CompanionEncounterState, initializeEncounterState, updateEncounterState, completeEncounter, getTopAffinities, EncounterPreference } from "@/lib/companionEncounterSystem";
 import RelationshipGraph, { BondSnapshot } from "@/components/RelationshipGraph";
 import { generateShopName } from "@/lib/skillGenerator";
@@ -250,11 +251,12 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
           // === SABOTAGE EVENTS — role-flavored counterpart to devotion ===
           // Rolled EARLY so enemyDamageMult / addWoundSeverity can apply to this quest's wounds.
           const { events: sabotageEvents, neutralized: neutralizedPlots } = rollSabotageEvents(companions);
-          let sabotagePerfPenalty = 0;
-          let sabotageFameLoss = 0;
-          let sabotageGoldLoss = 0;
-          let sabotageAddSeverity = 0;
-          let sabotagePoison = false;
+          const sab = sumSabotage(sabotageEvents);
+          const sabotagePerfPenalty = sab.perfPenalty;
+          const sabotageFameLoss = sab.fameLoss;
+          const sabotageGoldLoss = sab.goldLoss;
+          const sabotageAddSeverity = sab.addSeverity;
+          const sabotagePoison = sab.poison;
 
           // Bond-10 loyalists intercepted hostile plots — narrate the saves
           for (const np of neutralizedPlots) {
@@ -268,12 +270,6 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
           }
 
           for (const ev of sabotageEvents) {
-            sabotagePerfPenalty += ev.effect.perfPenalty || 0;
-            sabotageFameLoss   += ev.effect.fameLoss   || 0;
-            sabotageGoldLoss   += ev.effect.goldLoss   || 0;
-            sabotageAddSeverity += ev.effect.addWoundSeverity || 0;
-            if (ev.effect.triggerPoison) sabotagePoison = true;
-
             toast({
               title: `${ev.icon} ${ev.title}`,
               description: <span className="text-stat-decrease">{ev.companionName} {ev.narrative}</span>,
