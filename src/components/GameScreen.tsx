@@ -17,6 +17,7 @@ import { generateQuest, Quest, rollQuestPerformance, QuestPerformanceGrade, getF
 import { generateCompanion, getRelationshipName, calculateCompatibility, getBondLevelCap, generateMilestone, generateChild, RelationshipMilestone, ChildInfo, generateCompanionAge, calculateRelationshipDelta, isCompanionThreat, calculateGiftEffectiveness, giftPreferenceMap, rollForApologyEvent, rollForRepairQuest, calculateRepairQuestReward, RepairQuest, ACTIVE_COMPANION_SLOTS, RESERVE_COMPANION_SLOTS, HEIR_SLOTS, MAX_BOND_10_COMPANIONS, tickCompanionAge, applyMoodDrift, tryBondCapBreakthrough } from "@/lib/companionGenerator";
 import { calculatePartyBondBonuses, calculatePartyBondMaluses, rollDevotionEvents, rollSabotageEvents, tickRivalries, inferCompanionRole, getRoleIcon, getRivalryRewardBonuses, getBondColor, Rivalry } from "@/lib/companionBondBonuses";
 import { sumDevotion, sumRivalry, healWorstWound } from "@/lib/devotionTotals";
+import { applyQuestExp, applyBulkExp, nextExpToNext } from "@/lib/leveling";
 import { sumSabotage } from "@/lib/sabotageTotals";
 import { CompanionEncounterState, initializeEncounterState, updateEncounterState, completeEncounter, getTopAffinities, EncounterPreference } from "@/lib/companionEncounterSystem";
 import RelationshipGraph, { BondSnapshot } from "@/components/RelationshipGraph";
@@ -2131,7 +2132,7 @@ Death occurred at: ${new Date().toLocaleString()}
               ...s,
               level: s.level + 1,
               exp: 0,
-              expToNext: Math.floor(s.expToNext * 1.6)
+              expToNext: nextExpToNext(s.expToNext)
             }));
             toast({
               title: "Level Up!",
