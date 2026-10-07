@@ -17,6 +17,7 @@ import { generateQuest, Quest, rollQuestPerformance, QuestPerformanceGrade, getF
 import { generateCompanion, getRelationshipName, calculateCompatibility, getBondLevelCap, generateMilestone, generateChild, RelationshipMilestone, ChildInfo, generateCompanionAge, calculateRelationshipDelta, isCompanionThreat, calculateGiftEffectiveness, giftPreferenceMap, rollForApologyEvent, rollForRepairQuest, calculateRepairQuestReward, RepairQuest, ACTIVE_COMPANION_SLOTS, RESERVE_COMPANION_SLOTS, HEIR_SLOTS, MAX_BOND_10_COMPANIONS, tickCompanionAge, applyMoodDrift, tryBondCapBreakthrough } from "@/lib/companionGenerator";
 import { calculatePartyBondBonuses, calculatePartyBondMaluses, rollDevotionEvents, rollSabotageEvents, tickRivalries, inferCompanionRole, getRoleIcon, getRivalryRewardBonuses, getBondColor, Rivalry } from "@/lib/companionBondBonuses";
 import { sumDevotion, sumRivalry, healWorstWound } from "@/lib/devotionTotals";
+import { useDeathRecord } from "@/hooks/useDeathRecord";
 import { ageRoster, DEATH_CAUSE_ICON, DEATH_CAUSE_TITLE } from "@/lib/companionAging";
 import { applyQuestExp, applyBulkExp, nextExpToNext } from "@/lib/leveling";
 import { sumSabotage } from "@/lib/sabotageTotals";
@@ -83,6 +84,7 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
   
   const savedData = loadSaveData();
   
+  const { isDead, deathLog, fateOutcome, deathCause, fatalWound, setIsDead, setDeathLog, setFateOutcome, setDeathCause, setFatalWound, clearDeathCause, resetDeath } = useDeathRecord();
   const [character, setCharacter] = useState(() => savedData?.character || generateCharacter(worldData));
   const [travelState, setTravelState] = useState<TravelState>(() => savedData?.travelState || initializeTravelState(worldData, 1));
   const [currentQuest, setCurrentQuest] = useState<Quest>(() => savedData?.currentQuest || generateQuest(worldData, 1, savedData?.travelState, 0));
@@ -100,8 +102,6 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
   const [companions, setCompanions] = useState<Companion[]>(() => savedData?.companions || []);
   const [treasure, setTreasure] = useState(savedData?.treasure || 0);
   const [shopName] = useState(savedData?.shopName || generateShopName());
-  const [isDead, setIsDead] = useState(false);
-  const [deathLog, setDeathLog] = useState("");
   const [hasOffspring, setHasOffspring] = useState(savedData?.hasOffspring || false);
   const [offspringData, setOffspringData] = useState<ChildInfo | null>(savedData?.offspringData || null);
   const [children, setChildren] = useState<ChildInfo[]>(() => savedData?.children || []);
@@ -119,11 +119,8 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
   const [activities, setActivities] = useState<ActivityLog[]>(() => savedData?.activities || []);
   const [monstersKilled, setMonstersKilled] = useState<MonsterKill[]>(() => savedData?.monstersKilled || []);
   const [combatLog, setCombatLog] = useState<CombatLog[]>(() => savedData?.combatLog || []);
-  const [fateOutcome, setFateOutcome] = useState<FateOutcome | null>(null);
-  const [deathCause, setDeathCause] = useState<DeathCause | null>(null);
   const [lastEncounter, setLastEncounter] = useState<{ monsterName: string; monsterRank: number } | null>(null);
   const [wounds, setWounds] = useState<Wound[]>(() => savedData?.wounds || []);
-  const [fatalWound, setFatalWound] = useState<Wound | null>(null);
   const [isShopOpen, setIsShopOpen] = useState(false);
   const [isCodexOpen, setIsCodexOpen] = useState(false);
   const [activeEffects, setActiveEffects] = useState<ActiveEffect[]>(() => savedData?.activeEffects || []);
@@ -1513,9 +1510,7 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
     // (No HP system on the stats object — narrative survival only.)
 
     // Clear transient death state so future close-calls aren't tainted
-    setDeathCause(null);
-    setFateOutcome(null);
-    setFatalWound(null);
+    clearDeathCause();
 
     toast({
       title: `📜 ${shortDesc}`,
@@ -1836,19 +1831,15 @@ Death occurred at: ${new Date().toLocaleString()}
     setLifeSkills(generateRankedSkills(3));
     setActivities([]);
     setMonstersKilled([]);
-    setFateOutcome(null);
-    setDeathCause(null);
     setCombatLog([]);
     setWounds([]);
-    setFatalWound(null);
     const newTravelState = initializeTravelState(worldData, 1);
     setTravelState(newTravelState);
     setEncounterState(initializeEncounterState());
     setCurrentQuest(generateQuest(worldData, 1, newTravelState, 0));
     setQuestProgress(0);
     setShowMap(false);
-    setIsDead(false);
-    setDeathLog("");
+    resetDeath();
     setChampionsDefeated(0);
     
     toast({

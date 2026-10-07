@@ -1,6 +1,6 @@
 import { useReducer, useCallback } from "react";
-import type { FateOutcome } from "@/lib/fateSystem";
-import type { DeathCause } from "@/lib/deathCauses";
+import type { FateOutcome } from "@/lib/fateGenerator";
+import type { DeathCause } from "@/lib/deathCauseGenerator";
 import type { Wound } from "@/lib/woundSystem";
 
 /** All "how/why did the hero (almost) die" state, kept in one reducer. */
