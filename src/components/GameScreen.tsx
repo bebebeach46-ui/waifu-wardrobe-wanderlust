@@ -17,6 +17,7 @@ import { generateQuest, Quest, rollQuestPerformance, QuestPerformanceGrade, getF
 import { generateCompanion, getRelationshipName, calculateCompatibility, getBondLevelCap, generateMilestone, generateChild, RelationshipMilestone, ChildInfo, generateCompanionAge, calculateRelationshipDelta, isCompanionThreat, calculateGiftEffectiveness, giftPreferenceMap, rollForApologyEvent, rollForRepairQuest, calculateRepairQuestReward, RepairQuest, ACTIVE_COMPANION_SLOTS, RESERVE_COMPANION_SLOTS, HEIR_SLOTS, MAX_BOND_10_COMPANIONS, tickCompanionAge, applyMoodDrift, tryBondCapBreakthrough } from "@/lib/companionGenerator";
 import { calculatePartyBondBonuses, calculatePartyBondMaluses, rollDevotionEvents, rollSabotageEvents, tickRivalries, inferCompanionRole, getRoleIcon, getRivalryRewardBonuses, getBondColor, Rivalry } from "@/lib/companionBondBonuses";
 import { sumDevotion, sumRivalry, healWorstWound } from "@/lib/devotionTotals";
+import { ageRoster, DEATH_CAUSE_ICON, DEATH_CAUSE_TITLE } from "@/lib/companionAging";
 import { applyQuestExp, applyBulkExp, nextExpToNext } from "@/lib/leveling";
 import { sumSabotage } from "@/lib/sabotageTotals";
 import { CompanionEncounterState, initializeEncounterState, updateEncounterState, completeEncounter, getTopAffinities, EncounterPreference } from "@/lib/companionEncounterSystem";
@@ -1400,57 +1401,23 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
                 // === AGING TICK: 1 year per area cleared ===
                 // Pass current area danger so hostile bonds can betray/ambush in deadly lands
                 const tickDanger = (updatedTravel.currentRegion?.dangerLevel ?? 0) + (updatedTravel.currentArea?.dangerModifier ?? 0);
-                const causeIcon: Record<string, string> = {
-                  old_age: "💀",
-                  betrayal: "🗡️",
-                  assassination: "🔪",
-                  ambush: "🏹",
-                  heroic_sacrifice: "🛡️",
-                  peaceful_passing: "🕊️",
-                };
-                const causeTitle: Record<string, string> = {
-                  old_age: "Companion Passed Away",
-                  betrayal: "Betrayal!",
-                  assassination: "Assassination Attempt!",
-                  ambush: "Ambush!",
-                  heroic_sacrifice: "Heroic Sacrifice",
-                  peaceful_passing: "A Peaceful End",
-                };
                 // Age active companions; remove dead; promote from reserve
                 setCompanions(prevActive => {
-                  const survivors: any[] = [];
-                  const deathEvents: { cause: string; narrative: string }[] = [];
-                  for (const c of prevActive) {
-                    const result = tickCompanionAge(c, 1, tickDanger);
-                    if (result.died) {
-                      deathEvents.push({
-                        cause: result.cause || "old_age",
-                        narrative: result.narrative || `${c.name} died`,
-                      });
-                    } else {
-                      survivors.push(result.companion);
-                    }
-                  }
-                  if (deathEvents.length > 0) {
-                    deathEvents.forEach(d => {
-                      toast({
-                        title: `${causeIcon[d.cause] || "💀"} ${causeTitle[d.cause] || "Companion Lost"}`,
-                        description: d.narrative,
-                        duration: 7000,
-                      });
-                      setActivities(prev => trackActivity(prev, "relationship", d.narrative));
+                  const { survivors, deaths } = ageRoster(prevActive, 1, tickDanger);
+                  deaths.forEach(d => {
+                    toast({
+                      title: `${DEATH_CAUSE_ICON[d.cause] || "💀"} ${DEATH_CAUSE_TITLE[d.cause] || "Companion Lost"}`,
+                      description: d.narrative,
+                      duration: 7000,
                     });
-                  }
+                    setActivities(prev => trackActivity(prev, "relationship", d.narrative));
+                  });
                   return survivors;
                 });
                 // Age reserve too; reserve companions face only natural lifespan (no field danger)
                 setReserveCompanions(prevReserve => {
-                  const survivors: any[] = [];
-                  for (const c of prevReserve) {
-                    const result = tickCompanionAge(c, 1, 0);
-                    if (!result.died) survivors.push(result.companion);
-                    else setActivities(prev => trackActivity(prev, "relationship", result.narrative || `Reserve companion ${c.name} died at age ${result.companion.age}`));
-                  }
+                  const { survivors, deaths } = ageRoster(prevReserve, 1, 0);
+                  deaths.forEach(d => setActivities(prev => trackActivity(prev, "relationship", d.narrative)));
                   return survivors;
                 });
                 
