@@ -104,13 +104,14 @@ const Index = () => {
     }
   };
 
-  const handleDifficultySelect = (difficulty: number) => {
+  const handleDifficultySelect = (difficulty: number, mode: GameMode) => {
     setSelectedDifficulty(difficulty);
+    setSelectedMode(mode);
     setScreen("world");
   };
 
   const handleWorldGenerated = (world: any) => {
-    setWorldData({ ...world, difficulty: selectedDifficulty });
+    setWorldData({ ...world, difficulty: selectedDifficulty, gameMode: selectedMode });
     setScreen("game");
   };
 
