@@ -1,9 +1,11 @@
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, Star } from "lucide-react";
+import { GameMode, CAMPAIGN_HEIR_GOAL } from "@/lib/gameMode";
 
 interface DifficultySelectorProps {
-  onSelect: (difficulty: number) => void;
+  onSelect: (difficulty: number, mode: GameMode) => void;
   onBack: () => void;
 }
 
@@ -46,6 +48,11 @@ const difficulties = [
 ];
 
 export const DifficultySelector = ({ onSelect, onBack }: DifficultySelectorProps) => {
+  const [mode, setMode] = useState<GameMode>("perpetual");
+  const modes: { id: GameMode; name: string; text: string }[] = [
+    { id: "perpetual", name: "♾️ Perpetual", text: "Deaths become close calls in the history log. Endless heirs, never ends." },
+    { id: "campaign", name: "🏆 Campaign", text: `Death is real and writes a full morgue file. Raise ${CAMPAIGN_HEIR_GOAL} heirs to win.` },
+  ];
   return (
     <Card className="w-full">
       <CardHeader>
@@ -60,10 +67,24 @@ export const DifficultySelector = ({ onSelect, onBack }: DifficultySelectorProps
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
+        <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Game mode">
+          {modes.map((m) => (
+            <button
+              key={m.id}
+              role="radio"
+              aria-checked={mode === m.id}
+              onClick={() => setMode(m.id)}
+              className={`p-3 rounded-lg border text-left transition-all ${mode === m.id ? "border-primary bg-primary/10" : "border-border hover:border-primary/50"}`}
+            >
+              <div className="font-bold text-sm">{m.name}</div>
+              <p className="text-xs text-muted-foreground mt-1">{m.text}</p>
+            </button>
+          ))}
+        </div>
         {difficulties.map((diff) => (
           <button
             key={diff.level}
-            onClick={() => onSelect(diff.level)}
+            onClick={() => onSelect(diff.level, mode)}
             className="w-full p-4 rounded-lg border border-border hover:border-primary transition-all hover:bg-accent/50 text-left group"
           >
             <div className="flex items-start justify-between mb-2">

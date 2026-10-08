@@ -9,6 +9,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { GameSettings, loadSettings, saveSettings } from "@/lib/gameSettings";
+import { loadMorgueExport, saveMorgueExport, MorgueAutoExport } from "@/lib/morgueExport";
 
 interface SettingsDialogProps {
   open: boolean;
@@ -17,9 +18,10 @@ interface SettingsDialogProps {
 
 const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
   const [settings, setSettings] = useState<GameSettings>(() => loadSettings());
+  const [morgue, setMorgue] = useState<MorgueAutoExport>(() => loadMorgueExport());
 
   useEffect(() => {
-    if (open) setSettings(loadSettings());
+    if (open) { setSettings(loadSettings()); setMorgue(loadMorgueExport()); }
   }, [open]);
 
   const update = <K extends keyof GameSettings>(key: K, value: GameSettings[K]) => {
@@ -69,6 +71,21 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
               />
             </div>
           ))}
+          <div className="space-y-2 pt-2 border-t border-border">
+            <Label className="text-sm font-medium">Morgue files (Campaign mode)</Label>
+            <p className="text-xs text-muted-foreground">What happens to the .txt record when a Campaign hero dies or wins.</p>
+            <div className="grid grid-cols-2 gap-2">
+              {([["device", "Save to device"], ["manual", "I'll choose"]] as const).map(([v, label]) => (
+                <button
+                  key={v}
+                  onClick={() => { setMorgue(v); saveMorgueExport(v); }}
+                  aria-pressed={morgue === v}
+                  className={`p-2 rounded border text-sm ${morgue === v ? "border-primary bg-primary/10" : "border-border"}`}
+                >{label}</button>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground">Google Drive saving isn't set up yet.</p>
+          </div>
         </div>
       </DialogContent>
     </Dialog>

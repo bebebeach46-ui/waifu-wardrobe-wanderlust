@@ -54,6 +54,9 @@ import { computeQuestRisk } from "@/lib/questRisk";
 import { useWorldTimers } from "@/hooks/useWorldTimers";
 import { useCompanionRoster } from "@/hooks/useCompanionRoster";
 import { computeOfflineProgress } from "@/lib/offlineProgress";
+import { getGameMode, CAMPAIGN_HEIR_GOAL } from "@/lib/gameMode";
+import { loadMorgueExport, morgueFileName, downloadMorgue, saveMorgueAs } from "@/lib/morgueExport";
+import { supabase } from "@/integrations/supabase/client";
 
 
 interface GameScreenProps {
@@ -85,6 +88,10 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
   const savedData = loadSaveData();
   
   const { isDead, deathLog, fateOutcome, deathCause, fatalWound, setIsDead, setDeathLog, setFateOutcome, setDeathCause, setFatalWound, clearDeathCause, resetDeath } = useDeathRecord();
+  const deathCauseRecord = deathCause;
+  const gameMode = getGameMode(worldData);
+  const [runEnd, setRunEnd] = useState<"death" | "victory" | null>(null);
+  const victoryRef = useRef<() => void>(() => {});
   const [character, setCharacter] = useState(() => savedData?.character || generateCharacter(worldData));
   const [travelState, setTravelState] = useState<TravelState>(() => savedData?.travelState || initializeTravelState(worldData, 1));
   const [currentQuest, setCurrentQuest] = useState<Quest>(() => savedData?.currentQuest || generateQuest(worldData, 1, savedData?.travelState, 0));
@@ -1116,6 +1123,9 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
               setUniqueHeirMothers(prev => prev.includes(comp.name) ? prev : [...prev, comp.name]);
 
               const newCount = children.length + 1;
+              if (getGameMode(worldData) === "campaign" && newCount >= CAMPAIGN_HEIR_GOAL) {
+                setTimeout(() => victoryRef.current(), 0);
+              }
               toast({
                 title: `👶 Heir Born — Lineage #${newCount}`,
                 description: `${child.name} (${child.gender}, ${character.race}/${comp.race}) is born of ${character.name} & ${comp.name}! Traits: ${child.traits.join(", ")}`,
@@ -1471,7 +1481,42 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
     return () => clearInterval(interval);
   }, [worldData, isDead, shopName, toast]);
 
+  // Campaign mode: end the run for real and write the full morgue file.
+  const finishRun = (kind: "death" | "victory", cause: DeathCause | null) => {
+    let log = generateDeathLog(cause);
+    if (kind === "victory") {
+      log = log.replace("QUEST IDLE - DEATH LOG", `QUEST IDLE - CAMPAIGN VICTORY (${CAMPAIGN_HEIR_GOAL} HEIRS)`)
+        .replace(/═+\nCAUSE OF DEATH[\s\S]*?(?=\n\n═)/, "");
+    }
+    if (cause) setDeathCause(cause);
+    setRunEnd(kind);
+    setDeathLog(log);
+    setIsDead(true);
+    if (loadMorgueExport() === "device") downloadMorgue(log, morgueFileName(character.name, kind));
+    supabase.auth.getUser().then(({ data }) => {
+      if (!data.user) return;
+      supabase.from("death_logs").insert({
+        user_id: data.user.id,
+        character_name: character.name,
+        generation: stats.generation || 1,
+        log_data: { kind, text: log, level: stats.level, quests: stats.questsCompleted, heirs: children.length, mode: gameMode },
+      }).then(({ error }) => { if (error) console.error("death log upload failed", error); });
+    });
+  };
+
   const handleDeath = () => {
+    if (gameMode === "campaign") {
+      const cause = deathCause || generateRandomDeathCause({
+        monsterName: lastEncounter?.monsterName,
+        monsterRank: lastEncounter?.monsterRank,
+        playerLevel: stats.level,
+        location: currentQuest.name,
+        activeStatus: statusEffects[0]?.name,
+        questName: currentQuest.name,
+      });
+      finishRun("death", cause);
+      return;
+    }
     // Death-as-game-over is removed. The hero is immortal-by-narrative;
     // every "fatal" moment becomes a historical close-call entry in the log.
     const activeStatus = statusEffects.length > 0 ? statusEffects[0].name : undefined;
@@ -1519,9 +1564,11 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
     });
   };
   handleDeathRef.current = handleDeath;
+  victoryRef.current = () => finishRun("victory", null);
 
   
-  const generateDeathLog = () => {
+  const generateDeathLog = (causeArg?: DeathCause | null) => {
+    const deathCause = causeArg ?? deathCauseRecord;
     const companionList = companions.length > 0 
       ? companions.map(c => `  - ${c.name} (Age: ${c.age || '?'}, ${c.relationshipName || 'Unknown'} ${Math.floor(c.relationship || 0)}/${c.bondCap || 10}, ${c.race} ${c.class}, Compatibility: ${c.compatibility ?? 'N/A'}, Alignment: ${c.alignment || 'Unknown'})`).join('\n')
       : '  None';
@@ -1781,6 +1828,10 @@ Death occurred at: ${new Date().toLocaleString()}
   // Debounced (1s) save whenever meaningful progress changes.
   const saveKey = `${stats.questsCompleted}|${stats.level}|${stats.gold}|${companions.length}|${currentQuest?.name}|${fame}`;
   const performSave = useGameSave(saveSlot, saveSnapshot, isDead, saveKey);
+  // Campaign deaths/victories free the slot; runs after the save hook's last flush.
+  useEffect(() => {
+    if (isDead) localStorage.removeItem(`quest-idle-slot-${saveSlot}`);
+  }, [isDead, saveSlot]);
 
   const handleSave = () => {
     performSave();
@@ -1840,6 +1891,7 @@ Death occurred at: ${new Date().toLocaleString()}
     setQuestProgress(0);
     setShowMap(false);
     resetDeath();
+    setRunEnd(null);
     setChampionsDefeated(0);
     
     toast({
@@ -2162,21 +2214,32 @@ Death occurred at: ${new Date().toLocaleString()}
   };
   
   if (isDead) {
+    const kind = runEnd ?? "death";
+    const fileName = morgueFileName(character.name, kind);
     return (
       <Card className="p-8 space-y-4 text-center">
-        <Skull className="w-16 h-16 mx-auto text-destructive" />
-        <h2 className="text-2xl font-bold text-destructive">Game Over</h2>
-        <p className="text-muted-foreground">Your death log has been downloaded.</p>
+        {kind === "victory" ? <Crown className="w-16 h-16 mx-auto text-primary" /> : <Skull className="w-16 h-16 mx-auto text-destructive" />}
+        <h2 className={`text-2xl font-bold ${kind === "victory" ? "text-primary" : "text-destructive"}`}>
+          {kind === "victory" ? `Campaign Victory — ${CAMPAIGN_HEIR_GOAL} Heirs!` : "Game Over"}
+        </h2>
+        <p className="text-muted-foreground">
+          {loadMorgueExport() === "device" ? "Your morgue file was saved to this device." : "Save your morgue file below."}
+        </p>
+        <div className="flex flex-wrap gap-2 justify-center">
+          <Button size="sm" variant="secondary" onClick={() => downloadMorgue(deathLog, fileName)}>Download .txt</Button>
+          <Button size="sm" variant="secondary" onClick={() => saveMorgueAs(deathLog, fileName)}>Save as…</Button>
+          <Button size="sm" variant="outline" onClick={() => { navigator.clipboard?.writeText(deathLog); toast({ title: "Morgue copied", important: true }); }}>Copy</Button>
+        </div>
         <pre className="text-xs text-left bg-muted p-4 rounded max-h-[60vh] overflow-y-auto whitespace-pre-wrap">
           {deathLog}
         </pre>
         <div className="flex gap-2 justify-center">
-          {hasOffspring && (
+          {hasOffspring && kind === "death" && (
             <Button onClick={handleContinueAsOffspring} variant="default">
               Continue as {offspringData.name}
             </Button>
           )}
-          <Button onClick={onBack} variant={hasOffspring ? "outline" : "default"}>
+          <Button onClick={onBack} variant={hasOffspring && kind === "death" ? "outline" : "default"}>
             Return to Menu
           </Button>
         </div>

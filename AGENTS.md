@@ -1,0 +1,1 @@
+- Game mode lives on `worldData.gameMode` (read via `getGameMode`); Campaign-only end-of-run logic goes through `finishRun` in GameScreen — keeps Perpetual behavior untouched.
