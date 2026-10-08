@@ -10,6 +10,7 @@ import SettingsDialog from "@/components/SettingsDialog";
 import Seo from "@/components/Seo";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { GameMode } from "@/lib/gameMode";
 
 type Screen = "menu" | "slots" | "difficulty" | "world" | "game";
 
@@ -27,6 +28,7 @@ const Index = () => {
   const [screen, setScreen] = useState<Screen>("menu");
   const [selectedSlot, setSelectedSlot] = useState<number | null>(null);
   const [selectedDifficulty, setSelectedDifficulty] = useState<number>(2); // Default to Adventurer
+  const [selectedMode, setSelectedMode] = useState<GameMode>("perpetual");
   const [worldData, setWorldData] = useState<WorldData | null>(null);
   const [isLoadingExisting, setIsLoadingExisting] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
