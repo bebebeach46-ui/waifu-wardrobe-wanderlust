@@ -1828,6 +1828,10 @@ Death occurred at: ${new Date().toLocaleString()}
   // Debounced (1s) save whenever meaningful progress changes.
   const saveKey = `${stats.questsCompleted}|${stats.level}|${stats.gold}|${companions.length}|${currentQuest?.name}|${fame}`;
   const performSave = useGameSave(saveSlot, saveSnapshot, isDead, saveKey);
+  // Campaign deaths/victories free the slot; runs after the save hook's last flush.
+  useEffect(() => {
+    if (isDead) localStorage.removeItem(`quest-idle-slot-${saveSlot}`);
+  }, [isDead, saveSlot]);
 
   const handleSave = () => {
     performSave();
@@ -1887,6 +1891,7 @@ Death occurred at: ${new Date().toLocaleString()}
     setQuestProgress(0);
     setShowMap(false);
     resetDeath();
+    setRunEnd(null);
     setChampionsDefeated(0);
     
     toast({
