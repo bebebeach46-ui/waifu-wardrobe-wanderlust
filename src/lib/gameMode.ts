@@ -3,5 +3,5 @@ export type GameMode = "perpetual" | "campaign";
 
 export const CAMPAIGN_HEIR_GOAL = 50;
 
-export const getGameMode = (world: { gameMode?: unknown } | null | undefined): GameMode =>
+export const getGameMode = (world: any): GameMode =>
   world?.gameMode === "campaign" ? "campaign" : "perpetual";
