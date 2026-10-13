@@ -58,21 +58,24 @@ export const EventTicker = ({ weather, statusEffects, eventLog, recentEvents }: 
   const [displayedEvents, setDisplayedEvents] = useState<TickerEvent[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
 
-  // Combine all events into the ticker
+  // Combine all events into the ticker (defensively — bad/undefined entries are dropped)
   useEffect(() => {
     const allEvents: TickerEvent[] = [];
 
     // Add weather as persistent event
-    allEvents.push({
-      id: `weather-${weather.name}`,
-      text: `${weather.icon} ${weather.name}: ${weather.effect}`,
-      type: 'weather',
-      timestamp: Date.now(),
-      icon: weather.icon
-    });
+    if (weather) {
+      allEvents.push({
+        id: `weather-${weather.name}`,
+        text: `${weather.icon} ${weather.name}: ${weather.effect}`,
+        type: 'weather',
+        timestamp: Date.now(),
+        icon: weather.icon
+      });
+    }
 
     // Add status effects
-    statusEffects.forEach((effect, i) => {
+    (statusEffects || []).forEach((effect, i) => {
+      if (!effect) return;
       allEvents.push({
         id: `status-${effect.name}-${i}`,
         text: `${effect.icon} ${effect.name}: ${effect.description}`,
@@ -83,12 +86,13 @@ export const EventTicker = ({ weather, statusEffects, eventLog, recentEvents }: 
     });
 
     // Add recent ticker events (legendary events, etc.)
-    recentEvents.forEach(event => {
-      allEvents.push(event);
+    (recentEvents || []).forEach(event => {
+      if (event && event.type) allEvents.push(event);
     });
 
     // Add event log items
-    eventLog.slice(0, 5).forEach((event, i) => {
+    (eventLog || []).slice(0, 5).forEach((event, i) => {
+      if (!event) return;
       const type: TickerEventType = event.sentiment === 'negative' ? 'negative' : 
                                     event.sentiment === 'positive' ? 'positive' : 'weather';
       allEvents.push({
@@ -107,7 +111,7 @@ export const EventTicker = ({ weather, statusEffects, eventLog, recentEvents }: 
       return b.timestamp - a.timestamp;
     });
 
-    setDisplayedEvents(allEvents.slice(0, 10));
+    setDisplayedEvents(allEvents.filter(e => e && e.type).slice(0, 10));
   }, [weather, statusEffects, eventLog, recentEvents]);
 
   // Auto-rotate through events
@@ -124,6 +128,7 @@ export const EventTicker = ({ weather, statusEffects, eventLog, recentEvents }: 
   if (displayedEvents.length === 0) return null;
 
   const currentEvent = displayedEvents[currentIndex];
+  if (!currentEvent || !currentEvent.type) return null;
 
   return (
     <div className="w-full bg-card/80 backdrop-blur-sm border-b border-border">
@@ -140,14 +145,14 @@ export const EventTicker = ({ weather, statusEffects, eventLog, recentEvents }: 
           <div className="flex gap-1 shrink-0">
             {displayedEvents.slice(0, 5).map((event, i) => (
               <button
-                key={event.id}
+                key={event?.id || `dot-${i}`}
                 onClick={() => setCurrentIndex(i)}
                 className={`w-2 h-2 rounded-full transition-all ${
                   i === currentIndex 
-                    ? getEventColor(event.type).replace('text-', 'bg-').replace('font-bold', '')
+                    ? getEventColor(event?.type ?? 'weather').replace('text-', 'bg-').replace('font-bold', '')
                     : 'bg-muted-foreground/30'
                 } ${i === currentIndex ? 'scale-125' : 'hover:scale-110'}`}
-                title={event.text}
+                title={event?.text || ""}
               />
             ))}
           </div>
