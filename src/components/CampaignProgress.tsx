@@ -21,6 +21,42 @@ export const grandRank = (r: RunStats) => {
   return { ratio, name: (GRAND_RANKS.find(g => ratio >= g.min) || GRAND_RANKS[GRAND_RANKS.length - 1]).name };
 };
 
+/** Plain-text version of the Campaign progress panel, appended to the morgue file. */
+export function buildCampaignSummary(p: Props): string {
+  const all = [...p.companions, ...p.reserve];
+  const soulmates = all.filter(c => (c.relationship ?? 0) >= 10);
+  const nemeses = all.filter(c => (c.relationship ?? 0) <= -10);
+  const gr = grandRank(p.run);
+  const byAttention = [...all].sort((a, b) => (a.questsSinceInteraction ?? 0) - (b.questsSinceInteraction ?? 0));
+  const most = byAttention[0];
+  const least = byAttention.length > 1 ? byAttention[byAttention.length - 1] : null;
+  const notable = [...all].sort((a, b) => Math.abs(b.relationship ?? 0) - Math.abs(a.relationship ?? 0))[0];
+  const saviors = Object.entries(p.run.saves).sort((a, b) => b[1] - a[1]);
+  const fmt = (c: any) => `${c.name} (${c.race}${c.class ? ` ${c.class}` : ""}, bond ${c.relationship ?? 0})`;
+  const L: string[] = [
+    "",
+    "════════════════════════════════════════",
+    "CAMPAIGN PROGRESS",
+    "════════════════════════════════════════",
+    `Heirs: ${Math.min(p.heirs, CAMPAIGN_HEIR_GOAL)}/${CAMPAIGN_HEIR_GOAL}`,
+    `Bond 10 soulmates: ${soulmates.length}${soulmates.length ? ` — ${soulmates.map(fmt).join(", ")}` : ""}`,
+    `Highest fame: ${Math.max(p.run.peakFame, p.fame)}`,
+    `Quests completed: ${p.quests}`,
+    `Levels traversed: ${Math.max(0, p.level - 1)}`,
+    `Areas explored: ${p.run.areasVisited}`,
+    `Champions slain: ${p.championsDefeated}`,
+    `Grade 7+ quests: ${p.run.highGradeQuests}/${p.run.gradedQuests}`,
+    `GRAND RANK: ${gr.name} (${Math.round(gr.ratio * 100)}% of quests at grade 7 or higher)`,
+  ];
+  if (p.killerName) L.push(`☠ SLAIN BY A NEMESIS PLOT: ${p.killerName} finally got what she schemed for.`);
+  else if (nemeses.length) L.push(`Nemeses still lurking: ${nemeses.map(fmt).join(", ")}`);
+  if (saviors.length) L.push(`💖 Saved by a soulmate: ${saviors.map(([n, c]) => `${n} foiled ${c} plot${c > 1 ? "s" : ""}`).join("; ")}`);
+  if (notable) L.push(`Most notable companion: ${fmt(notable)}`);
+  if (most) L.push(`Most attention: ${fmt(most)}`);
+  if (least) L.push(`Most neglected: ${fmt(least)} — ignored ${least.questsSinceInteraction ?? 0} quests`);
+  return L.join("\n");
+}
+
 interface Props {
   kind: "death" | "victory";
   run: RunStats;
