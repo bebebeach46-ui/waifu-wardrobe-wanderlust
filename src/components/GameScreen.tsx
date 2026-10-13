@@ -1411,6 +1411,7 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
                 });
 
                 const newTravel = travelToNewArea(updatedTravel, worldData, newLevel);
+                setRunStats(r => ({ ...r, areasVisited: r.areasVisited + 1 }));
                 
                 // === AGING TICK: 1 year per area cleared ===
                 // Pass current area danger so hostile bonds can betray/ambush in deadly lands
