@@ -42,7 +42,7 @@ const Stat = ({ label, value }: { label: string; value: React.ReactNode }) => (
 );
 
 const Name = ({ c }: { c: any }) => (
-  <span className="font-semibold" style={{ color: getBondColor(c.relationship ?? 0) }}>
+  <span className="font-semibold" style={{ color: getBondColor(c.relationship ?? 0).color }}>
     {c.name} <span className="text-xs text-muted-foreground">({c.race}{c.class ? ` ${c.class}` : ""}, bond {c.relationship ?? 0})</span>
   </span>
 );

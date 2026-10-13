@@ -44,6 +44,7 @@ import { generateChampion, resolveChampionEncounter, getChampionSlayerTitle } fr
 import { getResolutionCapabilities, rollThreatResolutions, methodLabel } from "@/lib/threatResolutionSystem";
 import { loadSettings } from "@/lib/gameSettings";
 import BondInterludeOverlay from "@/components/BondInterlude";
+import CampaignProgress, { RunStats, EMPTY_RUN_STATS } from "@/components/CampaignProgress";
 import { generateBondInterlude, BondInterlude as BondInterludeScene } from "@/lib/bondInterludeGenerator";
 import { Companion } from "@/lib/companionGenerator";
 import { WorldData, Summon, ActiveEffect } from "@/lib/gameTypes";
@@ -96,6 +97,9 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
   const [travelState, setTravelState] = useState<TravelState>(() => savedData?.travelState || initializeTravelState(worldData, 1));
   const [currentQuest, setCurrentQuest] = useState<Quest>(() => savedData?.currentQuest || generateQuest(worldData, 1, savedData?.travelState, 0));
   const [fame, setFame] = useState<number>(() => savedData?.fame || 0);
+  const [runStats, setRunStats] = useState<RunStats>(() => ({ ...EMPTY_RUN_STATS, ...(savedData?.runStats || {}) }));
+  const [killerName, setKillerName] = useState<string | null>(null);
+  useEffect(() => { setRunStats(r => fame > r.peakFame ? { ...r, peakFame: fame } : r); }, [fame]);
   // Rolling record of recent quest grades — shapes what kind of recruits the hero attracts
   const [recentGrades, setRecentGrades] = useState<number[]>(() => savedData?.recentGrades || []);
   const [lastPerformance, setLastPerformance] = useState<QuestPerformanceGrade | null>(null);
@@ -265,6 +269,7 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
 
           // Bond-10 loyalists intercepted hostile plots — narrate the saves
           for (const np of neutralizedPlots) {
+            setRunStats(r => ({ ...r, saves: { ...r.saves, [np.interceptorName]: (r.saves[np.interceptorName] || 0) + 1 } }));
             toast({
               title: `${np.icon} ${np.title}`,
               description: <span className="text-stat-increase">{np.interceptorName} {np.narrative}</span>,
@@ -366,6 +371,7 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
                 fullDescription = `Stabbed in the back by ${killer.name} (${killer.race}) during a desperate moment in ${where}`;
               }
               setDeathCause({ shortDesc, fullDescription, category: "betrayal" } as any);
+              if (isNemesis) setKillerName(killer.name);
               handleDeath();
               return prev;
             }
@@ -727,6 +733,7 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
           
           // Record the grade — the hero's recent record decides which recruits show up
           setRecentGrades(prev => [...prev, performance.grade].slice(-10));
+          setRunStats(r => ({ ...r, gradedQuests: r.gradedQuests + 1, highGradeQuests: r.highGradeQuests + (performance.grade >= 7 ? 1 : 0) }));
 
           
           // Calculate rewards with rank multipliers, difficulty bonus, AND performance + bond bonuses
@@ -1821,7 +1828,7 @@ Death occurred at: ${new Date().toLocaleString()}
     materials, lifeSkills, activities, monstersKilled, currentQuest, shopName, activeEffects,
     codex, combatLog, wounds, travelState, encounterState, activeRepairQuest, championsDefeated,
     simplifiedMode, fame, recentGrades, reserveCompanions, uniqueHeirMothers,
-    favoriteCompanionName, rivalries, bondHistory,
+    favoriteCompanionName, rivalries, bondHistory, runStats,
     characterName: character.name,
     level: stats.level,
   };
@@ -1871,6 +1878,8 @@ Death occurred at: ${new Date().toLocaleString()}
     setHasOffspring(false);
     setOffspringData(null);
     setChildren([]);
+    setRunStats(EMPTY_RUN_STATS);
+    setKillerName(null);
     setRomanceDiary([]);
     setStatusEffects([]);
     setSummons([]);
@@ -2230,6 +2239,11 @@ Death occurred at: ${new Date().toLocaleString()}
           <Button size="sm" variant="secondary" onClick={() => saveMorgueAs(deathLog, fileName)}>Save as…</Button>
           <Button size="sm" variant="outline" onClick={() => { navigator.clipboard?.writeText(deathLog); toast({ title: "Morgue copied", important: true }); }}>Copy</Button>
         </div>
+        {gameMode === "campaign" && (
+          <CampaignProgress kind={kind} run={runStats} heirs={children.length} companions={companions} reserve={reserveCompanions}
+            fame={fame} quests={stats.questsCompleted} level={stats.level} championsDefeated={championsDefeated}
+            killerName={kind === "death" ? killerName : null} />
+        )}
         <pre className="text-xs text-left bg-muted p-4 rounded max-h-[60vh] overflow-y-auto whitespace-pre-wrap">
           {deathLog}
         </pre>
