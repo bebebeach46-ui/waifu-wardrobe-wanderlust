@@ -44,7 +44,7 @@ import { generateChampion, resolveChampionEncounter, getChampionSlayerTitle } fr
 import { getResolutionCapabilities, rollThreatResolutions, methodLabel } from "@/lib/threatResolutionSystem";
 import { loadSettings } from "@/lib/gameSettings";
 import BondInterludeOverlay from "@/components/BondInterlude";
-import CampaignProgress, { RunStats, EMPTY_RUN_STATS } from "@/components/CampaignProgress";
+import CampaignProgress, { RunStats, EMPTY_RUN_STATS, buildCampaignSummary } from "@/components/CampaignProgress";
 import { generateBondInterlude, BondInterlude as BondInterludeScene } from "@/lib/bondInterludeGenerator";
 import { Companion } from "@/lib/companionGenerator";
 import { WorldData, Summon, ActiveEffect } from "@/lib/gameTypes";
@@ -1496,6 +1496,11 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
       log = log.replace("QUEST IDLE - DEATH LOG", `QUEST IDLE - CAMPAIGN VICTORY (${CAMPAIGN_HEIR_GOAL} HEIRS)`)
         .replace(/═+\nCAUSE OF DEATH[\s\S]*?(?=\n\n═)/, "");
     }
+    log += buildCampaignSummary({
+      kind, run: runStats, heirs: children.length, companions, reserve: reserveCompanions,
+      fame, quests: stats.questsCompleted, level: stats.level, championsDefeated,
+      killerName: kind === "death" ? killerName : null,
+    });
     if (cause) setDeathCause(cause);
     setRunEnd(kind);
     setDeathLog(log);
