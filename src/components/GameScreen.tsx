@@ -90,6 +90,7 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
   
   const { isDead, deathLog, fateOutcome, deathCause, fatalWound, setIsDead, setDeathLog, setFateOutcome, setDeathCause, setFatalWound, clearDeathCause, resetDeath } = useDeathRecord();
   const deathCauseRecord = deathCause;
+  const fatalWoundRecord = fatalWound;
   const gameMode = getGameMode(worldData);
   const [runEnd, setRunEnd] = useState<"death" | "victory" | null>(null);
   const victoryRef = useRef<() => void>(() => {});
@@ -1590,7 +1591,7 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
   
   const generateDeathLog = (causeArg?: DeathCause | null, woundArg?: Wound) => {
     const deathCause = causeArg ?? deathCauseRecord;
-    const fatalWound = woundArg ?? null;
+    const fatalWound = woundArg ?? fatalWoundRecord;
     const companionList = companions.length > 0 
       ? companions.map(c => `  - ${c.name} (Age: ${c.age || '?'}, ${c.relationshipName || 'Unknown'} ${Math.floor(c.relationship || 0)}/${c.bondCap || 10}, ${c.race} ${c.class}, Compatibility: ${c.compatibility ?? 'N/A'}, Alignment: ${c.alignment || 'Unknown'})`).join('\n')
       : '  None';

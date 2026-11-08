@@ -1,1 +1,3 @@
 - Game mode lives on `worldData.gameMode` (read via `getGameMode`); Campaign-only end-of-run logic goes through `finishRun` in GameScreen — keeps Perpetual behavior untouched.
+- Resolve quest progress, rewards, and travel in the timer callback, not inside React state updater functions, to avoid replaying side effects during rendering.
+- Pass freshly resolved death causes and fatal wounds directly to Campaign reporting; state setters do not make them synchronously available.
