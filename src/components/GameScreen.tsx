@@ -90,6 +90,7 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
   
   const { isDead, deathLog, fateOutcome, deathCause, fatalWound, setIsDead, setDeathLog, setFateOutcome, setDeathCause, setFatalWound, clearDeathCause, resetDeath } = useDeathRecord();
   const deathCauseRecord = deathCause;
+  const fatalWoundRecord = fatalWound;
   const gameMode = getGameMode(worldData);
   const [runEnd, setRunEnd] = useState<"death" | "victory" | null>(null);
   const victoryRef = useRef<() => void>(() => {});
@@ -226,13 +227,16 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
   // stats or wounds and the interval was torn down/recreated on every change.
   const tickStateRef = useRef({ stats, companions, treasure, married, statusEffects, activeEffects, travelState, character, currentQuest, wounds, fame, rivalries, reserveCompanions, recentGrades, lifeSkills, alignment, championsDefeated, children, activeRepairQuest, deity, uniqueHeirMothers, encounterState, favoriteCompanionName, codex, handleDeath: () => {} });
   tickStateRef.current = { stats, companions, treasure, married, statusEffects, activeEffects, travelState, character, currentQuest, wounds, fame, rivalries, reserveCompanions, recentGrades, lifeSkills, alignment, championsDefeated, children, activeRepairQuest, deity, uniqueHeirMothers, encounterState, favoriteCompanionName, codex, handleDeath: () => handleDeathRef.current() };
-  const handleDeathRef = useRef<() => void>(() => {});
+  const handleDeathRef = useRef<(cause?: DeathCause, wound?: Wound, killer?: string) => void>(() => {});
+  const questProgressRef = useRef(0);
+  questProgressRef.current = questProgress;
 
   useEffect(() => {
     if (isDead) return;
     
     const interval = setInterval(() => {
-      setQuestProgress((prev) => {
+      const nextProgress = (() => {
+        const prev = questProgressRef.current;
         if (prev >= 100) {
           const { stats, companions, treasure, married, statusEffects, activeEffects, travelState, character, currentQuest, wounds, fame, rivalries, reserveCompanions, recentGrades, lifeSkills, alignment, championsDefeated, children, activeRepairQuest, deity, uniqueHeirMothers, encounterState, favoriteCompanionName, codex, handleDeath } = tickStateRef.current;
           // Game-over fates removed — the hero's saga is a perpetual motion machine.
@@ -370,9 +374,10 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
                 shortDesc = `Betrayed by ${killer.name}`;
                 fullDescription = `Stabbed in the back by ${killer.name} (${killer.race}) during a desperate moment in ${where}`;
               }
-              setDeathCause({ shortDesc, fullDescription, category: "betrayal" } as any);
+              const cause: DeathCause = { cause: "betrayal", shortDesc, fullDesc: fullDescription, killer: killer.name };
+              setDeathCause(cause);
               if (isNemesis) setKillerName(killer.name);
-              handleDeath();
+              handleDeathRef.current(cause, undefined, isNemesis ? killer.name : undefined);
               return prev;
             }
             
@@ -385,7 +390,7 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
               questName: currentQuest.name
             });
             setDeathCause(cause);
-            handleDeath();
+            handleDeathRef.current(cause);
             return prev;
           }
           
@@ -470,7 +475,7 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
                 duration: 5000
               });
               
-              handleDeath();
+              handleDeathRef.current(cause, newWound);
               return prev;
             }
             
@@ -1281,7 +1286,8 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
             }
           }
           
-          setStats((s) => {
+          setStats((() => {
+            const s = stats;
             // Apply active effect multipliers and difficulty bonus
             const expMultiplier = activeEffects.some(e => e.type === 'exp_boost' && e.endTime > Date.now()) ? 2 : 1;
             const goldMultiplier = activeEffects.some(e => e.type === 'gold_boost' && e.endTime > Date.now()) ? 1.5 : 1;
@@ -1359,7 +1365,8 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
             const newLevel = levelUp ? s.level + 1 : s.level;
             
             // Update travel state - increment quests in area and potentially travel
-            setTravelState(prevTravel => {
+            setTravelState((() => {
+              const prevTravel = travelState;
               const updatedTravel = {
                 ...prevTravel,
                 questsInCurrentArea: prevTravel.questsInCurrentArea + 1
@@ -1461,7 +1468,7 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
               // Generate quest in same area
               setCurrentQuest(generateQuest(worldData, newLevel, updatedTravel, fame));
               return updatedTravel;
-            });
+            })());
             
             return {
               level: newLevel,
@@ -1475,7 +1482,7 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
               generation: s.generation,
               totalDeaths: s.totalDeaths
             };
-          });
+          })());
           return 0;
         }
         // Apply terrain quest speed modifier
@@ -1483,15 +1490,17 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
         const areaSpeedEffects = getAreaEffects(live.travelState.currentArea.features);
         const speedMod = 1 + areaSpeedEffects.questSpeedMod; // negative questSpeedMod = faster
         return prev + ((100 / live.currentQuest.duration) * 0.4) / Math.max(0.3, speedMod);
-      });
+      })();
+      questProgressRef.current = nextProgress;
+      setQuestProgress(nextProgress);
     }, 100);
 
     return () => clearInterval(interval);
   }, [worldData, isDead, shopName, toast]);
 
   // Campaign mode: end the run for real and write the full morgue file.
-  const finishRun = (kind: "death" | "victory", cause: DeathCause | null) => {
-    let log = generateDeathLog(cause);
+  const finishRun = (kind: "death" | "victory", cause: DeathCause | null, wound?: Wound, killer?: string) => {
+    let log = generateDeathLog(cause, wound);
     if (kind === "victory") {
       log = log.replace("QUEST IDLE - DEATH LOG", `QUEST IDLE - CAMPAIGN VICTORY (${CAMPAIGN_HEIR_GOAL} HEIRS)`)
         .replace(/═+\nCAUSE OF DEATH[\s\S]*?(?=\n\n═)/, "");
@@ -1499,7 +1508,7 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
     log += buildCampaignSummary({
       kind, run: runStats, heirs: children.length, companions, reserve: reserveCompanions,
       fame, quests: stats.questsCompleted, level: stats.level, championsDefeated,
-      killerName: kind === "death" ? killerName : null,
+      killerName: kind === "death" ? killer ?? killerName : null,
     });
     if (cause) setDeathCause(cause);
     setRunEnd(kind);
@@ -1517,9 +1526,9 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
     });
   };
 
-  const handleDeath = () => {
+  const handleDeath = (resolvedCause?: DeathCause, wound?: Wound, killer?: string) => {
     if (gameMode === "campaign") {
-      const cause = deathCause || generateRandomDeathCause({
+      const cause = resolvedCause || deathCause || generateRandomDeathCause({
         monsterName: lastEncounter?.monsterName,
         monsterRank: lastEncounter?.monsterRank,
         playerLevel: stats.level,
@@ -1527,7 +1536,7 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
         activeStatus: statusEffects[0]?.name,
         questName: currentQuest.name,
       });
-      finishRun("death", cause);
+      finishRun("death", cause, wound, killer);
       return;
     }
     // Death-as-game-over is removed. The hero is immortal-by-narrative;
@@ -1580,8 +1589,9 @@ const GameScreen = ({ worldData, saveSlot, onBack }: GameScreenProps) => {
   victoryRef.current = () => finishRun("victory", null);
 
   
-  const generateDeathLog = (causeArg?: DeathCause | null) => {
+  const generateDeathLog = (causeArg?: DeathCause | null, woundArg?: Wound) => {
     const deathCause = causeArg ?? deathCauseRecord;
+    const fatalWound = woundArg ?? fatalWoundRecord;
     const companionList = companions.length > 0 
       ? companions.map(c => `  - ${c.name} (Age: ${c.age || '?'}, ${c.relationshipName || 'Unknown'} ${Math.floor(c.relationship || 0)}/${c.bondCap || 10}, ${c.race} ${c.class}, Compatibility: ${c.compatibility ?? 'N/A'}, Alignment: ${c.alignment || 'Unknown'})`).join('\n')
       : '  None';
